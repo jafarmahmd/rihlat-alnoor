@@ -1,0 +1,6 @@
+{
+  "name": "رحلة النور",
+  "description": "لعبة ويب تعليمية تفاعلية للأطفال لتعريفهم بقيم وسيرة أهل البيت عليهم السلام بأسلوب ممتع وبسيط.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

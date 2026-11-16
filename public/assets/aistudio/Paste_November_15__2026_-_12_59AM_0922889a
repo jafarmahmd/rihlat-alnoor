@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رحلة النور - المكتبة الرقمية الدينية المباركة</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                            950: '#022c22',
+                        },
+                        gold: {
+                            50: '#fbf8eb',
+                            100: '#f5eecc',
+                            200: '#ebd999',
+                            400: '#d4af37',
+                            500: '#c5a028',
+                            600: '#a3811e',
+                            700: '#826417',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Traditional Arabic', 'Amiri', 'sans-serif'],
+                        arabic: ['Amiri', 'Traditional Arabic', 'Scheherazade New', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts for Amiri & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', 'Amiri', sans-serif;
+        }
+        .arabic-text {
+            font-family: 'Amiri', serif;
+            line-height: 2.3;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c5a028;
+            border-radius: 3px;
+        }
+        /* Editorial instructions styling requested by user (distinct color) */
+        .editorial-note {
+            color: #d97706; /* amber-600 */
+            font-style: italic;
+            font-weight: 600;
+            background-color: rgba(245, 158, 11, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.375rem;
+            border-right: 3px solid #d97706;
+            margin: 0.5rem 0;
+            display: inline-block;
+            font-size: 0.95em;
+        }
+        .dark .editorial-note {
+            color: #fbbf24; /* amber-400 */
+            background-color: rgba(251, 191, 36, 0.12);
+            border-right-color: #f59e0b;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300 flex flex-col">
+
+    <!-- App Container -->
+    <div id="app" class="flex flex-col h-full overflow-hidden">
+        
+        <!-- Header -->
+        <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-sm z-20">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-gold-600 to-emerald-700 flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-kaaba text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-emerald-800 dark:text-emerald-400 font-arabic tracking-wide">رحلة النور</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">المكتبة الرقمية الدينية المباركة</p>
+                </div>
+            </div>
+
+            <!-- Global Controls & Theme Toggle -->
+            <div class="flex items-center space-x-2 space-x-reverse">
+                <!-- Font Size Controls -->
+                <div class="hidden sm:flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 space-x-1 space-x-reverse">
+                    <button onclick="adjustFontSize(2)" class="w-8 h-8 rounded-md flex items-center justify-center text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition" title="تكبير الخط">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                    </button>
+                    <span id="fontSizeIndicator" class="text-xs font-medium px-2 text-slate-600 dark:text-slate-400">22px</span>
+                    <button onclick="adjustFontSize(-2)" class="w-8 h-8 rounded-md flex items-center justify-center text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition" title="تصغير الخط">
+                        <i class="fa-solid fa-minus text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Theme Toggle -->
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-gold-400 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm" title="تبديل الوضع الليلي/النهاري">
+                    <i id="themeIcon" class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Layout Body -->
+        <div class="flex flex-1 overflow-hidden relative">
+            
+            <!-- Sidebar Navigation -->
+            <aside id="sidebar" class="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col z-10 transition-all duration-300 absolute md:relative inset-y-0 right-0 transform translate-x-full md:translate-x-0 shadow-lg md:shadow-none">
+                
+                <!-- Search Box -->
+                <div class="p-3 border-b border-slate-200 dark:border-slate-800">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-search"></i>
+                        </span>
+                        <input type="text" id="globalSearch" oninput="handleSearch(this.value)" placeholder="ابحث في النصوص والأدعية والزيارات..." class="w-full pr-10 pl-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gold-500 border-none transition text-slate-800 dark:text-slate-100 placeholder-slate-400">
+                    </div>
+                </div>
+
+                <!-- Sections Navigation Tabs -->
+                <div class="flex border-b border-slate-200 dark:border-slate-800 p-2 bg-slate-50 dark:bg-slate-950/50 justify-around text-xs font-medium">
+                    <button onclick="switchSection('sahifa')" id="btn-sahifa" class="flex-1 py-2 px-1 rounded-lg text-center transition text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-bold">
+                        <i class="fa-solid fa-book-open block mb-1"></i> الصحيفة
+                    </button>
+                    <button onclick="switchSection('adiyat')" id="btn-adiyat" class="flex-1 py-2 px-1 rounded-lg text-center transition text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800">
+                        <i class="fa-solid fa-hands-praying block mb-1"></i> الأدعية
+                    </button>
+                    <button onclick="switchSection('ziyarat')" id="btn-ziyarat" class="flex-1 py-2 px-1 rounded-lg text-center transition text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800">
+                        <i class="fa-solid fa-place-of-worship block mb-1"></i> الزيارات
+                    </button>
+                    <button onclick="switchSection('quran')" id="btn-quran" class="flex-1 py-2 px-1 rounded-lg text-center transition text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800">
+                        <i class="fa-solid fa-quran block mb-1"></i> القرآن
+                    </button>
+                </div>
+
+                <!-- Item List Container -->
+                <div id="itemList" class="flex-1 overflow-y-auto p-3 space-y-1">
+                    <!-- Dynamic Items loaded via JS -->
+                </div>
+            </aside>
+
+            <!-- Backdrop for Mobile Sidebar -->
+            <div id="sidebarBackdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/50 z-0 hidden md:hidden"></div>
+
+            <!-- Content Viewer Area -->
+            <main class="flex-1 flex flex-col bg-slate-100/50 dark:bg-slate-950 overflow-hidden relative">
+                
+                <!-- Top Toolbar for Content Viewer -->
+                <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between shadow-xs">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <button onclick="toggleMobileSidebar()" class="md:hidden w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center">
+                            <i class="fa-solid fa-bars"></i>
+                        </button>
+                        <div>
+                            <h2 id="contentTitle" class="font-bold text-base text-emerald-900 dark:text-emerald-300 font-arabic">اختر نصاً للمطالعة</h2>
+                            <span id="contentSubtitle" class="text-xs text-slate-400">قسم الصحيفة السجادية المباركة</span>
+                        </div>
+                    </div>
+
+                    <!-- Reader Controls (Font scale mobile friendly) -->
+                    <div class="flex items-center space-x-2 space-x-reverse">
+                        <button onclick="adjustFontSize(2)" class="sm:hidden w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                        </button>
+                        <button onclick="adjustFontSize(-2)" class="sm:hidden w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                            <i class="fa-solid fa-minus text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Scrollable Reader Body -->
+                <div id="readerBody" class="flex-1 overflow-y-auto p-4 sm:p-8 max-w-4xl mx-auto w-full">
+                    <div id="textContent" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 p-6 sm:p-10 arabic-text text-xl transition-all duration-200">
+                        <div class="text-center py-20 text-slate-400 dark:text-slate-600">
+                            <i class="fa-solid fa-book-quran text-5xl mb-4 text-gold-500/50"></i>
+                            <p class="text-lg font-arabic">أهلاً بك في تطبيق "رحلة النور"</p>
+                            <p class="text-sm mt-1">اختر من القائمة الجانبية الدعاء أو الزيارة أو السورة المباركة للبدء بالقراءة والتدبر.</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Application Core Script -->
+    <script>
+        // --- DATA REPOSITORY ---
+        const db = {
+            sahifa: [
+                { id: 's1', title: 'الدعاء الأول: تحميد الله عز وجل والثناء عليه', text: 'الحَمدُ للهِ الأوَّلِ بِلا أولٍ مَسبُوقٍ، وَالآخِرِ بِلا آخِرٍ مَلحُوقٍ. القاصِرَتُ عَن رُؤيَتِهِ أبصارُ النَّاظِرِينَ، وَالعاجِزَةُ عَن نَعتِهِ أوهامُ الواصِفِينَ... <span class="editorial-note">ثمّ يدعو بما ينسجم مع حاله وخضوعه لله عزّ وجلّ.</span>' },
+                { id: 's2', title: 'الدعاء الثاني: الصلاة على محمد وآله', text: 'وَالصَّلاةُ عَلى مُحَمَّدٍ خاتَمِ النَّبِيِّينَ وَأهلِ بَيتِهِ الطَّيِّبِينَ الطَّاهِرِينَ. اللهُمَّ صَلِّ عَلى مُحَمَّدٍ كَما حَمَلتَ وَحيَكَ وَبَلَّغتَ رِسالاتِكَ... <span class="editorial-note">يُستحب الإكثار من الصلاة على النبي وآله في كل وقت.</span>' },
+                { id: 's3', title: 'الدعاء الثالث: الصلاة على حملة العرش', text: 'اللهُمَّ وَحَمَلَةُ عَرشِكَ الَّذِينَ لا يَفترُونَ مِن تَسبِيحِكَ وَلا يَسأَمُونَ مِن تَقديسِكَ... صَلِّ عَلَيهِم صَلاةً تُبَلِّغُهُم عَنّا رِضوانَكَ.' },
+                { id: 'm1', title: 'المناجاة الأولى: مناجاة التائبين', text: 'إلهي ألبَسَتني الخَطايا ثوبَ مَذَلَّتي، وَجَلَّلَني التَّباعُدُ مِنكَ لِباسَ شِقوَتي... <span class="editorial-note">مناجاة خاشعة لطلب التوبة والمغفرة.</span>' },
+                { id: 'm2', title: 'المناجاة الثانية: مناجاة الشاكين', text: 'إلهي إليكَ أشكو ضَعفَ قُوّتي وَقِلَّةَ حيلتي، وَهواني على النَّاسِ، يا أرحَمَ الرَّاحِمينَ...' }
+            ],
+            adiyat: [
+                { id: 'nudba', title: 'دعاء الندبة الشريف', text: 'الحَمدُ للهِ رَبِّ العالَمِينَ وَصَلّى اللهُ عَلى سَيِّدِنا مُحَمَّدٍ نَبِيّهِ وَآلِهِ وَسَلَّمَ تَسليماً، اللهُمَّ لَكَ الحَمدُ عَلى ما جَرى بِهِ قَضاؤُكَ في أوليائِكَ... <span class="editorial-note">ويستحب أن يدعى به في الأعياد الأربعة ويوم الجمعة.</span>' },
+                { id: 'kumayl', title: 'دعاء كميل بن زياد', text: 'اللهُمَّ إنّي أسألُكَ بِرَحمَتِكَ الَّتي وسِعَت كُلَّ شَيءٍ، وَبِقُوَّتِكَ الَّتي قَهَرتَ بِها كُلَّ شَيءٍ... <span class="editorial-note">ثمّ اسجد وقل: إلهي وسيدي ربّ اسألُكَ.</span>' },
+                { id: 'sabah', title: 'دعاء الصباح لأمير المؤمنين (ع)', text: 'اللهُمَّ يا مَن دَلَعَ لِسانَ الصَّباحِ بِنُطْقِ تَبَلُّجِهِ، وَسَرَّحَ قطَعَ اللَّيْلِ المُظْلِمِ بِغَياهِبِ تَلَجْلُجِهِ...' },
+                { id: 'tawassul', title: 'دعاء التوسل', text: 'اللهُمَّ إنّي أسألُكَ وأتَوَجَّهُ إلَيكَ بِنَبِيِّكَ نَبِيِّ الرَّحمَةِ مُحَمَّدٍ صَلَّى اللهُ عَلَيهِ وَآلِهِ...' },
+                { id: 'ahed', title: 'دعاء العهد الشريف', text: 'اللهُمَّ رَبَّ النُّورِ العَظِيمِ، وَرَبَّ الكُرْسِيِّ الرَّفِيعِ، وَرَبَّ البَحْرِ المَسْجُورِ...' },
+                { id: 'iftitah', title: 'دعاء الافتتاح المبارك', text: 'اللهُمَّ إنّي أفتَحُ الثَّناءَ بِحَمدِكَ، وَأنْتَ مُسَدِّدٌ لِلصَّوابِ بِمَنِّكَ...' },
+                { id: 'jawshan_kabir', title: 'الجوشن الكبير', text: 'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ. اللهُمَّ إنّي أسألُكَ بِاسمِكَ يا اللهُ، يا رَحْمَنُ، يا رَحيمُ...' },
+                { id: 'jawshan_saghir', title: 'الجوشن الصغير', text: 'إلهي كَمْ مِنْ عَدُوٍّ انْتَضَى عَلَيَّ سَيْفَ عَادَائِهِ، وَشَحَذَ لِي ظُبَةَ مِضَائِهِ...' },
+                { id: 'abi_hamza', title: 'دعاء أبي حمزة الثمالي', text: 'إلهي لَا تُؤَدِّبْنِي بِعُقُوبَتِكَ، وَلَا تَمْكُرْ بِي فِي حِيلَتِكَ...' },
+                { id: 'arafah', title: 'دعاء الإمام الحسين في يوم عرفة', text: 'الحَمدُ للهِ الَّذِي لَيْسَ لِقَضَائِهِ دَافِعٌ، وَلَا لِعَطَائِهِ مَانِعٌ...' }
+            ],
+            ziyarat: [
+                { id: 'z_ashura', title: 'زيارة عاشوراء المشهورة', text: 'السَّلامُ عَلَيكَ يا أبا عَبدِ اللهِ، السَّلامُ عَلَيكَ يابنَ رَسُولِ اللهِ... <span class="editorial-note">ثمّ تقول مائة مرة: اللهُمَّ العَنِ الأوَّلَ فالأوَّلَ...</span>' },
+                { id: 'z_amin', title: 'زيارة أمين الله الشريفة', text: 'السَّلامُ عَلَيكَ يا أمِينَ اللهِ في أرضِهِ وَحُجَّتَهُ عَلى عِبادِهِ... <span class="editorial-note">ثمّ وضع خدّه على القبر وقال: اللهُمَّ إنَّ قُلُوبَ المُخبِتِينَ...</span>' },
+                { id: 'z_prophet_near', title: 'زيارة النبي محمد (ص) من القريب', text: 'السَّلامُ عَلَيكَ يا رَسولَ اللهِ السَّلامُ عَلَيكَ يا نَبيَّ اللهِ...' },
+                { id: 'z_prophet_far', title: 'زيارة النبي محمد (ص) من البعد', text: 'أشهَدُ أن لا إلهَ إلاّ اللهُ وَحدَهُ لا شَرِيكَ لَهُ وَأشهَدُ أنَّ مُحَمَّداً عَبدُهُ وَرَسُولُهُ...' },
+                { id: 'z_fatima', title: 'زيارة السيدة فاطمة الزهراء (ع)', text: 'يا مُمتَحَنَةُ امتَحَنَكِ اللهُ الَّذي خَلَقَكِ قَبلَ أن يَخلُقَكِ فَوَجَدَكِ لِما امتَحَنَكِ صابِرَةً...' },
+                { id: 'z_husain', title: 'زيارة الإمام الحسين (عليه السلام)', text: 'السَّلامُ عَلَيكَ يا حُجَّةَ اللهِ وَابنَ حُجَّتِهِ، السَّلامُ عَلَيكَ يا قَتِيلَ اللهِ...' },
+                { id: 'z_kadhimein', title: 'زيارة الإمامين الكاظمين (ع)', text: 'السَّلامُ عَلَيكُما يا وَلِيَّيِ اللهِ السَّلامُ عَلَيكُما يا حُجَّتَي اللهِ...' },
+                { id: 'z_jawad', title: 'زيارة الإمام محمد الجواد (ع)', text: 'السَّلامُ عَلَيكَ يا وَلِيَّ اللهِ السَّلامُ عَلَيكَ يا حُجَّةَ اللهِ...' },
+                { id: 'z_reza', title: 'زيارة الإمام علي بن موسى الرضا (ع)', text: 'بِسْمِ اللهِ وَبِاللهِ وَعَلى مِلَّةِ رَسُولِ اللهِ (صلى الله عليه وآله)...' },
+                { id: 'z_askari', title: 'زيارة الإمامين العسكريين (ع)', text: 'السَّلامُ عَلَيكُما يا وَلِيَّيِِ اللهِ السَّلامُ عَلَيكُما يا حُجَّتَي اللهِ...' },
+                { id: 'z_hadi', title: 'زيارة الإمام النقي الهادي (ع)', text: 'السَّلامُ عَلَيكَ يا أبا الحَسَنِ عَلِيَّ بنِ مُحَمَّدٍ الزَّكِيَّ الرَّاشِدَ...' },
+                { id: 'z_abbas', title: 'زيارة أبي الفضل العباس (ع)', text: 'سَلامُ اللهِ وَسَلامُ مَلائِكَتِهِ المُقَرَّبِينَ وَأنبيائِهِ المُرسَلِينَ... <span class="editorial-note">ثمّ ادخل وانكب على القبر وقل.</span>' }
+            ],
+            quran: [
+                { number: 1, name: "الفاتحة", englishName: "Al-Faatiha", type: "مكية", ayat: [
+                    "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                    "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
+                    "الرَّحْمَٰنِ الرَّحِيمِ",
+                    "مَالِكِ يَوْمِ الدِّينِ",
+                    "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ",
+                    "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ",
+                    "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ"
+                ]},
+                { number: 2, name: "البقرة", englishName: "Al-Baqara", type: "مدنية", ayat: [
+                    "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                    "الم",
+                    "ذَلِكَ الْكِتَابُ لَا رَيْبَ فِيهِ هُدًى لِلْمُتَّقِينَ",
+                    "الَّذِينَ يُؤْمِنُونَ بِالْغَيْبِ وَيُقِيمُونَ الصَّلَاةَ وَمِمَّا رَزَقْنَاهُمْ يُنْفِقُونَ"
+                ]},
+                { number: 36, name: "يس", englishName: "Ya-Seen", type: "مكية", ayat: [
+                    "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                    "يسٓ",
+                    "وَالْقُرْآنِ الْحَكِيمِ",
+                    "إِنَّكَ لَمِنَ الْمُرْسَلِينَ",
+                    "عَلَى صِرَاطٍ مُسْتَقِيمٍ"
+                ]}
+            ]
+        };
+
+        // App state
+        let currentSection = 'sahifa';
+        let currentId = 's1';
+        let currentFontSize = 22;
+
+        // Initialize App on Load
+        window.onload = function() {
+            // Check stored theme
+            if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-sun';
+            }
+            switchSection('sahifa');
+        };
+
+        // Switch Section Tabs
+        function switchSection(section) {
+            currentSection = section;
+            ['sahifa', 'adiyat', 'ziyarat', 'quran'].forEach(s => {
+                const btn = document.getElementById('btn-' + s);
+                if (btn) {
+                    if (s === section) {
+                        btn.className = "flex-1 py-2 px-1 rounded-lg text-center transition text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 font-bold";
+                    } else {
+                        btn.className = "flex-1 py-2 px-1 rounded-lg text-center transition text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800";
+                    }
+                }
+            });
+            renderItemList();
+            // Automatically open first item
+            if (section === 'quran') {
+                openQuranSurah(1);
+            } else if (db[section] && db[section].length > 0) {
+                openItem(db[section][0].id);
+            }
+        }
+
+        // Render Sidebar Item List
+        function renderItemList(filter = '') {
+            const listEl = document.getElementById('itemList');
+            listEl.innerHTML = '';
+            
+            if (currentSection === 'quran') {
+                const filtered = db.quran.filter(q => q.name.includes(filter) || q.englishName.toLowerCase().includes(filter.toLowerCase()));
+                filtered.forEach(q => {
+                    listEl.innerHTML += `
+                        <div onclick="openQuranSurah(${q.number})" class="p-3 rounded-xl cursor-pointer transition flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                            <div class="flex items-center space-x-3 space-x-reverse">
+                                <span class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-xs font-bold">${q.number}</span>
+                                <div>
+                                    <h4 class="font-bold text-sm font-arabic">سورة ${q.name}</h4>
+                                    <span class="text-xs text-slate-400">${q.type}</span>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-left text-xs text-slate-400"></i>
+                        </div>
+                    `;
+                });
+            } else {
+                const items = db[currentSection] || [];
+                const filtered = items.filter(i => i.title.includes(filter) || i.text.includes(filter));
+                filtered.forEach(item => {
+                    const isActive = currentId === item.id;
+                    listEl.innerHTML += `
+                        <div onclick="openItem('${item.id}')" class="p-3 rounded-xl cursor-pointer transition flex items-center justify-between ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}">
+                            <div class="flex-1 pr-2">
+                                <h4 class="font-bold text-sm font-arabic">${item.title}</h4>
+                            </div>
+                            <i class="fa-solid fa-chevron-left text-xs text-slate-400"></i>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // Open specific item in reader
+        function openItem(id) {
+            currentId = id;
+            const item = db[currentSection].find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('contentTitle').innerText = item.title;
+            const subMap = { sahifa: 'قسم الصحيفة السجادية', adiyat: 'قسم الأدعية المستحبة', ziyarat: 'قسم الزيارات الشريفة' };
+            document.getElementById('contentSubtitle').innerText = subMap[currentSection] || '';
+
+            document.getElementById('textContent').innerHTML = `
+                <h2 class="text-2xl font-bold font-arabic text-emerald-800 dark:text-emerald-400 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">${item.title}</h2>
+                <div class="arabic-text text-slate-800 dark:text-slate-200 space-y-4" style="font-size: ${currentFontSize}px;">
+                    ${item.text}
+                </div>
+            `;
+            renderItemList(document.getElementById('globalSearch').value);
+            // Close mobile sidebar if open
+            document.getElementById('sidebar').classList.add('translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.add('hidden');
+        }
+
+        // Open Quran Surah
+        function openQuranSurah(surahNum) {
+            const q = db.quran.find(s => s.number === surahNum);
+            if (!q) return;
+
+            document.getElementById('contentTitle').innerText = `سورة ${q.name}`;
+            document.getElementById('contentSubtitle').innerText = `القرآن الكريم - ${q.type}`;
+
+            let ayatHtml = `<div class="text-center font-arabic text-xl text-emerald-700 dark:text-emerald-400 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
+            ayatHtml += `<div class="space-y-4 arabic-text text-slate-800 dark:text-slate-200" style="font-size: ${currentFontSize}px;">`;
+            q.ayat.forEach((ayah, index) => {
+                ayatHtml += `<p class="leading-loose"><span class="text-xs text-gold-600 dark:text-gold-400 font-sans ml-2">[${index + 1}]</span> ${ayah}</p>`;
+            });
+            ayatHtml += `</div>`;
+
+            document.getElementById('textContent').innerHTML = ayatHtml;
+            document.getElementById('sidebar').classList.add('translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.add('hidden');
+        }
+
+        // Search Input Handler
+        function handleSearch(query) {
+            renderItemList(query);
+        }
+
+        // Font Size Adjuster
+        function adjustFontSize(delta) {
+            currentFontSize = Math.max(16, Math.min(36, currentFontSize + delta));
+            document.getElementById('fontSizeIndicator').innerText = currentFontSize + 'px';
+            const readerText = document.querySelector('#textContent .arabic-text');
+            if (readerText) {
+                readerText.style.fontSize = currentFontSize + 'px';
+            }
+        }
+
+        // Theme Toggle (Dark / Light Mode)
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('themeIcon').className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
+
+        // Mobile Sidebar Toggle
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>

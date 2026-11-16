@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Cairo", "Tajawal", sans-serif;
+  --font-sans: "Tajawal", "Cairo", sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: "Tajawal", "Cairo", sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: "Cairo", "Tajawal", sans-serif;
+  }
+}
+
+@layer components {
+  .font-arabic {
+    font-family: "Amiri", "Cairo", serif;
+    line-height: 2.3;
+  }
+}
+
+.editorial-note {
+  color: #b45309;
+  font-style: italic;
+  font-weight: 700;
+  background-color: rgba(245, 158, 11, 0.12);
+  padding: 0.25rem 0.65rem;
+  border-radius: 0.5rem;
+  border-right: 3px solid #d97706;
+  margin: 0.5rem 0;
+  display: inline-block;
+  font-size: 0.88em;
+  font-family: "Tajawal", "Cairo", sans-serif;
+}
+
+.editorial-note-dark {
+  color: #fbbf24;
+  font-style: italic;
+  font-weight: 700;
+  background-color: rgba(251, 191, 36, 0.14);
+  padding: 0.25rem 0.65rem;
+  border-radius: 0.5rem;
+  border-right: 3px solid #f59e0b;
+  margin: 0.5rem 0;
+  display: inline-block;
+  font-size: 0.88em;
+  font-family: "Tajawal", "Cairo", sans-serif;
+}
+
+/* Soft luminous canvas combining light emerald, serene sky blue, and warm cream-gold */
+.noor-canvas {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(186, 230, 253, 0.55) 0%, transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(167, 243, 208, 0.45) 0%, transparent 42%),
+    radial-gradient(circle at 50% 85%, rgba(254, 243, 199, 0.5) 0%, transparent 50%),
+    linear-gradient(180deg, #f0f9ff 0%, #ecfdf5 55%, #fefce8 100%);
+}
+
+/* Purchasable Theme 1: حديقة النور (Soft Spring Meadow) */
+.noor-theme-garden {
+  background:
+    radial-gradient(circle at 20% 15%, rgba(167, 243, 208, 0.65) 0%, transparent 48%),
+    radial-gradient(circle at 82% 22%, rgba(217, 249, 157, 0.5) 0%, transparent 44%),
+    radial-gradient(circle at 50% 85%, rgba(186, 230, 253, 0.45) 0%, transparent 55%),
+    linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 52%, #fefce8 100%);
+}
+
+/* Purchasable Theme 2: سماء النجوم المتلألئة */
+.noor-theme-stars {
+  background:
+    radial-gradient(circle at 25% 12%, rgba(125, 211, 252, 0.48) 0%, transparent 46%),
+    radial-gradient(circle at 80% 20%, rgba(253, 230, 138, 0.42) 0%, transparent 42%),
+    radial-gradient(circle at 48% 75%, rgba(165, 243, 252, 0.45) 0%, transparent 54%),
+    linear-gradient(180deg, #e0f2fe 0%, #eff6ff 55%, #fef9c3 100%);
+}
+
+/* Purchasable Theme 3: الروضة المزهرة */
+.noor-theme-rawda {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(254, 205, 211, 0.42) 0%, transparent 44%),
+    radial-gradient(circle at 82% 16%, rgba(167, 243, 208, 0.55) 0%, transparent 45%),
+    radial-gradient(circle at 50% 84%, rgba(253, 230, 138, 0.55) 0%, transparent 52%),
+    linear-gradient(180deg, #fff1f2 0%, #ecfdf5 55%, #fefce8 100%);
+}
+
+/* Subtle Islamic geometric star lattice overlay */
+.noor-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23059669' stroke-opacity='0.06' stroke-width='1'%3E%3Cpath d='M40 8 L48 32 L72 40 L48 48 L40 72 L32 48 L8 40 L32 32 Z'/%3E%3Ccircle cx='40' cy='40' r='10'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.noor-pattern-stars {
+  background-image: url("data:image/svg+xml,%3Csvg width='96' height='96' viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23F59E0B' fill-opacity='0.14'%3E%3Cpath d='M24 8 L26.5 15.5 L34 18 L26.5 20.5 L24 28 L21.5 20.5 L14 18 L21.5 15.5 Z'/%3E%3Ccircle cx='72' cy='24' r='2.5'/%3E%3Cpath d='M68 58 L70 63 L75 65 L70 67 L68 72 L66 67 L61 65 L66 63 Z'/%3E%3Ccircle cx='28' cy='74' r='2'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+@keyframes noor-glow-halo {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.16);
+    opacity: 0.25;
+  }
+}
+
+@keyframes gentle-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes lock-wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+  75% {
+    transform: rotate(-4deg);
+  }
+}
+
+.animate-noor-halo {
+  animation: noor-glow-halo 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-gentle-float {
+  animation: gentle-float 4s ease-in-out infinite;
+}
+
+.animate-lock-wiggle {
+  animation: lock-wiggle 0.42s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-noor-halo,
+  .animate-gentle-float,
+  .animate-lock-wiggle {
+    animation: none !important;
+  }
+}
