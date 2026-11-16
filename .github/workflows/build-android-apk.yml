@@ -1,0 +1,76 @@
+name: Build Android APK (رحلة النور)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK Licenses & Install Platform 36
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+
+      - name: Install dependencies & prepare Android project
+        run: |
+          npm install
+          npm run build
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          for d in android/app/src/main/res/mipmap-*; do
+            [ -f "$d/ic_launcher.png" ] && cp public/pwa-192x192.png "$d/ic_launcher.png" || true
+            [ -f "$d/ic_launcher_round.png" ] && cp public/pwa-192x192.png "$d/ic_launcher_round.png" || true
+            [ -f "$d/ic_launcher_foreground.png" ] && cp public/pwa-maskable-512x512.png "$d/ic_launcher_foreground.png" || true
+          done
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#064E3B</color>\n</resources>\n' > android/app/src/main/res/values/ic_launcher_background.xml
+          node -e '
+            const fs = require("fs");
+            const p = "android/app/src/main/AndroidManifest.xml";
+            let xml = fs.readFileSync(p, "utf8");
+            const perms = [
+              "android.permission.POST_NOTIFICATIONS",
+              "android.permission.SCHEDULE_EXACT_ALARM",
+              "android.permission.RECEIVE_BOOT_COMPLETED",
+              "android.permission.WAKE_LOCK"
+            ];
+            for (const perm of perms) {
+              if (!xml.includes(perm)) {
+                xml = xml.replace("</manifest>", `    <uses-permission android:name="${perm}" />\n</manifest>`);
+              }
+            }
+            fs.writeFileSync(p, xml);
+          '
+          npx cap sync android
+
+      - name: Build Debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rihlat-alnoor-android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
