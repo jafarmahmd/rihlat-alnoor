@@ -45,7 +45,55 @@ import {
 } from './utils/sound';
 
 const STORAGE_KEY = 'rihlat_alnoor_progress_v2';
+const PROFILE_STORAGE_KEY = 'rihlat_alnoor_user_profile_v1';
 const READING_STAR_REWARD = 5;
+
+interface SavedUserProfile {
+  name: string;
+  age: number;
+  completed: boolean;
+}
+
+function loadSavedProfile(): SavedUserProfile | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SavedUserProfile>;
+    if (
+      parsed?.completed === true &&
+      typeof parsed.name === 'string' &&
+      parsed.name.trim().length >= 2 &&
+      typeof parsed.age === 'number' &&
+      parsed.age >= 4 &&
+      parsed.age <= 120
+    ) {
+      return {
+        name: parsed.name.trim(),
+        age: Math.round(parsed.age),
+        completed: true,
+      };
+    }
+  } catch {
+    // Ignore storage read error
+  }
+  return null;
+}
+
+function saveUserProfile(name: string, age: number | null) {
+  if (typeof window === 'undefined') return;
+  if (!name.trim() || age == null || age < 4 || age > 120) return;
+  try {
+    const payload: SavedUserProfile = {
+      name: name.trim(),
+      age: Math.round(age),
+      completed: true,
+    };
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore storage write error
+  }
+}
 
 const DEFAULT_PROGRESS: GameProgress = {
   unlockedStationId: 1,
@@ -57,15 +105,27 @@ const DEFAULT_PROGRESS: GameProgress = {
   activeFrameId: null,
   activeBackgroundId: null,
   childName: 'بطل النور',
+  userAge: null,
+  profileCompleted: false,
   lastRead: null,
   bookmarkedIds: [],
 };
 
 function loadInitialProgress(): GameProgress {
   if (typeof window === 'undefined') return DEFAULT_PROGRESS;
+  const savedProfile = loadSavedProfile();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_PROGRESS;
+    if (!raw) {
+      return savedProfile
+        ? {
+            ...DEFAULT_PROGRESS,
+            childName: savedProfile.name,
+            userAge: savedProfile.age,
+            profileCompleted: true,
+          }
+        : DEFAULT_PROGRESS;
+    }
     const parsed = JSON.parse(raw) as Partial<GameProgress>;
     if (
       typeof parsed?.unlockedStationId === 'number' &&
@@ -74,6 +134,21 @@ function loadInitialProgress(): GameProgress {
       typeof parsed.completedStations === 'object' &&
       parsed.completedStations !== null
     ) {
+      const hasValidAge =
+        typeof parsed.userAge === 'number' &&
+        parsed.userAge >= 4 &&
+        parsed.userAge <= 120;
+      const resolvedAge = hasValidAge
+        ? Math.round(parsed.userAge as number)
+        : savedProfile?.age ?? null;
+      const resolvedName =
+        typeof parsed.childName === 'string' && parsed.childName.trim()
+          ? parsed.childName.trim()
+          : savedProfile?.name ?? 'بطل النور';
+      const resolvedCompleted =
+        Boolean(parsed.profileCompleted && hasValidAge) ||
+        Boolean(savedProfile?.completed);
+
       return {
         unlockedStationId: parsed.unlockedStationId,
         completedStations: parsed.completedStations,
@@ -94,10 +169,9 @@ function loadInitialProgress(): GameProgress {
           typeof parsed.activeBackgroundId === 'string'
             ? parsed.activeBackgroundId
             : null,
-        childName:
-          typeof parsed.childName === 'string' && parsed.childName.trim()
-            ? parsed.childName
-            : 'بطل النور',
+        childName: resolvedName,
+        userAge: resolvedAge,
+        profileCompleted: resolvedCompleted,
         lastRead:
           parsed.lastRead && typeof parsed.lastRead === 'object'
             ? parsed.lastRead
@@ -112,7 +186,14 @@ function loadInitialProgress(): GameProgress {
   } catch {
     // Fallback to clean initial progress
   }
-  return DEFAULT_PROGRESS;
+  return savedProfile
+    ? {
+        ...DEFAULT_PROGRESS,
+        childName: savedProfile.name,
+        userAge: savedProfile.age,
+        profileCompleted: true,
+      }
+    : DEFAULT_PROGRESS;
 }
 
 const STORY_READING_IDS = new Set<string>(
@@ -315,14 +396,25 @@ export default function App() {
     });
   };
 
-  const handleUpdateChildName = (name: string) => {
+  const handleUpdateProfile = (name: string, age: number | null) => {
     playClickSound(muted);
-    setProgress((prev) => ({ ...prev, childName: name }));
+    saveUserProfile(name, age);
+    setProgress((prev) => ({
+      ...prev,
+      childName: name,
+      userAge: age,
+      profileCompleted: true,
+    }));
   };
 
   const handleResetProgress = () => {
     playClickSound(muted);
-    setProgress(DEFAULT_PROGRESS);
+    setProgress((prev) => ({
+      ...DEFAULT_PROGRESS,
+      childName: prev.childName,
+      userAge: prev.userAge,
+      profileCompleted: prev.profileCompleted,
+    }));
   };
 
   const handleSetLastRead = (section: string, itemId: string, title: string) => {
@@ -354,6 +446,10 @@ export default function App() {
     return (
       <>
         <WelcomeScreen
+          needsProfile={!progress.profileCompleted || progress.userAge == null}
+          initialName={progress.profileCompleted ? progress.childName : ''}
+          initialAge={progress.userAge ?? null}
+          onSaveProfile={handleUpdateProfile}
           onEnterHome={() => {
             setShowWelcome(false);
             navigateTo('home');
@@ -398,6 +494,7 @@ export default function App() {
           activeLibrarySection={activeLibrarySection}
           availableStars={availableStars}
           childName={progress.childName}
+          userAge={progress.userAge ?? null}
           activeTitleId={progress.activeTitleId}
           activeFrameId={progress.activeFrameId}
           muted={muted}
@@ -409,7 +506,7 @@ export default function App() {
           onNavigateHome={() => navigateTo('home')}
           onNavigateScreen={navigateTo}
           onOpenLibrarySection={openLibrarySection}
-          onUpdateChildName={handleUpdateChildName}
+          onUpdateProfile={handleUpdateProfile}
         />
 
         <div className="flex-1">

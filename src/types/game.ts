@@ -159,6 +159,8 @@ export interface GameProgress {
   activeFrameId: string | null;
   activeBackgroundId: string | null;
   childName: string;
+  userAge?: number | null;
+  profileCompleted?: boolean;
   lastRead: LastReadPosition | null;
   bookmarkedIds: string[];
 }

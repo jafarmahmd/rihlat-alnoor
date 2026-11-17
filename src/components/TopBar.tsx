@@ -24,6 +24,7 @@ interface TopBarProps {
   activeLibrarySection: DigitalLibrarySection;
   availableStars: number;
   childName: string;
+  userAge: number | null;
   activeTitleId: string | null;
   activeFrameId: string | null;
   muted: boolean;
@@ -32,7 +33,7 @@ interface TopBarProps {
   onNavigateHome: () => void;
   onNavigateScreen: (screen: ScreenView) => void;
   onOpenLibrarySection: (section: DigitalLibrarySection, entryId?: string) => void;
-  onUpdateChildName: (name: string) => void;
+  onUpdateProfile: (name: string, age: number | null) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -40,6 +41,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeLibrarySection,
   availableStars,
   childName,
+  userAge,
   activeTitleId,
   activeFrameId,
   muted,
@@ -48,10 +50,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   onNavigateHome,
   onNavigateScreen,
   onOpenLibrarySection,
-  onUpdateChildName,
+  onUpdateProfile,
 }) => {
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(childName);
+  const [draftAge, setDraftAge] = useState(userAge ? String(userAge) : '');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const isOnline = useOnlineStatus();
@@ -64,8 +67,20 @@ export const TopBar: React.FC<TopBarProps> = ({
   const handleSaveName = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = draftName.trim();
+    const cleanedAge = draftAge
+      .trim()
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
+    const parsedAge = Number(cleanedAge);
+    const validAge =
+      cleanedAge !== '' &&
+      Number.isFinite(parsedAge) &&
+      parsedAge >= 4 &&
+      parsedAge <= 120
+        ? Math.round(parsedAge)
+        : userAge;
     if (trimmed) {
-      onUpdateChildName(trimmed);
+      onUpdateProfile(trimmed, validAge);
     }
     setEditingName(false);
   };
@@ -168,9 +183,10 @@ export const TopBar: React.FC<TopBarProps> = ({
               type="button"
               onClick={() => {
                 setDraftName(childName);
+                setDraftAge(userAge ? String(userAge) : '');
                 setEditingName(true);
               }}
-              title="اضغط لتعديل اسمك"
+              title="اضغط لتعديل الاسم والعمر"
               className="hidden sm:flex min-h-[44px] px-2 py-1 rounded-xl hover:bg-emerald-50/80 items-center gap-2 transition-colors cursor-pointer min-w-0"
             >
               <div
@@ -196,9 +212,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </span>
                   <Pencil className="w-3 h-3 text-slate-400 shrink-0" aria-hidden="true" />
                 </div>
-                {activeTitle && (
-                  <div className="text-[11px] font-extrabold text-amber-700 truncate max-w-[130px]">
-                    {activeTitle}
+                {(activeTitle || userAge != null) && (
+                  <div className="text-[11px] font-bold text-[#7D602B] truncate max-w-[140px]">
+                    {[activeTitle, userAge != null ? `${userAge} سنة` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </div>
                 )}
               </div>
@@ -311,16 +329,17 @@ export const TopBar: React.FC<TopBarProps> = ({
               onClick={() => {
                 setMobileMenuOpen(false);
                 setDraftName(childName);
+                setDraftAge(userAge ? String(userAge) : '');
                 setEditingName(true);
               }}
-              className="mb-3 p-3 rounded-2xl bg-gradient-to-l from-emerald-50 to-amber-50/70 border border-emerald-200 flex items-center justify-between gap-2 text-right cursor-pointer"
+              className="mb-3 p-3 rounded-2xl bg-[#F6F3EA] border border-[#E2DBC8] flex items-center justify-between gap-2 text-right cursor-pointer"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className={`relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
                     hasGoldFrame
                       ? 'bg-gradient-to-br from-amber-200 via-yellow-100 to-amber-300 border-2 border-amber-500 text-amber-800'
-                      : 'bg-sky-100 border border-sky-200 text-sky-800'
+                      : 'bg-[#EFF5F2] border border-[#D4E2DA] text-[#145344]'
                   }`}
                 >
                   <User className="w-4 h-4" aria-hidden="true" />
@@ -332,15 +351,17 @@ export const TopBar: React.FC<TopBarProps> = ({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-display font-black text-sm text-emerald-950 truncate">
+                  <div className="font-display font-bold text-sm text-[#143D32] truncate">
                     {childName}
                   </div>
-                  <div className="text-[11px] font-bold text-amber-700 truncate">
-                    {activeTitle || 'اضغط لتعديل الاسم'}
+                  <div className="text-[11px] font-semibold text-[#7D602B] truncate">
+                    {[activeTitle, userAge != null ? `${userAge} سنة` : null]
+                      .filter(Boolean)
+                      .join(' · ') || 'اضغط لتعديل الاسم والعمر'}
                   </div>
                 </div>
               </div>
-              <Pencil className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+              <Pencil className="w-4 h-4 text-[#145344] shrink-0" aria-hidden="true" />
             </button>
 
             <nav className="space-y-1 flex-1 overflow-y-auto">
@@ -443,17 +464,20 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           <form
             onSubmit={handleSaveName}
-            className="w-full max-w-sm bg-white rounded-3xl p-6 border border-emerald-200 shadow-2xl"
+            className="w-full max-w-sm bg-[#FDFCF9] rounded-3xl p-6 border border-[#DDD4BE] shadow-2xl"
           >
             <h2
               id="edit-name-title"
-              className="font-display font-black text-xl text-emerald-950"
+              className="font-display font-bold text-xl text-[#143D32]"
             >
-              ما اسمك يا بطل النور؟
+              بياناتك في رحلة النور
             </h2>
             <p className="text-sm text-slate-600 mt-1">
-              سيظهر اسمك مع لقب الشرف الذي تختاره من متجر الأنوار في أعلى الشاشة.
+              يمكنك تعديل اسمك وعمرك في أي وقت.
             </p>
+            <label className="block mt-4 text-xs font-bold text-[#145344]">
+              الاسم
+            </label>
             <input
               type="text"
               maxLength={24}
@@ -461,21 +485,35 @@ export const TopBar: React.FC<TopBarProps> = ({
               onChange={(e) => setDraftName(e.target.value)}
               placeholder="اكتب اسمك هنا..."
               autoFocus
-              className="mt-4 w-full min-h-[48px] px-4 rounded-xl border-2 border-emerald-200 focus:border-emerald-500 focus:outline-none font-bold text-lg text-emerald-950"
+              className="mt-1.5 w-full min-h-[46px] px-4 rounded-xl border border-[#D4E2DA] bg-white focus:border-[#145344] focus:outline-none font-bold text-base text-[#143D32]"
+            />
+            <label className="block mt-3.5 text-xs font-bold text-[#145344]">
+              العمر (بالسنوات)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={3}
+              value={draftAge}
+              onChange={(e) =>
+                setDraftAge(e.target.value.replace(/[^0-9٠-٩۰-۹]/g, ''))
+              }
+              placeholder="اكتب عمرك..."
+              className="mt-1.5 w-full min-h-[46px] px-4 rounded-xl border border-[#D4E2DA] bg-white focus:border-[#145344] focus:outline-none font-bold text-base text-[#143D32]"
             />
             <div className="mt-5 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setEditingName(false)}
-                className="min-h-[44px] px-5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
+                className="min-h-[44px] px-5 rounded-xl bg-[#F4F1E8] hover:bg-[#EAE4D5] text-slate-700 font-bold cursor-pointer"
               >
                 إلغاء
               </button>
               <button
                 type="submit"
-                className="min-h-[44px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
+                className="min-h-[44px] px-6 rounded-xl bg-[#145344] hover:bg-[#0F4236] text-white font-bold cursor-pointer"
               >
-                حفظ الاسم
+                حفظ البيانات
               </button>
             </div>
           </form>
