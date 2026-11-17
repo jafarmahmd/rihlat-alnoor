@@ -133,7 +133,9 @@ async function notifyNativeUpdateOnce(update: AppUpdateInfo): Promise<void> {
           id: UPDATE_NOTIFICATION_ID,
           title: `تحديث جديد متوفر: رحلة النور v${update.latestVersion}`,
           body: 'اضغط لفتح التطبيق وتنزيل النسخة المحدّثة مباشرة.',
-          schedule: { at: new Date(Date.now() + 800) },
+          autoCancel: true,
+          foreground: true,
+          isExactNotification: false,
           channelId:
             Capacitor.getPlatform() === 'android'
               ? 'spiritual_daily_reminders'

@@ -107,6 +107,12 @@ export const SpiritualNotificationsModal: React.FC<SpiritualNotificationsModalPr
   const handleSendTest = async () => {
     const guidance = WEEKLY_SPIRITUAL_GUIDANCE[activePreviewDay] || getTodaySpiritualGuidance();
     const success = await sendSpiritualNotification(guidance, { isTest: true });
+    if (nativePlatform) {
+      const p = await getNotificationPermissionAsync();
+      setPermission(p);
+      const count = await getPendingNativeNotificationCount();
+      setNativeAlarmCount(count);
+    }
     if (success) {
       setTestSent(true);
       setTimeout(() => setTestSent(false), 3000);
@@ -115,6 +121,10 @@ export const SpiritualNotificationsModal: React.FC<SpiritualNotificationsModalPr
       setPermission(granted ? 'granted' : 'denied');
       if (granted) {
         await sendSpiritualNotification(guidance, { isTest: true });
+        if (nativePlatform) {
+          const count = await getPendingNativeNotificationCount();
+          setNativeAlarmCount(count);
+        }
         setTestSent(true);
         setTimeout(() => setTestSent(false), 3000);
       }

@@ -2,7 +2,6 @@ import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import {
   LocalNotifications,
   LocalNotificationSchema,
-  Weekday,
 } from '@capacitor/local-notifications';
 import {
   DaySpiritualGuidance,
@@ -29,11 +28,13 @@ export interface DispatchedNotificationPayload {
 }
 
 const LOG_STORAGE_KEY = 'rihlat_alnoor_notification_history_v1';
+const AUTO_PROMPTED_KEY = 'rihlat_alnoor_notif_auto_prompted_v1';
 const IN_APP_EVENT = 'rihlat:spiritual-notification';
 const OPEN_ENTRY_EVENT = 'rihlat:open-spiritual-entry';
 const NATIVE_CHANNEL_ID = 'spiritual_daily_reminders';
 const WEEKLY_BASE_ID = 1000;
 const HIJRI_BASE_ID = 2000;
+const DAILY_BASE_ID = 3000;
 const TEST_NATIVE_ID = 9901;
 
 export function isNativeMobile(): boolean {
@@ -98,7 +99,8 @@ export async function getPendingNativeNotificationCount(): Promise<number> {
     return pending.notifications.filter(
       (n) =>
         (n.id >= WEEKLY_BASE_ID && n.id <= WEEKLY_BASE_ID + 6) ||
-        (n.id >= HIJRI_BASE_ID && n.id <= HIJRI_BASE_ID + 35)
+        (n.id >= HIJRI_BASE_ID && n.id <= HIJRI_BASE_ID + 35) ||
+        (n.id >= DAILY_BASE_ID && n.id <= DAILY_BASE_ID + 35)
     ).length;
   } catch {
     return 0;
@@ -107,7 +109,8 @@ export async function getPendingNativeNotificationCount(): Promise<number> {
 
 /**
  * Schedules real OS-level Local Notifications (Android AlarmManager / iOS UNUserNotificationCenter)
- * so daily after-midnight reminders & Hijri occasions fire reliably even when the app is completely closed & offline.
+ * so daily after-midnight reminders & Hijri occasions appear directly in the phone notification bar
+ * even when the app is completely closed & offline.
  */
 export async function syncNativeDailyNotifications(): Promise<number> {
   if (!isNativeMobile()) return 0;
@@ -120,7 +123,8 @@ export async function syncNativeDailyNotifications(): Promise<number> {
       .filter(
         (id) =>
           (id >= WEEKLY_BASE_ID && id <= WEEKLY_BASE_ID + 6) ||
-          (id >= HIJRI_BASE_ID && id <= HIJRI_BASE_ID + 35)
+          (id >= HIJRI_BASE_ID && id <= HIJRI_BASE_ID + 35) ||
+          (id >= DAILY_BASE_ID && id <= DAILY_BASE_ID + 35)
       );
 
     if (existingIds.length > 0) {
@@ -144,93 +148,74 @@ export async function syncNativeDailyNotifications(): Promise<number> {
     const targetH = Number.isFinite(rawH) ? rawH : 0;
     const targetM = Number.isFinite(rawM) ? rawM : 5;
     const isAndroid = Capacitor.getPlatform() === 'android';
+    const hijriOffset = loadHijriOffset();
+    const now = new Date();
+    const nowMs = now.getTime();
 
     const toSchedule: LocalNotificationSchema[] = [];
 
-    // 1. Weekly recurring daily reminders for every enabled weekday (1 = Sunday .. 7 = Saturday)
-    for (const dayGuidance of WEEKLY_SPIRITUAL_GUIDANCE) {
-      if (!settings.enabledDays[dayGuidance.dayIndex]) continue;
+    // Schedule the upcoming 30 days as explicit AlarmManager.setAndAllowWhileIdle triggers
+    // (isExactNotification: false avoids Android 12+ exact-alarm settings redirects while still firing outside the app).
+    for (let offsetDays = 0; offsetDays <= 30; offsetDays++) {
+      const targetDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + offsetDays,
+        targetH,
+        targetM,
+        0,
+        0
+      );
 
-      const weekday = (dayGuidance.dayIndex + 1) as Weekday;
+      // Skip past times (e.g., today's scheduled minute already passed)
+      if (targetDate.getTime() <= nowMs + 15000) continue;
+
+      const dayIdx = targetDate.getDay();
+      if (!settings.enabledDays[dayIdx]) continue;
+
+      const dayGuidance =
+        WEEKLY_SPIRITUAL_GUIDANCE[dayIdx] || WEEKLY_SPIRITUAL_GUIDANCE[4];
+      const hijriInfo = getTodayHijriDate(targetDate, hijriOffset);
+      const occasions = settings.includeHijriOccasions
+        ? getOccasionsForHijriDay(hijriInfo.month, hijriInfo.day)
+        : [];
+      const occ = occasions.length > 0 ? occasions[0] : null;
+
       const actsSummary = dayGuidance.recommendedActs.slice(0, 2).join(' • ');
-      const bodyText = `✨ ${actsSummary}\n📖 الدعاء المخصص: ${dayGuidance.primaryDuaTitle}`;
+      const title = occ
+        ? `🌟 ${dayGuidance.dayNameAr}: ${occ.title}`
+        : `🌙 ${dayGuidance.title}`;
+      const body = occ
+        ? `📅 ${hijriInfo.formattedArabic}\n🤲 ${occ.shortDua}\n✨ ${actsSummary}`
+        : `📅 ${hijriInfo.formattedArabic}\n✨ ${actsSummary}\n📖 ${dayGuidance.primaryDuaTitle}`;
+      const largeBody = occ
+        ? `📅 ${hijriInfo.formattedArabic}\n${occ.shortStory}\n\n🤲 الدعاء: ${occ.shortDua}\n\n${dayGuidance.recommendedActs
+            .map((a) => `✦ ${a}`)
+            .join('\n')}`
+        : `${dayGuidance.shortSummary}\n\n${dayGuidance.recommendedActs
+            .map((a) => `✦ ${a}`)
+            .join('\n')}\n\n📖 ${dayGuidance.primaryDuaTitle}`;
 
       toSchedule.push({
-        id: WEEKLY_BASE_ID + dayGuidance.dayIndex,
-        title: `🌙 ${dayGuidance.title}`,
-        body: bodyText,
-        largeBody: `${dayGuidance.shortSummary}\n\n${dayGuidance.recommendedActs
-          .map((a) => `✦ ${a}`)
-          .join('\n')}\n\n📖 ${dayGuidance.primaryDuaTitle}`,
-        summaryText: dayGuidance.badge,
+        id: DAILY_BASE_ID + offsetDays,
+        title,
+        body,
+        largeBody,
+        summaryText: occ ? hijriInfo.monthName : dayGuidance.badge,
         channelId: isAndroid ? NATIVE_CHANNEL_ID : undefined,
         autoCancel: true,
         foreground: true,
-        isExactNotification: true,
-        isExactMandatory: false,
+        isExactNotification: false,
         schedule: {
-          on: {
-            weekday,
-            hour: targetH,
-            minute: targetM,
-          },
+          at: targetDate,
           allowWhileIdle: true,
         },
         extra: {
-          dayIndex: dayGuidance.dayIndex,
-          section: dayGuidance.linkedSection,
-          entryId: dayGuidance.linkedEntryId || '',
+          dayIndex: dayIdx,
+          section: occ?.linkedSection || dayGuidance.linkedSection,
+          entryId: occ?.linkedEntryId || dayGuidance.linkedEntryId || '',
         },
       });
-    }
-
-    // 2. Upcoming 30-day Hijri occasion one-shot reminders (offline-safe & exact)
-    if (settings.includeHijriOccasions) {
-      const hijriOffset = loadHijriOffset();
-      const now = new Date();
-      for (let offsetDays = 1; offsetDays <= 30; offsetDays++) {
-        const targetDate = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() + offsetDays,
-          targetH,
-          targetM,
-          0,
-          0
-        );
-        const dayIdx = targetDate.getDay();
-        if (!settings.enabledDays[dayIdx]) continue;
-
-        const hijriInfo = getTodayHijriDate(targetDate, hijriOffset);
-        const occasions = getOccasionsForHijriDay(hijriInfo.month, hijriInfo.day);
-        if (occasions.length === 0) continue;
-
-        const occ = occasions[0];
-        const dayGuidance =
-          WEEKLY_SPIRITUAL_GUIDANCE[dayIdx] || WEEKLY_SPIRITUAL_GUIDANCE[4];
-
-        toSchedule.push({
-          id: HIJRI_BASE_ID + offsetDays,
-          title: `🌟 مناسبة هجرية: ${occ.title}`,
-          body: `📅 ${hijriInfo.formattedArabic}\n🤲 ${occ.shortDua}`,
-          largeBody: `📅 ${hijriInfo.formattedArabic}\n${occ.shortStory}\n\n🤲 الدعاء: ${occ.shortDua}`,
-          summaryText: hijriInfo.monthName,
-          channelId: isAndroid ? NATIVE_CHANNEL_ID : undefined,
-          autoCancel: true,
-          foreground: true,
-          isExactNotification: true,
-          isExactMandatory: false,
-          schedule: {
-            at: targetDate,
-            allowWhileIdle: true,
-          },
-          extra: {
-            dayIndex: dayIdx,
-            section: occ.linkedSection || dayGuidance.linkedSection,
-            entryId: occ.linkedEntryId || dayGuidance.linkedEntryId || '',
-          },
-        });
-      }
     }
 
     if (toSchedule.length > 0) {
@@ -241,6 +226,31 @@ export async function syncNativeDailyNotifications(): Promise<number> {
   } catch (err) {
     console.warn('Could not sync native local notifications:', err);
     return 0;
+  }
+}
+
+export async function requestNativeNotificationPermissionOnce(): Promise<boolean> {
+  if (!isNativeMobile() || typeof window === 'undefined') return false;
+  try {
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display === 'granted') {
+      await ensureNativeChannel();
+      await syncNativeDailyNotifications();
+      return true;
+    }
+    if (window.localStorage.getItem(AUTO_PROMPTED_KEY) === '1') {
+      return false;
+    }
+    window.localStorage.setItem(AUTO_PROMPTED_KEY, '1');
+    const req = await LocalNotifications.requestPermissions();
+    const granted = req.display === 'granted';
+    if (granted) {
+      await ensureNativeChannel();
+      await syncNativeDailyNotifications();
+    }
+    return granted;
+  } catch {
+    return false;
   }
 }
 
@@ -382,7 +392,7 @@ export async function sendSpiritualNotification(
   ];
   const body = bodyLines.join('\n');
 
-  // Native Capacitor OS Notification Bar Delivery
+  // Native Capacitor OS Notification Bar Delivery (posts immediately to Android notification shade)
   if (isNativeMobile()) {
     try {
       let perm = await LocalNotifications.checkPermissions();
@@ -400,16 +410,12 @@ export async function sendSpiritualNotification(
               largeBody: `${guidance.shortSummary}\n\n${guidance.recommendedActs
                 .map((a) => `✦ ${a}`)
                 .join('\n')}`,
+              summaryText: guidance.badge,
               channelId:
                 Capacitor.getPlatform() === 'android' ? NATIVE_CHANNEL_ID : undefined,
               autoCancel: true,
               foreground: true,
-              isExactNotification: true,
-              isExactMandatory: false,
-              schedule: {
-                at: new Date(Date.now() + 900),
-                allowWhileIdle: true,
-              },
+              isExactNotification: false,
               extra: {
                 dayIndex: guidance.dayIndex,
                 section: guidance.linkedSection,

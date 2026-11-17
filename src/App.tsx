@@ -23,6 +23,7 @@ import { SpiritualNotificationToast } from './components/SpiritualNotificationTo
 import { SpiritualNotificationsModal } from './components/SpiritualNotificationsModal';
 import {
   DispatchedNotificationPayload,
+  requestNativeNotificationPermissionOnce,
   startDailyNotificationScheduler,
   subscribeToInAppNotification,
   subscribeToOpenSpiritualEntry,
@@ -320,6 +321,12 @@ export default function App() {
       window.removeEventListener('online', onOnline);
     };
   }, []);
+
+  useEffect(() => {
+    if (!showWelcome) {
+      void requestNativeNotificationPermissionOnce();
+    }
+  }, [showWelcome]);
 
   const totalEarnedStars = calculateEarnedStars(progress);
   const availableStars = Math.max(0, totalEarnedStars - progress.spentStars);
