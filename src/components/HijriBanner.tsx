@@ -74,87 +74,66 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
   return (
     <>
       <motion.section
-        initial={{ opacity: 0, y: -8 }}
+        initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
+        transition={{ duration: 0.3 }}
         aria-label="التقويم الهجري الجعفري والميلادي والمناسبات"
-        className={`mb-5 sm:mb-6 rounded-3xl border-2 p-3.5 sm:p-5 shadow-md transition-colors ${
-          isBirth
-            ? 'bg-gradient-to-l from-amber-50/95 via-emerald-50/90 to-sky-50/90 border-amber-300/90 shadow-amber-900/5'
-            : 'bg-gradient-to-l from-sky-50/95 via-white/95 to-emerald-50/90 border-sky-200/90 shadow-sky-900/5'
-        }`}
+        className="rounded-2xl sm:rounded-3xl bg-[#FDFCF9] border border-[#E5E0D5] p-4 sm:p-5 shadow-2xs transition-colors"
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4">
           {/* Synchronized Hijri & Gregorian Dates + Occasion Headline */}
-          <div className="flex items-start sm:items-center gap-3">
-            <div
-              className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 shadow-sm ${
-                isBirth
-                  ? 'bg-amber-100 border-amber-300 text-amber-700'
-                  : 'bg-sky-100 border-sky-300 text-sky-700'
-              }`}
-            >
-              <Calendar className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden="true" />
+          <div className="flex items-start sm:items-center gap-3 min-w-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-[#D4E2DA] bg-[#EFF5F2] text-[#145344]">
+              <Calendar className="w-5 h-5" aria-hidden="true" />
             </div>
 
             <div className="space-y-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm font-bold text-emerald-900 tabular-nums">
-                <span>الهجري الجعفري: {hijriToday.formattedArabic}</span>
-                <span className="text-amber-500" aria-hidden="true">
-                  ·
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm font-semibold text-stone-600 tabular-nums">
+                <span className="text-[#145344] font-bold">الهجري: {hijriToday.formattedArabic}</span>
+                <span className="text-stone-400" aria-hidden="true">·</span>
+                <span>
+                  الميلادي: {gregorianToday.day} {gregorianToday.monthNameAr} {gregorianToday.year} م
                 </span>
-                <span className="text-sky-800">
-                  الميلادي: {gregorianToday.day} {gregorianToday.monthNameAr}{' '}
-                  {gregorianToday.year} م
-                </span>
-                <span className="text-amber-500" aria-hidden="true">
-                  ·
-                </span>
-                <span
-                  className={
-                    isExactToday ? 'text-amber-700 font-extrabold' : 'text-emerald-700'
-                  }
-                >
+                <span className="text-stone-400" aria-hidden="true">·</span>
+                <span className={isExactToday ? 'text-[#7D602B] font-bold' : 'text-[#145344]'}>
                   {isExactToday
                     ? 'مناسبة اليوم المباركة'
                     : daysUntil === 1
                     ? 'مناسبة غداً بمشيئة الله'
-                    : `المناسبة القادمة (${featuredOccasion.day} ${
-                        HIJRI_MONTH_NAMES[featuredOccasion.month]
-                      })`}
+                    : `المناسبة القادمة (${featuredOccasion.day} ${HIJRI_MONTH_NAMES[featuredOccasion.month]})`}
                 </span>
               </div>
 
-              <h2 className="font-display font-extrabold text-base sm:text-lg text-slate-900 leading-snug">
+              <h2 className="font-display font-bold text-base sm:text-lg text-[#172B24] leading-snug">
                 {featuredOccasion.title}
               </h2>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0">
+          {/* Simplified Calm Action Strip */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={onOpenCalendar}
-              className="col-span-2 sm:col-span-1 min-h-[42px] sm:min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl bg-[#0B2622] hover:bg-[#113630] text-amber-200 border border-amber-400/40 font-display font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors whitespace-nowrap"
+              className="min-h-[42px] px-3.5 py-2 rounded-xl bg-[#EFF5F2] hover:bg-[#E2EFE8] text-[#145344] border border-[#CFE0D8] font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
             >
-              <CalendarDays className="w-4 h-4 text-amber-300 shrink-0" aria-hidden="true" />
-              <span>التقويم الهجري والميلادي</span>
+              <CalendarDays className="w-4 h-4 text-[#145344] shrink-0" aria-hidden="true" />
+              <span>التقويم</span>
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedOccasion(featuredOccasion)}
-              className="min-h-[42px] sm:min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors whitespace-nowrap"
+              className="min-h-[42px] px-3.5 py-2 rounded-xl bg-[#F7F5EE] hover:bg-[#EEEAE0] text-[#1E3B32] border border-[#E2DDD0] font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
             >
-              <Sparkles className="w-4 h-4 text-amber-200 shrink-0" aria-hidden="true" />
+              <Sparkles className="w-4 h-4 text-[#9A7B3E] shrink-0" aria-hidden="true" />
               <span>القصة والدعاء</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowAllOccasions((prev) => !prev)}
-              className="min-h-[42px] sm:min-h-[44px] px-3 sm:px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+              className="min-h-[42px] px-3 py-2 rounded-xl bg-white hover:bg-[#F7F5EE] text-stone-700 border border-[#E5E0D5] font-bold text-xs sm:text-sm flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
             >
               <span>المناسبات ({HIJRI_OCCASIONS.length})</span>
               <ChevronDown

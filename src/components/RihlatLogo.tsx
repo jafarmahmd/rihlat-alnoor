@@ -14,7 +14,7 @@ export const RihlatLogo: React.FC<RihlatLogoProps> = ({ size = 'lg' }) => {
         <img
           src={OFFICIAL_LOGO_URL}
           alt="شعار تطبيق رحلة النور"
-          className="h-9 sm:h-11 w-auto object-contain rounded-lg bg-white"
+          className="h-8 sm:h-10 w-auto object-contain rounded-lg bg-white"
         />
       </div>
     );
@@ -28,7 +28,7 @@ export const RihlatLogo: React.FC<RihlatLogoProps> = ({ size = 'lg' }) => {
       <img
         src={OFFICIAL_LOGO_URL}
         alt="الشعار الرسمي لتطبيق رحلة النور — أدعية، معرفة أهل البيت، وتعلم ممتع"
-        className="w-full max-w-[360px] sm:max-w-[420px] h-auto object-contain rounded-2xl bg-white border border-slate-100 shadow-xs"
+        className="w-full max-w-[260px] sm:max-w-[360px] h-auto object-contain rounded-2xl bg-white border border-[#E5E0D5]"
       />
     </div>
   );

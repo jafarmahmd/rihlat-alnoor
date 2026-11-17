@@ -9,10 +9,21 @@
   html {
     font-family: "Tajawal", "Cairo", sans-serif;
     scroll-behavior: smooth;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    background-color: #f7f5ee;
+  }
+
+  body {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   h1, h2, h3, h4, .font-display {
     font-family: "Cairo", "Tajawal", sans-serif;
+    text-wrap: balance;
   }
 }
 
@@ -24,13 +35,13 @@
 }
 
 .editorial-note {
-  color: #b45309;
+  color: #6f5523;
   font-style: italic;
   font-weight: 700;
-  background-color: rgba(245, 158, 11, 0.12);
+  background-color: rgba(180, 149, 88, 0.12);
   padding: 0.25rem 0.65rem;
   border-radius: 0.5rem;
-  border-right: 3px solid #d97706;
+  border-right: 3px solid #9a7b3e;
   margin: 0.5rem 0;
   display: inline-block;
   font-size: 0.88em;
@@ -38,62 +49,58 @@
 }
 
 .editorial-note-dark {
-  color: #fbbf24;
+  color: #e6d5a9;
   font-style: italic;
   font-weight: 700;
-  background-color: rgba(251, 191, 36, 0.14);
+  background-color: rgba(230, 213, 169, 0.12);
   padding: 0.25rem 0.65rem;
   border-radius: 0.5rem;
-  border-right: 3px solid #f59e0b;
+  border-right: 3px solid #c4a462;
   margin: 0.5rem 0;
   display: inline-block;
   font-size: 0.88em;
   font-family: "Tajawal", "Cairo", sans-serif;
 }
 
-/* Soft luminous canvas combining light emerald, serene sky blue, and warm cream-gold */
+/* Calm serene canvas: warm ivory parchment, light earth-sand, and tranquil sage green */
 .noor-canvas {
   background:
-    radial-gradient(circle at 15% 10%, rgba(186, 230, 253, 0.55) 0%, transparent 45%),
-    radial-gradient(circle at 85% 15%, rgba(167, 243, 208, 0.45) 0%, transparent 42%),
-    radial-gradient(circle at 50% 85%, rgba(254, 243, 199, 0.5) 0%, transparent 50%),
-    linear-gradient(180deg, #f0f9ff 0%, #ecfdf5 55%, #fefce8 100%);
+    radial-gradient(circle at 18% 8%, rgba(212, 228, 219, 0.42) 0%, transparent 45%),
+    radial-gradient(circle at 85% 18%, rgba(232, 224, 206, 0.48) 0%, transparent 46%),
+    linear-gradient(180deg, #faf9f5 0%, #f5f3ec 55%, #f0ede4 100%);
 }
 
-/* Purchasable Theme 1: حديقة النور (Soft Spring Meadow) */
+/* Purchasable Theme 1: حديقة النور (Calm Sage Meadow) */
 .noor-theme-garden {
   background:
-    radial-gradient(circle at 20% 15%, rgba(167, 243, 208, 0.65) 0%, transparent 48%),
-    radial-gradient(circle at 82% 22%, rgba(217, 249, 157, 0.5) 0%, transparent 44%),
-    radial-gradient(circle at 50% 85%, rgba(186, 230, 253, 0.45) 0%, transparent 55%),
-    linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 52%, #fefce8 100%);
+    radial-gradient(circle at 20% 15%, rgba(202, 232, 216, 0.5) 0%, transparent 48%),
+    radial-gradient(circle at 82% 22%, rgba(226, 234, 208, 0.45) 0%, transparent 44%),
+    linear-gradient(180deg, #f3f8f5 0%, #f5f7f2 55%, #f7f4eb 100%);
 }
 
 /* Purchasable Theme 2: سماء النجوم المتلألئة */
 .noor-theme-stars {
   background:
-    radial-gradient(circle at 25% 12%, rgba(125, 211, 252, 0.48) 0%, transparent 46%),
-    radial-gradient(circle at 80% 20%, rgba(253, 230, 138, 0.42) 0%, transparent 42%),
-    radial-gradient(circle at 48% 75%, rgba(165, 243, 252, 0.45) 0%, transparent 54%),
-    linear-gradient(180deg, #e0f2fe 0%, #eff6ff 55%, #fef9c3 100%);
+    radial-gradient(circle at 25% 12%, rgba(203, 218, 224, 0.42) 0%, transparent 46%),
+    radial-gradient(circle at 80% 20%, rgba(234, 226, 205, 0.45) 0%, transparent 42%),
+    linear-gradient(180deg, #f2f6f7 0%, #f6f7f5 55%, #f5f2ea 100%);
 }
 
 /* Purchasable Theme 3: الروضة المزهرة */
 .noor-theme-rawda {
   background:
-    radial-gradient(circle at 18% 14%, rgba(254, 205, 211, 0.42) 0%, transparent 44%),
-    radial-gradient(circle at 82% 16%, rgba(167, 243, 208, 0.55) 0%, transparent 45%),
-    radial-gradient(circle at 50% 84%, rgba(253, 230, 138, 0.55) 0%, transparent 52%),
-    linear-gradient(180deg, #fff1f2 0%, #ecfdf5 55%, #fefce8 100%);
+    radial-gradient(circle at 18% 14%, rgba(238, 222, 220, 0.42) 0%, transparent 44%),
+    radial-gradient(circle at 82% 16%, rgba(207, 228, 217, 0.48) 0%, transparent 45%),
+    linear-gradient(180deg, #faf6f5 0%, #f4f7f4 55%, #f6f2e8 100%);
 }
 
 /* Subtle Islamic geometric star lattice overlay */
 .noor-pattern {
-  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23059669' stroke-opacity='0.06' stroke-width='1'%3E%3Cpath d='M40 8 L48 32 L72 40 L48 48 L40 72 L32 48 L8 40 L32 32 Z'/%3E%3Ccircle cx='40' cy='40' r='10'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23145344' stroke-opacity='0.035' stroke-width='1'%3E%3Cpath d='M40 8 L48 32 L72 40 L48 48 L40 72 L32 48 L8 40 L32 32 Z'/%3E%3Ccircle cx='40' cy='40' r='10'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .noor-pattern-stars {
-  background-image: url("data:image/svg+xml,%3Csvg width='96' height='96' viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23F59E0B' fill-opacity='0.14'%3E%3Cpath d='M24 8 L26.5 15.5 L34 18 L26.5 20.5 L24 28 L21.5 20.5 L14 18 L21.5 15.5 Z'/%3E%3Ccircle cx='72' cy='24' r='2.5'/%3E%3Cpath d='M68 58 L70 63 L75 65 L70 67 L68 72 L66 67 L61 65 L66 63 Z'/%3E%3Ccircle cx='28' cy='74' r='2'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='96' height='96' viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239A7B3E' fill-opacity='0.09'%3E%3Cpath d='M24 8 L26.5 15.5 L34 18 L26.5 20.5 L24 28 L21.5 20.5 L14 18 L21.5 15.5 Z'/%3E%3Ccircle cx='72' cy='24' r='2.5'/%3E%3Cpath d='M68 58 L70 63 L75 65 L70 67 L68 72 L66 67 L61 65 L66 63 Z'/%3E%3Ccircle cx='28' cy='74' r='2'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 @keyframes noor-glow-halo {

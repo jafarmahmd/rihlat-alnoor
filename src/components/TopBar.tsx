@@ -9,12 +9,10 @@ import {
   Settings,
   Menu,
   X,
-  Smartphone,
   Bell,
   WifiOff,
 } from 'lucide-react';
 import { RihlatLogo } from './RihlatLogo';
-import { PWAInstallModal } from './PWAInstallModal';
 import { SpiritualNotificationsModal } from './SpiritualNotificationsModal';
 import { useOnlineStatus } from '../utils/useOnlineStatus';
 import { DigitalLibrarySection, ScreenView } from '../types/game';
@@ -55,7 +53,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(childName);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [installModalOpen, setInstallModalOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const isOnline = useOnlineStatus();
 
@@ -132,8 +129,8 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 h-14 sm:h-16 bg-white/92 backdrop-blur-md border-b border-emerald-200/80 shadow-xs">
-        <div className="max-w-7xl mx-auto h-full px-2.5 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 lg:gap-6">
+      <header className="sticky top-0 z-40 h-14 sm:h-16 bg-[#FDFCF9]/95 backdrop-blur-md border-b border-[#E5E0D5] shadow-2xs">
+        <div className="max-w-7xl mx-auto h-full px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 lg:gap-6">
           {/* Zone 1: Brand Wordmark */}
           <button
             type="button"
@@ -208,14 +205,14 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
 
             <div
-              className="min-h-[40px] sm:min-h-[44px] px-2.5 sm:px-3 py-1 rounded-xl bg-gradient-to-l from-amber-50 to-amber-100/90 border border-amber-300/90 flex items-center gap-1.5 shadow-xs"
+              className="min-h-[40px] sm:min-h-[44px] px-2.5 sm:px-3 py-1 rounded-xl bg-[#F6F3EA] border border-[#E2DBC8] flex items-center gap-1.5"
               aria-label={`رصيد نجوم النور المتاح: ${availableStars} من ${TOTAL_POSSIBLE_STARS}`}
             >
               <Star
-                className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0"
+                className="w-4 h-4 text-[#9A7B3E] fill-[#C9A962] shrink-0"
                 aria-hidden="true"
               />
-              <span className="font-display font-black text-sm sm:text-base text-amber-900 tabular-nums whitespace-nowrap">
+              <span className="font-display font-extrabold text-sm sm:text-base text-[#4A3B1C] tabular-nums whitespace-nowrap">
                 {availableStars}
               </span>
             </div>
@@ -223,7 +220,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               type="button"
               onClick={onToggleMute}
-              className="hidden sm:flex min-w-[44px] min-h-[44px] rounded-xl border border-sky-200 bg-sky-50/70 hover:bg-sky-100 text-sky-800 items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+              className="hidden sm:flex min-w-[44px] min-h-[44px] rounded-xl border border-[#DFDBD0] bg-[#F7F5EE] hover:bg-[#EEEAE0] text-[#145344] items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#145344]"
               aria-label={muted ? 'تشغيل المؤثرات الصوتية' : 'كتم المؤثرات الصوتية'}
               title={muted ? 'تشغيل الصوت' : 'كتم الصوت'}
             >
@@ -234,22 +231,12 @@ export const TopBar: React.FC<TopBarProps> = ({
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setInstallModalOpen(true)}
-              className="min-h-[40px] px-2.5 sm:px-3 rounded-xl border border-amber-300 bg-amber-50/90 hover:bg-amber-100 text-amber-950 font-display font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-              title="تصدير وتثبيت التطبيق على الجوال مع التحديث التلقائي"
-            >
-              <Smartphone className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">تثبيت التطبيق</span>
-            </button>
-
             {!isOnline && (
               <div
                 title="أنت تعمل في وضع عدم الاتصال (بدون إنترنت)"
-                className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-900 text-amber-300 text-xs font-bold shrink-0 border border-amber-400/50 shadow-xs"
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#EEF4F1] text-[#145344] text-xs font-bold shrink-0 border border-[#CFE0D8]"
               >
-                <WifiOff className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
+                <WifiOff className="w-3.5 h-3.5 text-[#145344]" aria-hidden="true" />
                 <span>أوفلاين</span>
               </div>
             )}
@@ -257,17 +244,17 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               type="button"
               onClick={() => setNotificationsOpen(true)}
-              className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-xl border border-amber-300/80 bg-amber-50/90 hover:bg-amber-100 text-amber-900 flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-xl border border-[#DFDBD0] bg-[#F7F5EE] hover:bg-[#EEEAE0] text-[#145344] flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#145344]"
               title="إشعارات مستحبات الأيام ودعاء كميل"
               aria-label="إشعارات مستحبات الأيام ودعاء كميل"
             >
-              <Bell className="w-5 h-5 text-amber-700" aria-hidden="true" />
+              <Bell className="w-5 h-5 text-[#145344]" aria-hidden="true" />
             </button>
 
             <button
               type="button"
               onClick={onOpenSettings}
-              className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-xl border border-[#D4E2DA] bg-[#EFF5F2] hover:bg-[#E3EFE9] text-[#145344] flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#145344]"
               aria-label="الإعدادات واللمحة العامة"
               title="الإعدادات"
             >
@@ -279,7 +266,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               onClick={() => setMobileMenuOpen((v) => !v)}
               aria-label="فتح القائمة الرئيسية"
               aria-expanded={mobileMenuOpen}
-              className="lg:hidden min-w-[40px] min-h-[40px] rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 flex items-center justify-center cursor-pointer transition-colors"
+              className="lg:hidden min-w-[40px] min-h-[40px] rounded-xl border border-[#D4E2DA] bg-[#EFF5F2] hover:bg-[#E3EFE9] text-[#145344] flex items-center justify-center cursor-pointer transition-colors"
             >
               {mobileMenuOpen ? (
                 <X className="w-5 h-5" aria-hidden="true" />
@@ -395,39 +382,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
               ))}
 
-              <div className="border-t border-emerald-100 mt-2 pt-2 space-y-1">
+              <div className="border-t border-[#E5E0D5] mt-3 pt-3 space-y-1.5">
                 <button
                   type="button"
                   onClick={onToggleMute}
-                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-extrabold text-sm flex items-center justify-between text-sky-900 bg-sky-50/70 hover:bg-sky-100 cursor-pointer transition-colors"
+                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-bold text-sm flex items-center justify-between text-[#145344] bg-[#F7F5EE] hover:bg-[#EEEAE0] border border-[#E5E0D5] cursor-pointer transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     {muted ? (
-                      <VolumeX className="w-4 h-4 text-sky-700" aria-hidden="true" />
+                      <VolumeX className="w-4 h-4 text-[#145344]" aria-hidden="true" />
                     ) : (
-                      <Volume2 className="w-4 h-4 text-sky-700" aria-hidden="true" />
+                      <Volume2 className="w-4 h-4 text-[#145344]" aria-hidden="true" />
                     )}
                     <span>المؤثرات الصوتية</span>
                   </span>
-                  <span className="text-xs font-black">
+                  <span className="text-xs font-extrabold text-stone-600">
                     {muted ? 'مكتومة' : 'مفعّلة'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setInstallModalOpen(true);
-                  }}
-                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-black text-sm flex items-center justify-between text-amber-950 bg-amber-50 border border-amber-200 hover:bg-amber-100 cursor-pointer transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <Smartphone className="w-4 h-4 text-amber-600" aria-hidden="true" />
-                    <span>تثبيت التطبيق على الجوال</span>
-                  </span>
-                  <span className="text-[11px] font-bold text-amber-700 bg-amber-200/60 px-2 py-0.5 rounded-lg">
-                    تحديث مباشر
                   </span>
                 </button>
 
@@ -437,15 +407,13 @@ export const TopBar: React.FC<TopBarProps> = ({
                     setMobileMenuOpen(false);
                     setNotificationsOpen(true);
                   }}
-                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-black text-sm flex items-center justify-between text-emerald-950 bg-emerald-50/70 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-bold text-sm flex items-center justify-between text-[#145344] bg-[#EFF5F2] border border-[#D4E2DA] hover:bg-[#E4EFE9] cursor-pointer transition-colors"
                 >
                   <span className="flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-emerald-700" aria-hidden="true" />
-                    <span>إشعارات المستحبات (كميل والأيام)</span>
+                    <Bell className="w-4 h-4 text-[#145344]" aria-hidden="true" />
+                    <span>إشعارات المستحبات</span>
                   </span>
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-200/60 px-2 py-0.5 rounded-lg">
-                    تنبيهات
-                  </span>
+                  <span className="text-xs font-bold text-[#145344]">تنبيهات</span>
                 </button>
 
                 <button
@@ -454,9 +422,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                     setMobileMenuOpen(false);
                     onOpenSettings();
                   }}
-                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-extrabold text-sm flex items-center gap-2 text-emerald-950 hover:bg-emerald-50 cursor-pointer transition-colors"
+                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-bold text-sm flex items-center gap-2 text-[#1E3B32] hover:bg-[#F4F1EA] cursor-pointer transition-colors"
                 >
-                  <Settings className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+                  <Settings className="w-4 h-4 text-[#145344] shrink-0" aria-hidden="true" />
                   <span>الإعدادات واللمحة العامة</span>
                 </button>
               </div>
@@ -513,11 +481,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           </form>
         </div>
       )}
-
-      <PWAInstallModal
-        isOpen={installModalOpen}
-        onClose={() => setInstallModalOpen(false)}
-      />
 
       <SpiritualNotificationsModal
         isOpen={notificationsOpen}
