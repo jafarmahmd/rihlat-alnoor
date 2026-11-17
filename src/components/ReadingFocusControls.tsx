@@ -9,6 +9,7 @@ import {
   Gamepad2,
   Info,
   Palette,
+  RefreshCw,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -17,6 +18,11 @@ import {
 } from 'lucide-react';
 import { OFFICIAL_LOGO_URL } from './RihlatLogo';
 import { APP_OVERVIEW } from '../data/appOverview';
+import {
+  AppUpdateInfo,
+  checkForAppUpdate,
+  getCurrentAppVersion,
+} from '../utils/appUpdateChecker';
 
 export type ReadingFocusTheme = 'emerald' | 'amber' | 'slate';
 
@@ -406,6 +412,7 @@ interface ReadingSettingsModalProps {
   onChange: (next: ReadingFocusSettings) => void;
   onClose: () => void;
   onOpenWelcome?: () => void;
+  onUpdateFound?: (update: AppUpdateInfo) => void;
 }
 
 function renderOverviewSectionIcon(id: string) {
@@ -432,8 +439,27 @@ export const ReadingSettingsModal: React.FC<ReadingSettingsModalProps> = ({
   onChange,
   onClose,
   onOpenWelcome,
+  onUpdateFound,
 }) => {
   const [activeTab, setActiveTab] = useState<'reading' | 'overview'>('reading');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
+  const currentVersion = getCurrentAppVersion();
+
+  const handleManualUpdateCheck = async () => {
+    if (checkingUpdate) return;
+    setCheckingUpdate(true);
+    setUpdateFeedback(null);
+    const result = await checkForAppUpdate({
+      force: true,
+      respectDismissed: false,
+    });
+    setCheckingUpdate(false);
+    setUpdateFeedback(result.message);
+    if (result.status === 'update-available' && result.update && onUpdateFound) {
+      onUpdateFound(result.update);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -716,6 +742,36 @@ export const ReadingSettingsModal: React.FC<ReadingSettingsModalProps> = ({
                 <p className="font-display font-extrabold text-xs sm:text-sm text-amber-100 leading-relaxed">
                   {APP_OVERVIEW.closingLine}
                 </p>
+              </div>
+
+              {/* App Version & Instant Update Checker */}
+              <div className="rounded-2xl bg-[#F7F5EE] border border-[#DDD4BE] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="font-display font-bold text-sm text-[#143D32]">
+                    إصدار التطبيق الحالي: v{currentVersion}
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    {updateFeedback ||
+                      'يتحقق التطبيق تلقائياً من وجود تحديثات منشورة عند الاتصال بالإنترنت.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleManualUpdateCheck}
+                  disabled={checkingUpdate}
+                  className="min-h-[42px] px-4 py-2 rounded-xl bg-[#145344] hover:bg-[#0F4236] disabled:opacity-60 text-white font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors shrink-0"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 text-[#E5D3A3] ${
+                      checkingUpdate ? 'animate-spin' : ''
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {checkingUpdate ? 'جاري الفحص...' : 'فحص التحديثات الآن'}
+                  </span>
+                </button>
               </div>
             </div>
           )}

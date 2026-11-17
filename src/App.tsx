@@ -18,6 +18,7 @@ import {
   saveReadingFocusSettings,
 } from './components/ReadingFocusControls';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { AppUpdateBanner } from './components/AppUpdateBanner';
 import { SpiritualNotificationToast } from './components/SpiritualNotificationToast';
 import { SpiritualNotificationsModal } from './components/SpiritualNotificationsModal';
 import {
@@ -26,6 +27,12 @@ import {
   subscribeToInAppNotification,
   subscribeToOpenSpiritualEntry,
 } from './utils/notificationManager';
+import {
+  AppUpdateInfo,
+  checkForAppUpdate,
+  dismissUpdateTag,
+  isAndroidNativeApp,
+} from './utils/appUpdateChecker';
 import { loadHijriOffset } from './data/hijriCalendar';
 import { MASOOMEEN_LIBRARY } from './data/library';
 import { STATIONS } from './data/stations';
@@ -231,6 +238,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
   const [activeToast, setActiveToast] = useState<DispatchedNotificationPayload | null>(null);
   const [toastNotificationsOpen, setToastNotificationsOpen] = useState<boolean>(false);
+  const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
 
   useEffect(() => {
     saveReadingFocusSettings(readingFocusSettings);
@@ -279,6 +287,37 @@ export default function App() {
       stopScheduler();
       unsubToast();
       unsubOpen();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAndroidNativeApp()) return;
+
+    let cancelled = false;
+    const runCheck = async (force = false) => {
+      const res = await checkForAppUpdate({ force, respectDismissed: true });
+      if (!cancelled && res.status === 'update-available' && res.update) {
+        setAvailableUpdate(res.update);
+      }
+    };
+
+    void runCheck(true);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void runCheck(false);
+      }
+    };
+    const onOnline = () => {
+      void runCheck(false);
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', onOnline);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onOnline);
     };
   }, []);
 
@@ -469,6 +508,15 @@ export default function App() {
           onOpenSettings={() => {
             setShowWelcome(false);
             setToastNotificationsOpen(true);
+          }}
+        />
+        <AppUpdateBanner
+          update={availableUpdate}
+          onDismiss={() => {
+            if (availableUpdate) {
+              dismissUpdateTag(availableUpdate.tagName);
+            }
+            setAvailableUpdate(null);
           }}
         />
       </>
@@ -679,12 +727,26 @@ export default function App() {
           setShowWelcome(true);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+        onUpdateFound={(upd) => {
+          setSettingsOpen(false);
+          setAvailableUpdate(upd);
+        }}
       />
 
       <SpiritualNotificationToast
         notification={activeToast}
         onDismiss={() => setActiveToast(null)}
         onOpenSettings={() => setToastNotificationsOpen(true)}
+      />
+
+      <AppUpdateBanner
+        update={availableUpdate}
+        onDismiss={() => {
+          if (availableUpdate) {
+            dismissUpdateTag(availableUpdate.tagName);
+          }
+          setAvailableUpdate(null);
+        }}
       />
 
       <SpiritualNotificationsModal
