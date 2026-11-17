@@ -243,7 +243,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
                   مجلد Android جاهز في المشروع! طرق استخراج ملف APK:
                 </h4>
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-                  تم إنشاء مشروع <strong>android/</strong> وتفعيل <strong>الربط المباشر (`server.url`)</strong> مع صلاحيات الإشعارات الدقيقة وإضافة <strong>Local Notifications</strong>، لتصلك التعديلات الجديدة تلقائياً عند فتح التطبيق، وتصلك تنبيهات `12:05 ص` والمناسبات الهجرية <strong>خارج التطبيق وبدون إنترنت</strong>.
+                  تم تجهيز مشروع <strong>android/</strong> بالوضع المدمج المستقل (<code>webDir: 'dist'</code>) مع صلاحيات الإشعارات الدقيقة وإضافة <strong>Local Notifications</strong>، ليعمل التطبيق بسرعة ومباشرة على هاتفك <strong>بدون إنترنت</strong> وتصلك تنبيهات <code>12:05 ص</code> والمناسبات الهجرية خارج التطبيق.
                 </p>
                 <div className="space-y-1.5 text-xs text-slate-700">
                   <div className="font-bold text-emerald-900">١) عبر Android Studio أو سطر الأوامر على جهازك:</div>

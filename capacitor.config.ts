@@ -10,13 +10,6 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'banner', 'list'],
     },
   },
-  server: {
-    url: 'https://ais-pre-akqc23dw6qsgg577uvgzi7-802107894744.europe-west2.run.app',
-    cleartext: false,
-    allowNavigation: [
-      'ais-pre-akqc23dw6qsgg577uvgzi7-802107894744.europe-west2.run.app',
-    ],
-  },
 };
 
 export default config;
