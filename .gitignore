@@ -9,3 +9,6 @@ coverage/
 .env*
 !.env.example
 android/
+dist-apk/
+*.keystore
+*.p12
