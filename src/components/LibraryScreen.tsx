@@ -4,14 +4,12 @@ import {
   ArrowLeft,
   ArrowRight,
   Bookmark,
-  BookOpen,
   Calendar,
   CheckCircle2,
   Lightbulb,
   Moon,
   Quote,
   Search,
-  Sparkles,
   Star,
   Sun,
   ZoomIn,
@@ -19,6 +17,15 @@ import {
 } from 'lucide-react';
 import { MASOOMEEN_LIBRARY } from '../data/library';
 import { StationIllustration } from './StationIllustration';
+import {
+  ManuscriptCornerBracket,
+  ManuscriptDivider,
+  StoriesLanternIcon,
+} from './IslamicOrnaments';
+import {
+  isGlobalNightTheme,
+  subscribeAppAppearance,
+} from '../utils/appAppearance';
 
 interface LibraryScreenProps {
   completedReadingIds: string[];
@@ -33,10 +40,15 @@ interface LibraryScreenProps {
 const LIBRARY_LAST_KEY = 'rihlat_alnoor_stories_last_v1';
 
 const FONT_SIZE_STEPS = [
-  'text-base sm:text-lg leading-relaxed',
-  'text-lg sm:text-xl leading-loose',
+  'text-base sm:text-lg leading-[1.95]',
+  'text-lg sm:text-xl leading-[2.05]',
   'text-xl sm:text-2xl leading-[2.15]',
 ];
+
+const ARABIC_INDIC = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+function toArabicDigits(n: number): string {
+  return String(n).replace(/\d/g, (d) => ARABIC_INDIC[Number(d)] ?? d);
+}
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   completedReadingIds,
@@ -84,7 +96,10 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [fontStep, setFontStep] = useState<number>(1);
-  const [nightMode, setNightMode] = useState<boolean>(false);
+  const [nightMode, setNightMode] = useState<boolean>(isGlobalNightTheme);
+  useEffect(() => {
+    return subscribeAppAppearance((s) => setNightMode(s.colorTheme === 'night'));
+  }, []);
   const [justAwardedId, setJustAwardedId] = useState<string | null>(null);
 
   const activeMasoom =
@@ -158,45 +173,44 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   };
 
   return (
-    <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-10">
-      {/* Header & Reader Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 mb-5 sm:mb-6">
+    <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+      {/* Masthead & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 pb-4 mb-5 border-b border-[#B8924A]/35">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onBackHome}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-sm flex items-center gap-2 shadow-xs cursor-pointer transition-colors whitespace-nowrap"
+            className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
           >
-            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
             <span>الرئيسية</span>
           </button>
 
           <div>
-            <h1 className="font-display font-black text-2xl sm:text-3xl text-emerald-900 flex items-center gap-2">
-              <BookOpen className="w-7 h-7 text-emerald-600 shrink-0" aria-hidden="true" />
+            <h1 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E] flex items-center gap-2">
+              <StoriesLanternIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
               <span>مكتبة قصص أهل البيت (عليهم السلام)</span>
             </h1>
-            <p className="text-sm font-bold text-slate-600 mt-0.5 tabular-nums">
-              ٢١ قصة حقيقية طويلة لكل معصوم ({totalStories} قصة) · أتممت {completedStoriesCount} من {totalStories}
+            <p className="text-xs sm:text-sm font-medium text-[#425B51] mt-0.5 tabular-nums">
+              {toArabicDigits(totalStories)} قصة واقعية مصوّرة · أتممت {toArabicDigits(completedStoriesCount)} من {toArabicDigits(totalStories)}
             </p>
           </div>
         </div>
 
-        {/* Font Controls & Night Reading Mode */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center bg-white border border-emerald-200 rounded-xl p-1 shadow-xs">
+          <div className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[6px] p-0.5">
             <button
               type="button"
               onClick={() => setFontStep((s) => Math.max(0, s - 1))}
               disabled={fontStep === 0}
               aria-label="تصغير الخط"
-              className="min-h-[40px] min-w-[40px] px-2.5 rounded-lg hover:bg-emerald-50 disabled:opacity-40 text-emerald-900 font-bold flex items-center justify-center gap-1 cursor-pointer"
+              className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
             >
-              <ZoomOut className="w-4 h-4" aria-hidden="true" />
+              <ZoomOut className="w-3.5 h-3.5" aria-hidden="true" />
               <span className="text-xs">أ-</span>
             </button>
-            <span className="px-2 text-xs font-bold text-slate-500 border-x border-emerald-100">
-              حجم الخط
+            <span className="px-2.5 text-xs font-bold text-[#425B51] border-x border-[#B8924A]/30">
+              الخط
             </span>
             <button
               type="button"
@@ -205,9 +219,9 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               }
               disabled={fontStep === FONT_SIZE_STEPS.length - 1}
               aria-label="تكبير الخط"
-              className="min-h-[40px] min-w-[40px] px-2.5 rounded-lg hover:bg-emerald-50 disabled:opacity-40 text-emerald-900 font-bold flex items-center justify-center gap-1 cursor-pointer"
+              className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
             >
-              <ZoomIn className="w-4 h-4" aria-hidden="true" />
+              <ZoomIn className="w-3.5 h-3.5" aria-hidden="true" />
               <span className="text-xs">أ+</span>
             </button>
           </div>
@@ -215,30 +229,30 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
           <button
             type="button"
             onClick={() => setNightMode((prev) => !prev)}
-            className={`min-h-[44px] px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border shadow-xs cursor-pointer transition-colors whitespace-nowrap ${
+            className={`min-h-[42px] px-3.5 py-2 rounded-[6px] border font-display font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
               nightMode
-                ? 'bg-slate-900 text-amber-300 border-amber-400/60 hover:bg-slate-800'
-                : 'bg-white text-slate-800 border-emerald-200 hover:bg-sky-50'
+                ? 'bg-[#081A14] text-[#D9B96A] border-[#D9B96A]/60 hover:bg-[#0E2920]'
+                : 'btn-manuscript'
             }`}
           >
             {nightMode ? (
               <>
-                <Sun className="w-4 h-4 text-amber-300" aria-hidden="true" />
+                <Sun className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
                 <span>الوضع النهاري</span>
               </>
             ) : (
               <>
-                <Moon className="w-4 h-4 text-sky-600" aria-hidden="true" />
-                <span>الوضع الليلي المريح</span>
+                <Moon className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+                <span>المخطوط الليلي</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
-        {/* 14 Ma'soomeen Selector (Horizontal Swipeable on Mobile, Sidebar on Desktop) */}
-        <div className="lg:col-span-4 flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto pb-2 lg:pb-0 lg:max-h-[840px] lg:pl-1">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
+        {/* 14 Ma'soomeen Index Ledger */}
+        <div className="lg:col-span-4 flex lg:flex-col gap-2 lg:gap-0 lg:manuscript-folio lg:paper-grain lg:rounded-[6px] lg:divide-y lg:divide-[#B8924A]/20 overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto pb-2 lg:pb-0 lg:max-h-[820px]">
           {MASOOMEEN_LIBRARY.map((masoom) => {
             const selected = masoom.id === activeMasoom.id;
             const masoomDoneCount = masoom.stories.filter((s) =>
@@ -250,102 +264,96 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                 key={masoom.id}
                 type="button"
                 onClick={() => handleSelectMasoom(masoom.id)}
-                className={`min-w-[215px] sm:min-w-[235px] lg:min-w-0 lg:w-full shrink-0 text-right p-3 sm:p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-2.5 sm:gap-3 ${
+                className={`min-w-[215px] lg:min-w-0 lg:w-full shrink-0 text-right px-3.5 py-3 transition-colors cursor-pointer flex items-center justify-between gap-2.5 border lg:border-0 lg:border-r-[3px] rounded-[5px] lg:rounded-none ${
                   selected
-                    ? 'bg-gradient-to-l from-emerald-50 to-amber-50/70 border-emerald-500 shadow-md'
-                    : 'bg-white/90 border-emerald-100 hover:border-emerald-300 hover:bg-white'
+                    ? 'bg-[#F3ECDA] border-[#B8924A] lg:border-r-[#B8924A] text-[#0F3D2E]'
+                    : 'bg-[#FAF6EC] border-[#B8924A]/35 lg:border-r-transparent hover:bg-[#F3ECDA]/55 text-[#11271F]'
                 }`}
               >
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  <span
-                    className={`w-9 h-9 rounded-xl font-display font-black text-sm flex items-center justify-center shrink-0 tabular-nums ${
-                      selected
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-amber-100 text-amber-900'
-                    }`}
-                  >
-                    {masoom.orderNumber}
+                <div className="flex items-baseline gap-2.5 min-w-0">
+                  <span className="font-arabic font-bold text-base text-[#9C7835] shrink-0 tabular-nums">
+                    {toArabicDigits(masoom.orderNumber)}.
                   </span>
                   <div className="min-w-0">
-                    <h2 className="font-display font-extrabold text-sm sm:text-base text-slate-900 truncate">
+                    <h2 className="font-display font-bold text-sm sm:text-base truncate">
                       {masoom.name}
                     </h2>
-                    <p className="text-xs text-slate-600 truncate mt-0.5">
+                    <p className="text-xs text-[#425B51] truncate mt-0.5">
                       {masoom.title}
                     </p>
                   </div>
                 </div>
 
                 <span
-                  className={`text-xs font-extrabold shrink-0 tabular-nums ${
+                  className={`text-xs font-bold shrink-0 tabular-nums ${
                     masoomDoneCount === masoom.stories.length
-                      ? 'text-emerald-700'
-                      : 'text-amber-700'
+                      ? 'text-[#1F6B50]'
+                      : 'text-[#7A5420]'
                   }`}
                 >
-                  {masoomDoneCount}/{masoom.stories.length}
+                  {toArabicDigits(masoomDoneCount)}/{toArabicDigits(masoom.stories.length)}
                 </span>
               </button>
             );
           })}
         </div>
 
-        {/* Profile Card + 21-Story Explorer + Long Illustrated Story Reader */}
-        <div className="lg:col-span-8 space-y-5 sm:space-y-6">
-          {/* Ma'soom Identity Card */}
+        {/* Profile Banner + Story Directory + Illustrated Story Reader */}
+        <div className="lg:col-span-8 space-y-5">
+          {/* Deep Emerald Ma'soom Identity Placard */}
           <motion.section
             key={activeMasoom.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-            className="rounded-3xl bg-gradient-to-l from-emerald-900 via-emerald-800 to-teal-800 text-white p-4 sm:p-7 border-2 border-amber-300/70 shadow-xl"
+            transition={{ duration: 0.22 }}
+            className="relative rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] p-5 sm:p-7 border border-[#B8924A] shadow-lg"
           >
-            <div>
-              <p className="text-xs sm:text-sm font-bold text-amber-200 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <ManuscriptCornerBracket position="top-right" color="#D9B96A" className="absolute top-2.5 right-2.5" />
+            <ManuscriptCornerBracket position="top-left" color="#D9B96A" className="absolute top-2.5 left-2.5" />
+
+            <div className="pt-1">
+              <p className="text-xs font-bold text-[#D9B96A] flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>الولادة: {activeMasoom.birthInfo}</span>
               </p>
-              <h2 className="font-display font-black text-2xl sm:text-3xl mt-1">
+              <h2 className="font-calligraphy font-bold text-2xl sm:text-4xl mt-1 text-[#FAF6EC]">
                 {activeMasoom.name}
               </h2>
-              <p className="font-display font-bold text-amber-300 text-base sm:text-lg mt-0.5">
+              <p className="font-display font-bold text-[#D9B96A] text-sm sm:text-base mt-0.5">
                 اللقب الأشهر: {activeMasoom.title}
               </p>
             </div>
 
-            <p className="mt-4 text-emerald-50 text-sm sm:text-base leading-relaxed">
+            <p className="mt-3.5 text-[#FAF6EC]/90 text-sm sm:text-base leading-relaxed">
               {activeMasoom.summary}
             </p>
 
-            {/* Unboxed Key Values Strip */}
-            <div className="mt-4 pt-3 border-t border-white/15 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm font-bold text-amber-200">
-              <span className="text-white/90">أبرز القيم:</span>
+            <div className="mt-4 pt-3 border-t border-[#D9B96A]/25 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm font-medium text-[#D9B96A]">
+              <span className="text-[#FAF6EC]">أبرز القيم:</span>
               {activeMasoom.keyValues.map((val, i) => (
                 <React.Fragment key={val}>
                   <span>{val}</span>
                   {i < activeMasoom.keyValues.length - 1 && (
-                    <span className="text-white/40" aria-hidden="true">
-                      ·
-                    </span>
+                    <span className="text-[#B8924A]/60" aria-hidden="true">·</span>
                   )}
                 </React.Fragment>
               ))}
             </div>
           </motion.section>
 
-          {/* Searchable Shelf of the 21+ Stories */}
+          {/* Searchable Story Ledger */}
           <section
             aria-label="فهرس القصص"
-            className="rounded-3xl bg-white/95 border-2 border-emerald-200 p-4 sm:p-5 shadow-md"
+            className="manuscript-folio paper-grain rounded-[6px] p-4 sm:p-5"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5">
-              <h3 className="font-display font-black text-lg text-emerald-950 tabular-nums">
-                فهرس القصص الواقعية ({activeMasoom.stories.length} قصة)
+              <h3 className="font-display font-bold text-base sm:text-lg text-[#0F3D2E] tabular-nums">
+                فهرس القصص الواقعية ({toArabicDigits(activeMasoom.stories.length)} قصة)
               </h3>
 
               <div className="relative w-full sm:w-64">
                 <Search
-                  className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  className="w-4 h-4 text-[#1F6B50] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
                   aria-hidden="true"
                 />
                 <input
@@ -354,14 +362,14 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="ابحث بالعنوان أو القيمة..."
                   aria-label="ابحث في قصص المعصوم"
-                  className="w-full min-h-[40px] pr-9 pl-3 py-1.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="w-full min-h-[38px] pr-9 pl-3 py-1 rounded-[5px] bg-[#F3ECDA]/65 focus:bg-[#FAF6EC] border border-[#B8924A]/45 focus:border-[#0F3D2E] text-sm text-[#11271F] placeholder:text-[#425B51]/70 focus:outline-none"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pl-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pl-1">
               {filteredStories.length === 0 ? (
-                <p className="col-span-full text-center py-6 text-sm font-bold text-slate-500">
+                <p className="col-span-full text-center py-6 text-sm font-bold text-[#425B51]">
                   لا توجد قصة مطابقة لكلمة البحث «{searchQuery}»
                 </p>
               ) : (
@@ -373,27 +381,29 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                       key={story.id}
                       type="button"
                       onClick={() => handleSelectStory(idx)}
-                      className={`text-right p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-start justify-between gap-2.5 ${
+                      className={`text-right px-3 py-2.5 rounded-[5px] border transition-colors cursor-pointer flex items-start justify-between gap-2 ${
                         selected
-                          ? 'bg-gradient-to-l from-amber-50 to-emerald-50 border-amber-400 shadow-sm'
-                          : 'bg-slate-50/70 hover:bg-white border-emerald-100 hover:border-emerald-300'
+                          ? 'bg-[#0F3D2E] border-[#B8924A] text-[#FAF6EC]'
+                          : 'bg-[#F3ECDA]/45 hover:bg-[#F3ECDA] border-[#B8924A]/35 text-[#11271F]'
                       }`}
                     >
-                      <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="flex items-baseline gap-2 min-w-0">
                         <span
-                          className={`w-7 h-7 rounded-lg font-display font-black text-xs flex items-center justify-center shrink-0 mt-0.5 tabular-nums ${
-                            selected
-                              ? 'bg-amber-500 text-amber-950'
-                              : 'bg-emerald-100 text-emerald-800'
+                          className={`font-arabic font-bold text-sm shrink-0 tabular-nums ${
+                            selected ? 'text-[#D9B96A]' : 'text-[#9C7835]'
                           }`}
                         >
-                          {idx + 1}
+                          {toArabicDigits(idx + 1)}.
                         </span>
                         <div className="min-w-0">
-                          <p className="font-display font-extrabold text-sm text-slate-900 line-clamp-1">
+                          <p className="font-display font-bold text-sm line-clamp-1">
                             {story.title}
                           </p>
-                          <p className="text-xs font-bold text-emerald-700 mt-0.5">
+                          <p
+                            className={`text-xs mt-0.5 ${
+                              selected ? 'text-[#D9B96A]/90' : 'text-[#425B51]'
+                            }`}
+                          >
                             {story.valueTag}
                           </p>
                         </div>
@@ -401,11 +411,17 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
 
                       {done ? (
                         <CheckCircle2
-                          className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5"
+                          className={`w-4 h-4 shrink-0 mt-0.5 ${
+                            selected ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
+                          }`}
                           aria-label="مقروءة"
                         />
                       ) : (
-                        <span className="text-[11px] font-extrabold text-amber-700 shrink-0 mt-0.5 tabular-nums">
+                        <span
+                          className={`text-[11px] font-bold shrink-0 mt-0.5 tabular-nums ${
+                            selected ? 'text-[#D9B96A]' : 'text-[#7A5420]'
+                          }`}
+                        >
                           +5 ★
                         </span>
                       )}
@@ -416,37 +432,33 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
             </div>
           </section>
 
-          {/* Illustrated Long Story Card (Strictly Luminous No-Face Artwork) */}
+          {/* Illustrated Manuscript Story Folio */}
           <motion.article
             key={activeStory.id}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-            className={`rounded-3xl border-2 shadow-xl overflow-hidden transition-colors duration-300 ${
-              nightMode
-                ? 'bg-slate-900 border-amber-500/40 text-amber-50 shadow-slate-950/50'
-                : 'bg-white/95 border-emerald-200 text-slate-900 shadow-emerald-950/5'
+            transition={{ duration: 0.22 }}
+            className={`rounded-[6px] overflow-hidden transition-colors duration-300 ${
+              nightMode ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
             }`}
           >
-            {/* Luminous Illustration Above Story */}
             <StationIllustration
               stationId={activeStory.sceneStationId}
               stageId={1}
               title={activeStory.title}
             />
 
-            <div className="p-4 sm:p-8">
-              {/* Top Story Step Navigation */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-current/10">
+            <div className="p-5 sm:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-[#B8924A]/35">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     disabled={selectedStoryIdx === 0}
                     onClick={() => handleSelectStory(selectedStoryIdx - 1)}
-                    className={`min-h-[40px] px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1 border cursor-pointer disabled:opacity-40 transition-colors ${
+                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border font-display font-bold text-xs sm:text-sm flex items-center gap-1 cursor-pointer disabled:opacity-40 transition-colors ${
                       nightMode
-                        ? 'bg-slate-800 border-slate-700 text-amber-200 hover:bg-slate-700'
-                        : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+                        ? 'bg-[#081A14] border-[#B8924A]/45 text-[#D9B96A] hover:bg-[#143B2E]'
+                        : 'btn-manuscript'
                     }`}
                   >
                     <ArrowRight className="w-4 h-4" aria-hidden="true" />
@@ -454,21 +466,21 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                   </button>
 
                   <span
-                    className={`text-xs sm:text-sm font-extrabold px-2 tabular-nums ${
-                      nightMode ? 'text-sky-300' : 'text-sky-700'
+                    className={`text-xs sm:text-sm font-bold px-2 tabular-nums ${
+                      nightMode ? 'text-[#C8B88A]' : 'text-[#425B51]'
                     }`}
                   >
-                    القصة {selectedStoryIdx + 1} من {activeMasoom.stories.length}
+                    القصة {toArabicDigits(selectedStoryIdx + 1)} من {toArabicDigits(activeMasoom.stories.length)}
                   </span>
 
                   <button
                     type="button"
                     disabled={selectedStoryIdx >= activeMasoom.stories.length - 1}
                     onClick={() => handleSelectStory(selectedStoryIdx + 1)}
-                    className={`min-h-[40px] px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1 border cursor-pointer disabled:opacity-40 transition-colors ${
+                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border font-display font-bold text-xs sm:text-sm flex items-center gap-1 cursor-pointer disabled:opacity-40 transition-colors ${
                       nightMode
-                        ? 'bg-slate-800 border-slate-700 text-amber-200 hover:bg-slate-700'
-                        : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+                        ? 'bg-[#081A14] border-[#B8924A]/45 text-[#D9B96A] hover:bg-[#143B2E]'
+                        : 'btn-manuscript'
                     }`}
                   >
                     <span>التالية</span>
@@ -482,18 +494,18 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                       type="button"
                       onClick={() => onToggleBookmark(activeStory.id)}
                       aria-label={isStoryBookmarked ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
-                      className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
                         isStoryBookmarked
                           ? nightMode
-                            ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                            : 'bg-amber-50 border-amber-400 text-amber-800'
+                            ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
+                            : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
                           : nightMode
-                            ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-amber-300'
-                            : 'bg-white border-emerald-200 text-slate-700 hover:bg-amber-50'
+                            ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80'
+                            : 'btn-manuscript'
                       }`}
                     >
                       <Bookmark
-                        className={`w-4 h-4 ${isStoryBookmarked ? 'fill-current' : ''}`}
+                        className={`w-3.5 h-3.5 ${isStoryBookmarked ? 'fill-current' : ''}`}
                         aria-hidden="true"
                       />
                       <span>{isStoryBookmarked ? 'في المفضلة' : 'حفظ'}</span>
@@ -502,10 +514,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
 
                   {isStoryCompleted && (
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-sm ${
-                        nightMode
-                          ? 'bg-emerald-900/70 text-emerald-300 border border-emerald-700'
-                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      className={`inline-flex items-center gap-1 text-xs font-bold ${
+                        nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
                       }`}
                     >
                       <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
@@ -515,134 +525,140 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                 </div>
               </div>
 
-              {/* Story Title */}
-              <div className="mt-5">
+              <div className="max-w-prose mx-auto mt-5">
                 <span
-                  className={`text-xs sm:text-sm font-extrabold ${
-                    nightMode ? 'text-amber-300' : 'text-amber-700'
+                  className={`text-xs sm:text-sm font-bold ${
+                    nightMode ? 'text-[#D9B96A]' : 'text-[#7A5420]'
                   }`}
                 >
                   قيمة القصة: {activeStory.valueTag}
                 </span>
                 <h3
-                  className={`font-display font-black text-2xl sm:text-3xl mt-1 ${
-                    nightMode ? 'text-amber-200' : 'text-emerald-950'
+                  className={`font-calligraphy font-bold text-2xl sm:text-3xl mt-1 ${
+                    nightMode ? 'text-[#FAF6EC]' : 'text-[#0F3D2E]'
                   }`}
                 >
                   {activeStory.title}
                 </h3>
-              </div>
 
-              {/* Overview Card (نبذة عن القصة) */}
-              <div
-                className={`mt-5 rounded-2xl p-4 border ${
-                  nightMode
-                    ? 'bg-slate-800/85 border-slate-700 text-sky-200'
-                    : 'bg-sky-50/90 border-sky-200 text-sky-950'
-                }`}
-              >
-                <p className="font-display font-extrabold text-sm sm:text-base flex items-center gap-2 mb-1">
-                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
-                  <span>نبذة عن القصة:</span>
-                </p>
-                <p className="text-sm sm:text-base leading-relaxed">
-                  {activeStory.overview}
-                </p>
-              </div>
-
-              {/* Full Multi-paragraph Realistic Story */}
-              <div className="mt-6 space-y-4">
-                {activeStory.paragraphs.map((p, idx) => (
-                  <p
-                    key={idx}
-                    className={`${FONT_SIZE_STEPS[fontStep]} ${
-                      nightMode ? 'text-amber-50/95' : 'text-slate-800'
-                    }`}
-                  >
-                    {p}
-                  </p>
-                ))}
-              </div>
-
-              {/* Dedicated Wisdom & Educational Lesson Box (حكمة من القصة + العبرة) */}
-              <div
-                className={`mt-7 rounded-2xl p-5 border-2 space-y-3 ${
-                  nightMode
-                    ? 'bg-slate-800/90 border-amber-500/40 text-amber-100'
-                    : 'bg-amber-50/90 border-amber-200 text-amber-950'
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <Quote
-                    className="w-5 h-5 text-amber-500 shrink-0 mt-1"
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="font-display font-black text-base sm:text-lg">
-                      حكمة من القصة:
-                    </p>
-                    <p className="font-display font-bold text-base sm:text-lg leading-relaxed mt-0.5">
-                      «{activeStory.wisdom}»
-                    </p>
-                  </div>
-                </div>
-
+                {/* Overview Note */}
                 <div
-                  className={`pt-3 border-t flex items-start gap-2.5 text-sm sm:text-base font-bold ${
+                  className={`mt-5 rounded-[5px] p-4 border-r-[3px] border border-[#B8924A]/35 ${
                     nightMode
-                      ? 'border-slate-700 text-emerald-300'
-                      : 'border-amber-200/80 text-emerald-900'
+                      ? 'bg-[#081A14]/75 border-r-[#D9B96A] text-[#F3EBD6]'
+                      : 'bg-[#F3ECDA]/65 border-r-[#B8924A] text-[#11271F]'
                   }`}
                 >
-                  <Lightbulb
-                    className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5"
-                    aria-hidden="true"
-                  />
-                  <span>العبرة التطبيقية: {activeStory.lesson}</span>
-                </div>
-              </div>
-
-              {justAwardedId === activeStory.id && (
-                <div className="mt-5 rounded-2xl bg-emerald-600 text-white p-4 font-display font-extrabold text-base sm:text-lg flex items-center justify-center gap-2 shadow-md">
-                  <Star className="w-5 h-5 fill-amber-300 text-amber-300" aria-hidden="true" />
-                  <span>ممتاز! أُضيفت +5 نجوم نور إلى رصيدك!</span>
-                </div>
-              )}
-
-              {/* Completion CTA + Next Story Shortcut */}
-              <div className="mt-6 pt-5 border-t border-current/10 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-                {isStoryCompleted ? (
-                  <div
-                    className={`flex items-center gap-2 font-bold text-sm sm:text-base ${
-                      nightMode ? 'text-emerald-300' : 'text-emerald-700'
+                  <p
+                    className={`font-display font-bold text-xs mb-1 ${
+                      nightMode ? 'text-[#D9B96A]' : 'text-[#7A5420]'
                     }`}
                   >
-                    <CheckCircle2 className="w-5 h-5 shrink-0" aria-hidden="true" />
-                    <span>أتممت قراءة هذه القصة وحصلت على +5 نجوم نور</span>
+                    نبذة عن القصة
+                  </p>
+                  <p className="text-sm sm:text-base leading-relaxed">
+                    {activeStory.overview}
+                  </p>
+                </div>
+
+                <ManuscriptDivider variant="flourish" dark={nightMode} />
+
+                {/* Multi-paragraph Story Prose */}
+                <div className="mt-4 space-y-4">
+                  {activeStory.paragraphs.map((p, idx) => (
+                    <p
+                      key={idx}
+                      className={`${FONT_SIZE_STEPS[fontStep]} ${
+                        nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'
+                      }`}
+                    >
+                      {p}
+                    </p>
+                  ))}
+                </div>
+
+                {/* Wisdom & Practical Lesson Colophon */}
+                <div
+                  className={`mt-7 rounded-[5px] p-5 border space-y-3 ${
+                    nightMode
+                      ? 'bg-[#081A14]/85 border-[#D9B96A]/45 text-[#F3EBD6]'
+                      : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#11271F]'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <Quote
+                      className={`w-5 h-5 shrink-0 mt-1 ${
+                        nightMode ? 'text-[#D9B96A]' : 'text-[#B8924A]'
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <p className="font-display font-bold text-sm text-[#7A5420]">
+                        <span className={nightMode ? 'text-[#D9B96A]' : ''}>
+                          حكمة من القصة:
+                        </span>
+                      </p>
+                      <p
+                        className={`font-arabic font-bold text-lg sm:text-xl leading-relaxed mt-0.5 ${
+                          nightMode ? 'text-[#FAF6EC]' : 'text-[#0F3D2E]'
+                        }`}
+                      >
+                        «{activeStory.wisdom}»
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleFinishStory}
-                    className="w-full sm:w-auto min-h-[54px] px-6 sm:px-7 py-3 rounded-2xl bg-gradient-to-l from-amber-500 to-amber-400 hover:from-amber-600 hover:to-amber-500 text-amber-950 font-display font-black text-base sm:text-lg shadow-lg flex items-center justify-center gap-2.5 cursor-pointer transition-colors"
+
+                  <div
+                    className={`pt-3 border-t flex items-start gap-2 text-sm sm:text-base font-medium ${
+                      nightMode
+                        ? 'border-[#D9B96A]/25 text-[#9ED3BA]'
+                        : 'border-[#B8924A]/30 text-[#1F6B50]'
+                    }`}
                   >
-                    <Star className="w-5 h-5 fill-white text-white shrink-0" aria-hidden="true" />
-                    <span>أتممت قراءة القصة (+5 نجوم نور)</span>
-                  </motion.button>
+                    <Lightbulb className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>العبرة التطبيقية: {activeStory.lesson}</span>
+                  </div>
+                </div>
+
+                {justAwardedId === activeStory.id && (
+                  <div className="mt-5 rounded-[5px] bg-[#0F3D2E] border border-[#D9B96A] text-[#FAF6EC] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
+                    <Star className="w-5 h-5 fill-[#D9B96A] text-[#D9B96A]" aria-hidden="true" />
+                    <span>ممتاز! أُضيفت +٥ نجوم نور إلى رصيدك!</span>
+                  </div>
                 )}
 
-                {selectedStoryIdx < activeMasoom.stories.length - 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleSelectStory(selectedStoryIdx + 1)}
-                    className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-base flex items-center justify-center gap-2 cursor-pointer transition-colors"
-                  >
-                    <span>اقرأ القصة التالية</span>
-                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                  </button>
-                )}
+                <div className="mt-7 pt-5 border-t border-[#B8924A]/35 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-3">
+                  {isStoryCompleted ? (
+                    <div
+                      className={`flex items-center gap-2 font-display font-bold text-sm ${
+                        nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-5 h-5 shrink-0" aria-hidden="true" />
+                      <span>أتممت قراءة هذه القصة (+٥ نجوم نور)</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleFinishStory}
+                      className="w-full sm:w-auto min-h-[48px] px-6 py-2.5 btn-gilded text-base flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Star className="w-4 h-4 fill-current shrink-0" aria-hidden="true" />
+                      <span>أتممت قراءة القصة (+٥ نجوم)</span>
+                    </button>
+                  )}
+
+                  {selectedStoryIdx < activeMasoom.stories.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectStory(selectedStoryIdx + 1)}
+                      className="w-full sm:w-auto min-h-[44px] px-5 py-2 btn-emerald text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>اقرأ القصة التالية</span>
+                      <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </motion.article>

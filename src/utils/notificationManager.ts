@@ -15,6 +15,24 @@ import {
   getTodayHijriDate,
   loadHijriOffset,
 } from '../data/hijriCalendar';
+import {
+  computeLocalAdhanPrayerTimes,
+  formatHHMMArabic12h,
+  loadPrayerLocationPreference,
+  toArabicNums,
+} from './prayerTimes';
+import {
+  PRAYER_ALERT_KEYS,
+  PRAYER_LABELS_AR,
+  clampSalatAlLaylTime,
+  loadAdhanSettings,
+} from '../data/adhanSettings';
+import { syncAdhanAndPrayerAlarms } from './adhanScheduler';
+import {
+  AdhanSchedulerPlugin,
+  isCustomAdhanPluginAvailable,
+} from '../plugins/adhanNativePlugin';
+import { syncNativeAdhanStateFromPlugin } from './adhanAudioPlayer';
 import { DigitalLibrarySection, HijriOccasion } from '../types/game';
 import { playCorrectSound } from './sound';
 
@@ -29,13 +47,23 @@ export interface DispatchedNotificationPayload {
 
 const LOG_STORAGE_KEY = 'rihlat_alnoor_notification_history_v1';
 const AUTO_PROMPTED_KEY = 'rihlat_alnoor_notif_auto_prompted_v1';
+const PRAYER_NOTIFIED_KEY = 'rihlat_alnoor_prayer_notified_v1';
 const IN_APP_EVENT = 'rihlat:spiritual-notification';
 const OPEN_ENTRY_EVENT = 'rihlat:open-spiritual-entry';
 const NATIVE_CHANNEL_ID = 'spiritual_daily_reminders';
 const WEEKLY_BASE_ID = 1000;
 const HIJRI_BASE_ID = 2000;
 const DAILY_BASE_ID = 3000;
+const PRAYER_BASE_ID = 4000;
 const TEST_NATIVE_ID = 9901;
+
+const PRAYER_NAMES_AR: Record<'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha', string> = {
+  fajr: 'صلاة الفجر',
+  dhuhr: 'صلاة الظهر',
+  asr: 'صلاة العصر',
+  maghrib: 'صلاة المغرب',
+  isha: 'صلاة العشاء',
+};
 
 export function isNativeMobile(): boolean {
   try {
@@ -76,11 +104,12 @@ async function ensureNativeChannel(): Promise<void> {
   if (!isNativeMobile()) return;
   try {
     if (Capacitor.getPlatform() === 'android') {
+      const adhanSettings = loadAdhanSettings();
       await LocalNotifications.createChannel({
         id: NATIVE_CHANNEL_ID,
         name: 'مستحبات الأيام والأدعية',
         description: 'تنبيهات يومية بعد منتصف الليل لمستحبات الأسبوع ودعاء كميل والندبة والمناسبات الهجرية',
-        importance: 4,
+        importance: adhanSettings.allowNotificationsDuringAdhan ? 5 : 4,
         visibility: 1,
         vibration: true,
         lights: true,
@@ -100,7 +129,8 @@ export async function getPendingNativeNotificationCount(): Promise<number> {
       (n) =>
         (n.id >= WEEKLY_BASE_ID && n.id <= WEEKLY_BASE_ID + 6) ||
         (n.id >= HIJRI_BASE_ID && n.id <= HIJRI_BASE_ID + 35) ||
-        (n.id >= DAILY_BASE_ID && n.id <= DAILY_BASE_ID + 35)
+        (n.id >= DAILY_BASE_ID && n.id <= DAILY_BASE_ID + 35) ||
+        (n.id >= PRAYER_BASE_ID && n.id <= PRAYER_BASE_ID + 30)
     ).length;
   } catch {
     return 0;
@@ -115,6 +145,8 @@ export async function getPendingNativeNotificationCount(): Promise<number> {
 export async function syncNativeDailyNotifications(): Promise<number> {
   if (!isNativeMobile()) return 0;
 
+  let dailyScheduled = 0;
+
   try {
     const settings = loadNotificationSettings();
     const pending = await LocalNotifications.getPending();
@@ -124,7 +156,8 @@ export async function syncNativeDailyNotifications(): Promise<number> {
         (id) =>
           (id >= WEEKLY_BASE_ID && id <= WEEKLY_BASE_ID + 6) ||
           (id >= HIJRI_BASE_ID && id <= HIJRI_BASE_ID + 35) ||
-          (id >= DAILY_BASE_ID && id <= DAILY_BASE_ID + 35)
+          (id >= DAILY_BASE_ID && id <= DAILY_BASE_ID + 35) ||
+          (id >= PRAYER_BASE_ID && id <= PRAYER_BASE_ID + 30)
       );
 
     if (existingIds.length > 0) {
@@ -133,99 +166,98 @@ export async function syncNativeDailyNotifications(): Promise<number> {
       });
     }
 
-    if (!settings.enabled) {
-      return 0;
+    if (settings.enabled) {
+      const perm = await LocalNotifications.checkPermissions();
+      if (perm.display === 'granted') {
+        await ensureNativeChannel();
+
+        const [rawH, rawM] = settings.reminderTime.split(':').map(Number);
+        const targetH = Number.isFinite(rawH) ? rawH : 0;
+        const targetM = Number.isFinite(rawM) ? rawM : 5;
+        const isAndroid = Capacitor.getPlatform() === 'android';
+        const hijriOffset = loadHijriOffset();
+        const now = new Date();
+        const nowMs = now.getTime();
+
+        const toSchedule: LocalNotificationSchema[] = [];
+
+        for (let offsetDays = 0; offsetDays <= 30; offsetDays++) {
+          const targetDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + offsetDays,
+            targetH,
+            targetM,
+            0,
+            0
+          );
+
+          if (targetDate.getTime() <= nowMs + 15000) continue;
+
+          const dayIdx = targetDate.getDay();
+          if (!settings.enabledDays[dayIdx]) continue;
+
+          const dayGuidance =
+            WEEKLY_SPIRITUAL_GUIDANCE[dayIdx] || WEEKLY_SPIRITUAL_GUIDANCE[4];
+          const hijriInfo = getTodayHijriDate(targetDate, hijriOffset);
+          const occasions = settings.includeHijriOccasions
+            ? getOccasionsForHijriDay(hijriInfo.month, hijriInfo.day)
+            : [];
+          const occ = occasions.length > 0 ? occasions[0] : null;
+
+          const actsSummary = dayGuidance.recommendedActs.slice(0, 2).join(' • ');
+          const title = occ
+            ? `🌟 ${dayGuidance.dayNameAr}: ${occ.title}`
+            : `🌙 ${dayGuidance.title}`;
+          const body = occ
+            ? `📅 ${hijriInfo.formattedArabic}\n🤲 ${occ.shortDua}\n✨ ${actsSummary}`
+            : `📅 ${hijriInfo.formattedArabic}\n✨ ${actsSummary}\n📖 ${dayGuidance.primaryDuaTitle}`;
+          const largeBody = occ
+            ? `📅 ${hijriInfo.formattedArabic}\n${occ.shortStory}\n\n🤲 الدعاء: ${occ.shortDua}\n\n${dayGuidance.recommendedActs
+                .map((a) => `✦ ${a}`)
+                .join('\n')}`
+            : `${dayGuidance.shortSummary}\n\n${dayGuidance.recommendedActs
+                .map((a) => `✦ ${a}`)
+                .join('\n')}\n\n📖 ${dayGuidance.primaryDuaTitle}`;
+
+          toSchedule.push({
+            id: DAILY_BASE_ID + offsetDays,
+            title,
+            body,
+            largeBody,
+            summaryText: occ ? hijriInfo.monthName : dayGuidance.badge,
+            channelId: isAndroid ? NATIVE_CHANNEL_ID : undefined,
+            autoCancel: true,
+            foreground: true,
+            isExactNotification: false,
+            schedule: {
+              at: targetDate,
+              allowWhileIdle: true,
+            },
+            extra: {
+              dayIndex: dayIdx,
+              section: occ?.linkedSection || dayGuidance.linkedSection,
+              entryId: occ?.linkedEntryId || dayGuidance.linkedEntryId || '',
+            },
+          });
+        }
+
+        if (toSchedule.length > 0) {
+          await LocalNotifications.schedule({ notifications: toSchedule });
+          dailyScheduled = toSchedule.length;
+        }
+      }
     }
-
-    const perm = await LocalNotifications.checkPermissions();
-    if (perm.display !== 'granted') {
-      return 0;
-    }
-
-    await ensureNativeChannel();
-
-    const [rawH, rawM] = settings.reminderTime.split(':').map(Number);
-    const targetH = Number.isFinite(rawH) ? rawH : 0;
-    const targetM = Number.isFinite(rawM) ? rawM : 5;
-    const isAndroid = Capacitor.getPlatform() === 'android';
-    const hijriOffset = loadHijriOffset();
-    const now = new Date();
-    const nowMs = now.getTime();
-
-    const toSchedule: LocalNotificationSchema[] = [];
-
-    // Schedule the upcoming 30 days as explicit AlarmManager.setAndAllowWhileIdle triggers
-    // (isExactNotification: false avoids Android 12+ exact-alarm settings redirects while still firing outside the app).
-    for (let offsetDays = 0; offsetDays <= 30; offsetDays++) {
-      const targetDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + offsetDays,
-        targetH,
-        targetM,
-        0,
-        0
-      );
-
-      // Skip past times (e.g., today's scheduled minute already passed)
-      if (targetDate.getTime() <= nowMs + 15000) continue;
-
-      const dayIdx = targetDate.getDay();
-      if (!settings.enabledDays[dayIdx]) continue;
-
-      const dayGuidance =
-        WEEKLY_SPIRITUAL_GUIDANCE[dayIdx] || WEEKLY_SPIRITUAL_GUIDANCE[4];
-      const hijriInfo = getTodayHijriDate(targetDate, hijriOffset);
-      const occasions = settings.includeHijriOccasions
-        ? getOccasionsForHijriDay(hijriInfo.month, hijriInfo.day)
-        : [];
-      const occ = occasions.length > 0 ? occasions[0] : null;
-
-      const actsSummary = dayGuidance.recommendedActs.slice(0, 2).join(' • ');
-      const title = occ
-        ? `🌟 ${dayGuidance.dayNameAr}: ${occ.title}`
-        : `🌙 ${dayGuidance.title}`;
-      const body = occ
-        ? `📅 ${hijriInfo.formattedArabic}\n🤲 ${occ.shortDua}\n✨ ${actsSummary}`
-        : `📅 ${hijriInfo.formattedArabic}\n✨ ${actsSummary}\n📖 ${dayGuidance.primaryDuaTitle}`;
-      const largeBody = occ
-        ? `📅 ${hijriInfo.formattedArabic}\n${occ.shortStory}\n\n🤲 الدعاء: ${occ.shortDua}\n\n${dayGuidance.recommendedActs
-            .map((a) => `✦ ${a}`)
-            .join('\n')}`
-        : `${dayGuidance.shortSummary}\n\n${dayGuidance.recommendedActs
-            .map((a) => `✦ ${a}`)
-            .join('\n')}\n\n📖 ${dayGuidance.primaryDuaTitle}`;
-
-      toSchedule.push({
-        id: DAILY_BASE_ID + offsetDays,
-        title,
-        body,
-        largeBody,
-        summaryText: occ ? hijriInfo.monthName : dayGuidance.badge,
-        channelId: isAndroid ? NATIVE_CHANNEL_ID : undefined,
-        autoCancel: true,
-        foreground: true,
-        isExactNotification: false,
-        schedule: {
-          at: targetDate,
-          allowWhileIdle: true,
-        },
-        extra: {
-          dayIndex: dayIdx,
-          section: occ?.linkedSection || dayGuidance.linkedSection,
-          entryId: occ?.linkedEntryId || dayGuidance.linkedEntryId || '',
-        },
-      });
-    }
-
-    if (toSchedule.length > 0) {
-      await LocalNotifications.schedule({ notifications: toSchedule });
-    }
-
-    return toSchedule.length;
   } catch (err) {
     console.warn('Could not sync native local notifications:', err);
-    return 0;
+  }
+
+  try {
+    const adhanMeta = await syncAdhanAndPrayerAlarms();
+    return dailyScheduled + adhanMeta.scheduledCount;
+  } catch (err) {
+    console.warn('Could not sync Adhan alarms:', err);
+    return dailyScheduled;
   }
 }
 
@@ -257,8 +289,15 @@ export async function requestNativeNotificationPermissionOnce(): Promise<boolean
 export async function requestNotificationPermission(): Promise<boolean> {
   if (isNativeMobile()) {
     try {
-      const result = await LocalNotifications.requestPermissions();
-      const granted = result.display === 'granted';
+      let granted = false;
+      if (isCustomAdhanPluginAvailable()) {
+        const res = await AdhanSchedulerPlugin.requestNotificationPermission();
+        granted = Boolean(res.granted);
+      }
+      if (!granted) {
+        const result = await LocalNotifications.requestPermissions();
+        granted = result.display === 'granted';
+      }
       if (granted) {
         await ensureNativeChannel();
         await syncNativeDailyNotifications();
@@ -276,6 +315,34 @@ export async function requestNotificationPermission(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * يفحص إذن الإشعارات، وإذا كان غير مضاف/غير ممنوح يطلبه فوراً
+ * لتمكين وصول التنبيهات حتى في وقت الأذان.
+ */
+export async function ensureNotificationPermissionIfMissing(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+
+  if (isNativeMobile()) {
+    try {
+      const current = await getNotificationPermissionAsync();
+      if (current === 'granted') {
+        await ensureNativeChannel();
+        return true;
+      }
+      return await requestNotificationPermission();
+    } catch {
+      return false;
+    }
+  }
+
+  if (!isNotificationSupported()) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'default') {
+    return await requestNotificationPermission();
+  }
+  return false;
 }
 
 export function getNotificationHistory(): DispatchedNotificationPayload[] {
@@ -499,33 +566,165 @@ export function checkAndTriggerDailyNotification(): boolean {
   if (typeof window === 'undefined') return false;
 
   const settings = loadNotificationSettings();
-  if (!settings.enabled) return false;
-
+  const adhanSettings = loadAdhanSettings();
   const now = new Date();
   const dayIndex = now.getDay();
-
-  if (!settings.enabledDays[dayIndex]) return false;
-
   const todayIso = getTodayIsoLocal(now);
-  if (settings.lastNotifiedDate === todayIso) return false;
-
-  const [rawH, rawM] = settings.reminderTime.split(':').map(Number);
-  const targetH = Number.isFinite(rawH) ? rawH : 0;
-  const targetM = Number.isFinite(rawM) ? rawM : 5;
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const targetMinutes = targetH * 60 + targetM;
 
-  if (currentMinutes >= targetMinutes) {
-    const guidance = getTodaySpiritualGuidance(now);
-    saveNotificationSettings({
-      ...settings,
-      lastNotifiedDate: todayIso,
-    });
-    void sendSpiritualNotification(guidance);
-    return true;
+  let triggeredAny = false;
+
+  // 1) التنبيه اليومي للمستحبات (يعمل بشكل مستقل ولا يعطّل تنبيهات الصلاة والأذان)
+  if (
+    settings.enabled &&
+    settings.enabledDays[dayIndex] &&
+    settings.lastNotifiedDate !== todayIso
+  ) {
+    const [rawH, rawM] = settings.reminderTime.split(':').map(Number);
+    const targetH = Number.isFinite(rawH) ? rawH : 0;
+    const targetM = Number.isFinite(rawM) ? rawM : 5;
+    const targetMinutes = targetH * 60 + targetM;
+
+    if (currentMinutes >= targetMinutes) {
+      const guidance = getTodaySpiritualGuidance(now);
+      saveNotificationSettings({
+        ...settings,
+        lastNotifiedDate: todayIso,
+      });
+      void sendSpiritualNotification(guidance);
+      triggeredAny = true;
+    }
   }
 
-  return false;
+  // 2) تنبيهات دخول وقت الصلاة، التنبيه القبلي، وصلاة الليل (في الواجهة / المتصفح)
+  const locPref = loadPrayerLocationPreference();
+  const pData = computeLocalAdhanPrayerTimes(
+    locPref.lat,
+    locPref.lng,
+    locPref.cityLabel,
+    now,
+    adhanSettings
+  );
+
+  let alreadyNotifiedMap: Record<string, string> = {};
+  try {
+    const raw = window.localStorage.getItem(PRAYER_NOTIFIED_KEY);
+    if (raw) alreadyNotifiedMap = JSON.parse(raw) || {};
+  } catch {
+    alreadyNotifiedMap = {};
+  }
+
+  const persistNotifiedMap = () => {
+    try {
+      window.localStorage.setItem(
+        PRAYER_NOTIFIED_KEY,
+        JSON.stringify(alreadyNotifiedMap)
+      );
+    } catch {
+      // Ignore quota errors
+    }
+  };
+
+  for (const key of PRAYER_ALERT_KEYS) {
+    const cfg = adhanSettings.prayers[key];
+    if (!cfg?.enabled) continue;
+    const [ph, pm] = pData.timings[key].split(':').map(Number);
+    const pMin = (ph || 0) * 60 + (pm || 0);
+
+    // التنبيه قبل الصلاة (مسموح به كذلك حتى في وقت الأذان عندما يكون الخيار مفعّلاً)
+    if (cfg.preReminderMinutes > 0 && !isNativeMobile()) {
+      const preMin = pMin - cfg.preReminderMinutes;
+      if (preMin >= 0 && currentMinutes >= preMin && currentMinutes <= preMin + 2) {
+        const preKey = `pre_${key}`;
+        const preStamp = `${todayIso}:${preKey}`;
+        if (alreadyNotifiedMap[preKey] !== preStamp) {
+          alreadyNotifiedMap[preKey] = preStamp;
+          persistNotifiedMap();
+          if (isNotificationSupported() && Notification.permission === 'granted') {
+            try {
+              new Notification(`اقترب موعد صلاة ${PRAYER_LABELS_AR[key]}`, {
+                body: `يتبقى ${toArabicNums(cfg.preReminderMinutes)} دقيقة على أذان ${
+                  PRAYER_LABELS_AR[key]
+                } (${formatHHMMArabic12h(pData.timings[key])}) · ${locPref.cityLabel}`,
+                icon: '/pwa-192x192.png',
+                dir: 'rtl',
+                lang: 'ar',
+                tag: `pre-prayer-${preStamp}`,
+              });
+            } catch {
+              // Ignore notification error
+            }
+          }
+          triggeredAny = true;
+        }
+      }
+    }
+
+    // تنبيه وقت الأذان الفعلي
+    if (currentMinutes >= pMin && currentMinutes <= pMin + 2) {
+      const stamp = `${todayIso}:${key}`;
+      if (alreadyNotifiedMap[key] !== stamp) {
+        alreadyNotifiedMap[key] = stamp;
+        persistNotifiedMap();
+
+        if (
+          !isNativeMobile() &&
+          isNotificationSupported() &&
+          Notification.permission === 'granted'
+        ) {
+          try {
+            new Notification(`حان الآن موعد ${PRAYER_NAMES_AR[key]}`, {
+              body: `${locPref.cityLabel} · الوقت: ${formatHHMMArabic12h(
+                pData.timings[key]
+              )}`,
+              icon: '/pwa-192x192.png',
+              dir: 'rtl',
+              lang: 'ar',
+              tag: `prayer-${stamp}`,
+            });
+          } catch {
+            // Ignore notification error
+          }
+        }
+        if (cfg.alertMode !== 'silent' && (settings.soundEnabled || adhanSettings.allowNotificationsDuringAdhan)) {
+          playCorrectSound(false);
+        }
+        triggeredAny = true;
+      }
+    }
+  }
+
+  if (adhanSettings.salatAlLayl.enabled && !isNativeMobile()) {
+    const laylTime = clampSalatAlLaylTime(adhanSettings.salatAlLayl.timeHHMM);
+    const [lh, lm] = laylTime.split(':').map(Number);
+    const laylMin = (lh || 0) * 60 + (lm || 0);
+    if (currentMinutes >= laylMin && currentMinutes <= laylMin + 2) {
+      const stamp = `${todayIso}:layl`;
+      if (alreadyNotifiedMap['salat_allayl'] !== stamp) {
+        alreadyNotifiedMap['salat_allayl'] = stamp;
+        persistNotifiedMap();
+        if (isNotificationSupported() && Notification.permission === 'granted') {
+          try {
+            new Notification('تذكير صلاة الليل المباركة', {
+              body: `حان وقت التهجد ومناجاة الله تعالى (${formatHHMMArabic12h(laylTime)})`,
+              icon: '/pwa-192x192.png',
+              dir: 'rtl',
+              lang: 'ar',
+              tag: `layl-${stamp}`,
+            });
+          } catch {
+            // Ignore notification error
+          }
+        }
+        if (adhanSettings.salatAlLayl.soundType !== 'silent') {
+          playCorrectSound(false);
+        }
+        triggeredAny = true;
+      }
+    }
+  }
+
+  return triggeredAny;
 }
 
 /**
@@ -541,6 +740,16 @@ export function startDailyNotificationScheduler(): () => void {
 
   if (isNativeMobile()) {
     void syncNativeDailyNotifications();
+
+    if (isCustomAdhanPluginAvailable()) {
+      void AdhanSchedulerPlugin.addListener('adhanStateChanged', (ev) => {
+        syncNativeAdhanStateFromPlugin(
+          Boolean(ev?.isPlaying),
+          ev?.title,
+          ev?.muezzinRawName
+        );
+      }).then((handle) => nativeHandles.push(handle));
+    }
 
     void LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
       const extra = event.notification?.extra as
@@ -570,6 +779,8 @@ export function startDailyNotificationScheduler(): () => void {
         });
       }
     }).then((handle) => nativeHandles.push(handle));
+  } else {
+    void syncAdhanAndPrayerAlarms();
   }
 
   const scheduleNextExactTrigger = () => {
@@ -624,6 +835,9 @@ export function startDailyNotificationScheduler(): () => void {
     if (document.visibilityState === 'visible') {
       checkAndTriggerDailyNotification();
       scheduleNextExactTrigger();
+      if (isNativeMobile()) {
+        void syncAdhanAndPrayerAlarms();
+      }
     }
   };
 
@@ -634,9 +848,15 @@ export function startDailyNotificationScheduler(): () => void {
   const handleSettingsUpdated = () => {
     if (isNativeMobile()) {
       void syncNativeDailyNotifications();
+    } else {
+      void syncAdhanAndPrayerAlarms();
     }
     checkAndTriggerDailyNotification();
     scheduleNextExactTrigger();
+  };
+
+  const handleAdhanOrLocationUpdated = () => {
+    void syncAdhanAndPrayerAlarms();
   };
 
   const handleHijriUpdated = () => {
@@ -648,6 +868,8 @@ export function startDailyNotificationScheduler(): () => void {
   window.addEventListener('visibilitychange', handleResume);
   window.addEventListener('focus', handleFocus);
   window.addEventListener('rihlat:notification-settings-updated', handleSettingsUpdated);
+  window.addEventListener('rihlat:adhan-settings-updated', handleAdhanOrLocationUpdated);
+  window.addEventListener('rihlat:prayer-location-updated', handleAdhanOrLocationUpdated);
   window.addEventListener('rihlat:hijri-offset-updated', handleHijriUpdated);
 
   return () => {
@@ -656,6 +878,8 @@ export function startDailyNotificationScheduler(): () => void {
     window.removeEventListener('visibilitychange', handleResume);
     window.removeEventListener('focus', handleFocus);
     window.removeEventListener('rihlat:notification-settings-updated', handleSettingsUpdated);
+    window.removeEventListener('rihlat:adhan-settings-updated', handleAdhanOrLocationUpdated);
+    window.removeEventListener('rihlat:prayer-location-updated', handleAdhanOrLocationUpdated);
     window.removeEventListener('rihlat:hijri-offset-updated', handleHijriUpdated);
     nativeHandles.forEach((h) => {
       void h.remove();

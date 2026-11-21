@@ -1,74 +1,170 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import {
+  ArrowLeft,
   ArrowRight,
-  BookHeart,
+  BookOpen,
+  Bookmark,
   CheckCircle2,
   Moon,
-  Settings,
+  ScrollText,
+  Search,
+  Share2,
   Sun,
-  Star,
+  X,
   ZoomIn,
   ZoomOut,
-  Sparkles,
 } from 'lucide-react';
+import { ShareCardModal, ShareCardPayload } from './ShareCardModal';
 import {
   ReadingFocusSettings,
   getReadingUnitClasses,
+  getSavedReadingPosition,
+  saveReadingPositionForKey,
   splitIntoReadableLines,
   useReadingFocusTracker,
 } from './ReadingFocusControls';
+import { ManuscriptBookFlip, ManuscriptBookPage } from './ManuscriptBookFlip';
+import {
+  ReaderViewMode,
+  loadReaderViewMode,
+  paginateProseBlocks,
+  saveReaderViewMode,
+  toArabicDigits,
+} from '../utils/bookPagination';
 import { AudioReciterPlayer } from './AudioReciterPlayer';
 import { ENTRY_AUDIO_TRACKS } from '../data/reciterAudio';
 import { DUAS_LIST } from '../data/duas';
 import { DuaItem } from '../types/game';
+import { registerHardwareBackHandler } from '../utils/hardwareBack';
+import {
+  isGlobalNightTheme,
+  subscribeAppAppearance,
+} from '../utils/appAppearance';
+import {
+  AstrolabeIcon,
+  DuaScrollIcon,
+  ManuscriptCornerBracket,
+  ManuscriptDivider,
+} from './IslamicOrnaments';
 
 interface DuasScreenProps {
   completedReadingIds: string[];
+  bookmarkedIds?: string[];
   focusSettings: ReadingFocusSettings;
   onOpenSettings: () => void;
   onCompleteReading: (readingId: string) => boolean;
+  onToggleBookmark?: (itemId: string) => void;
   onBackHome: () => void;
   onSetLastRead?: (section: string, itemId: string, title: string) => void;
 }
 
 const FONT_SIZE_STEPS = [
   'text-lg sm:text-xl leading-loose',
-  'text-xl sm:text-2xl leading-[2.2]',
-  'text-2xl sm:text-3xl leading-[2.3]',
-  'text-3xl sm:text-4xl leading-[2.35]',
+  'text-xl sm:text-2xl leading-[2.3]',
+  'text-2xl sm:text-3xl leading-[2.35]',
+  'text-3xl sm:text-4xl leading-[2.4]',
 ];
+
+const FONT_PIXEL_VALUES = [18, 22, 26, 30];
+
+function normalizeArabicTitle(input: string): string {
+  return input
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .trim()
+    .toLowerCase();
+}
 
 export const DuasScreen: React.FC<DuasScreenProps> = ({
   completedReadingIds,
+  bookmarkedIds = [],
   focusSettings,
   onOpenSettings,
   onCompleteReading,
+  onToggleBookmark,
   onBackHome,
   onSetLastRead,
 }) => {
-  const [activeCategory, setActiveCategory] = useState<'days' | 'daily'>('days');
-  const [selectedDuaId, setSelectedDuaId] = useState<string>(DUAS_LIST[0].id);
+  const [openedDuaId, setOpenedDuaId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [fontStep, setFontStep] = useState<number>(1);
-  const [nightMode, setNightMode] = useState<boolean>(false);
+  const [nightMode, setNightMode] = useState<boolean>(isGlobalNightTheme);
+  useEffect(() => {
+    return subscribeAppAppearance((s) => setNightMode(s.colorTheme === 'night'));
+  }, []);
+  const [viewMode, setViewMode] = useState<ReaderViewMode>(() => loadReaderViewMode());
+  const [bookPage, setBookPage] = useState<number>(0);
   const [justAwarded, setJustAwarded] = useState<boolean>(false);
+  const [sharePayload, setSharePayload] = useState<ShareCardPayload | null>(null);
   const focusTrackerEnabled = focusSettings.enabled;
   const focusTheme = focusSettings.theme;
   const readerBodyRef = useRef<HTMLDivElement | null>(null);
+  const listScrollYRef = useRef<number>(0);
 
-  const filteredDuas = useMemo(
-    () => DUAS_LIST.filter((d) => d.category === activeCategory),
-    [activeCategory]
+  const normalizedQuery = useMemo(
+    () => normalizeArabicTitle(searchQuery),
+    [searchQuery]
   );
 
-  const activeDua: DuaItem =
-    DUAS_LIST.find((d) => d.id === selectedDuaId) || filteredDuas[0];
+  const visibleDuas = useMemo(() => {
+    if (!normalizedQuery) return DUAS_LIST;
+    return DUAS_LIST.filter((d) =>
+      normalizeArabicTitle(d.title).includes(normalizedQuery)
+    );
+  }, [normalizedQuery]);
+
+  const activeDua: DuaItem | null = useMemo(() => {
+    if (!openedDuaId) return null;
+    return DUAS_LIST.find((d) => d.id === openedDuaId) || null;
+  }, [openedDuaId]);
 
   useEffect(() => {
+    if (!activeDua) return;
     onSetLastRead?.('duas', activeDua.id, activeDua.title);
-  }, [activeDua.id]);
+  }, [activeDua?.id]);
+
+  const handleOpenDua = (duaId: string) => {
+    listScrollYRef.current = typeof window !== 'undefined' ? window.scrollY : 0;
+    setOpenedDuaId(duaId);
+    setJustAwarded(false);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  };
+
+  const handleBackToList = () => {
+    const restoreY = listScrollYRef.current;
+    setOpenedDuaId(null);
+    setJustAwarded(false);
+    if (typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: restoreY, behavior: 'auto' });
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: restoreY, behavior: 'auto' });
+        });
+      });
+    }
+  };
+
+  useEffect(() => {
+    return registerHardwareBackHandler(() => {
+      if (sharePayload) {
+        setSharePayload(null);
+        return true;
+      }
+      if (openedDuaId) {
+        handleBackToList();
+        return true;
+      }
+      return false;
+    });
+  }, [sharePayload, openedDuaId]);
 
   const splitParagraphs = useMemo(() => {
+    if (!activeDua) return [];
     let cursor = 0;
     return activeDua.arabicText.map((paragraph) =>
       splitIntoReadableLines(paragraph).map((text) => ({
@@ -84,76 +180,432 @@ export const DuasScreen: React.FC<DuasScreenProps> = ({
   );
 
   const { activeUnitIndex, setActiveUnitIndex } = useReadingFocusTracker({
-    resetKey: activeDua.id,
+    resetKey: activeDua?.id || 'duas-list',
     unitCount,
-    enabled: focusTrackerEnabled,
+    enabled: Boolean(activeDua) && focusTrackerEnabled && viewMode === 'scroll',
     contentRef: readerBodyRef,
   });
 
-  const isCompleted = completedReadingIds.includes(activeDua.id);
+  const handleChangeViewMode = (mode: ReaderViewMode) => {
+    setViewMode(mode);
+    saveReaderViewMode(mode);
+  };
+
+  const paginatedDuaParagraphs = useMemo(() => {
+    if (!activeDua) return [];
+    const blocks = splitParagraphs.map((lines, idx) => ({
+      id: idx,
+      lines,
+      textLength: lines.reduce((sum, l) => sum + l.text.length, 0),
+      unitIndices: lines.map((l) => l.unitIdx),
+    }));
+    return paginateProseBlocks(
+      blocks,
+      FONT_PIXEL_VALUES[fontStep] ?? 22,
+      true
+    );
+  }, [activeDua, splitParagraphs, fontStep]);
+
+  useEffect(() => {
+    if (!activeDua) return;
+    const savedUnit = getSavedReadingPosition(activeDua.id);
+    if (savedUnit > 0 && paginatedDuaParagraphs.length > 0) {
+      const targetIdx = paginatedDuaParagraphs.findIndex((page) =>
+        page.items.some((item) => item.unitIndices.includes(savedUnit))
+      );
+      setBookPage(targetIdx >= 0 ? targetIdx : 0);
+    } else {
+      setBookPage(0);
+    }
+  }, [activeDua?.id]);
+
+  useEffect(() => {
+    if (
+      paginatedDuaParagraphs.length > 0 &&
+      bookPage >= paginatedDuaParagraphs.length
+    ) {
+      setBookPage(Math.max(0, paginatedDuaParagraphs.length - 1));
+    }
+  }, [paginatedDuaParagraphs.length, bookPage]);
+
+  const handleBookPageChange = (nextPage: number) => {
+    setBookPage(nextPage);
+    if (!activeDua) return;
+    const slice = paginatedDuaParagraphs[nextPage];
+    const firstUnit = slice?.items.find((it) => it.unitIndices.length > 0)?.unitIndices[0];
+    if (typeof firstUnit === 'number') {
+      saveReadingPositionForKey(activeDua.id, firstUnit);
+    }
+  };
+
   const totalCompletedDuas = DUAS_LIST.filter((d) =>
     completedReadingIds.includes(d.id)
   ).length;
 
-  const handleCategoryChange = (cat: 'days' | 'daily') => {
-    setActiveCategory(cat);
-    const first = DUAS_LIST.find((d) => d.category === cat);
-    if (first) setSelectedDuaId(first.id);
-    setJustAwarded(false);
-  };
-
-  const handleSelectDua = (duaId: string) => {
-    setSelectedDuaId(duaId);
-    setJustAwarded(false);
-  };
+  const isCompleted = activeDua ? completedReadingIds.includes(activeDua.id) : false;
+  const isBookmarked = activeDua ? bookmarkedIds.includes(activeDua.id) : false;
 
   const handleFinishReading = () => {
+    if (!activeDua) return;
     const awarded = onCompleteReading(activeDua.id);
     if (awarded) {
       setJustAwarded(true);
     }
   };
 
-  return (
-    <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-10">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 mb-5 sm:mb-6">
-        <div className="flex items-center gap-3">
+  const handleOpenShareCard = () => {
+    if (!activeDua) return;
+    const bodyExcerpt =
+      activeDua.arabicText.find((p, i) => i > 0 || !p.includes('بِسْمِ اللَّهِ')) ||
+      activeDua.arabicText[0] ||
+      activeDua.meaningSummary;
+    setSharePayload({
+      title: activeDua.title,
+      category: 'رياض الأدعية المباركة',
+      quote: bodyExcerpt,
+      attribution: activeDua.sourceNote,
+    });
+  };
+
+  const renderParagraphLines = (lines: { text: string; unitIdx: number }[]) => (
+    <p
+      className={`font-arabic whitespace-pre-line text-center sm:text-justify ${
+        FONT_SIZE_STEPS[fontStep]
+      } ${nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'}`}
+    >
+      {lines.map(({ text, unitIdx }) => {
+        const trailingNewlinesMatch = text.match(/\n+$/);
+        const visibleChunk = trailingNewlinesMatch
+          ? text.slice(0, text.length - trailingNewlinesMatch[0].length)
+          : text;
+        const trailingBreaks = trailingNewlinesMatch ? trailingNewlinesMatch[0] : '';
+        const isActive = focusTrackerEnabled && activeUnitIndex === unitIdx;
+
+        return (
+          <React.Fragment key={unitIdx}>
+            <span
+              data-reading-unit-index={unitIdx}
+              onMouseEnter={() => {
+                if (focusTrackerEnabled) setActiveUnitIndex(unitIdx);
+              }}
+              onClick={() => {
+                if (!focusTrackerEnabled) return;
+                const sel = window.getSelection()?.toString();
+                if (sel && sel.trim().length > 0) return;
+                setActiveUnitIndex(unitIdx);
+              }}
+              className={getReadingUnitClasses({
+                isActive,
+                enabled: focusTrackerEnabled,
+                nightMode,
+                theme: focusTheme,
+              })}
+            >
+              {visibleChunk}
+            </span>
+            {trailingBreaks}
+          </React.Fragment>
+        );
+      })}
+    </p>
+  );
+
+  const bookPages: ManuscriptBookPage[] = useMemo(() => {
+    if (!activeDua) return [];
+    return paginatedDuaParagraphs.map((slice, pIdx) => ({
+      id: `${activeDua.id}-page-${slice.pageNumber}`,
+      content: (
+        <div className="max-w-prose mx-auto">
+          {pIdx === 0 && (
+            <>
+              <header className="text-center pb-4">
+                <span
+                  className={`text-xs font-medium ${
+                    nightMode ? 'text-[#D9B96A]' : 'text-[#7A5E2A]'
+                  }`}
+                >
+                  {activeDua.sourceNote}
+                </span>
+                <h2
+                  className={`font-calligraphy font-bold text-3xl sm:text-4xl mt-1 ${
+                    nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
+                  }`}
+                >
+                  {activeDua.title}
+                </h2>
+                {isCompleted && (
+                  <div
+                    className={`mt-2 inline-flex items-center gap-1.5 text-xs font-bold ${
+                      nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                    <span>تمت القراءة</span>
+                  </div>
+                )}
+              </header>
+
+              <div
+                className={`my-4 pr-4 border-r-2 text-sm leading-relaxed ${
+                  nightMode
+                    ? 'border-[#D9B96A] text-[#C8B88A]'
+                    : 'border-[#B8924A] text-[#425B51]'
+                }`}
+              >
+                <strong className={nightMode ? 'text-[#E8CE88]' : 'text-[#0F3D2E]'}>
+                  معنى الدعاء:{' '}
+                </strong>
+                {activeDua.meaningSummary}
+              </div>
+
+              <ManuscriptDivider variant="rosette" dark={nightMode} />
+            </>
+          )}
+
+          <div className="mt-4 space-y-6">
+            {slice.items.map((block) => (
+              <React.Fragment key={block.id}>
+                {renderParagraphLines(block.lines)}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      ),
+    }));
+  }, [
+    paginatedDuaParagraphs,
+    activeDua,
+    nightMode,
+    isCompleted,
+    fontStep,
+    focusTrackerEnabled,
+    focusTheme,
+    activeUnitIndex,
+  ]);
+
+  // View 1: Single Unified List + Simple Title Search
+  if (!activeDua) {
+    return (
+      <main className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-[#B8924A]/35">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onBackHome}
+              className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+              <span>الرئيسية</span>
+            </button>
+
+            <div>
+              <h1 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E] flex items-center gap-2">
+                <DuaScrollIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
+                <span>رياض الأدعية</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-[#425B51] mt-0.5 tabular-nums">
+                {toArabicDigits(DUAS_LIST.length)} دعاءً · أتممت{' '}
+                {toArabicDigits(totalCompletedDuas)}
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
-            onClick={onBackHome}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-sm flex items-center gap-2 shadow-xs cursor-pointer transition-colors whitespace-nowrap"
+            onClick={onOpenSettings}
+            aria-label="الإعدادات"
+            className="min-h-[40px] px-3 py-1.5 btn-manuscript text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
           >
-            <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            <span>الرئيسية</span>
+            <AstrolabeIcon className="w-4 h-4 text-[#0F3D2E]" />
+            <span>الإعدادات</span>
+          </button>
+        </div>
+
+        <div className="relative mb-4">
+          <Search
+            className="w-4 h-4 text-[#1F6B50] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث في العناوين..."
+            aria-label="ابحث في عناوين الأدعية"
+            className="w-full min-h-[46px] pr-10 pl-10 py-2 rounded-[6px] bg-[#FAF6EC] focus:bg-white border border-[#B8924A]/55 focus:border-[#0F3D2E] text-sm font-medium text-[#11271F] placeholder:text-[#425B51]/75 focus:outline-none transition-colors"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="مسح البحث"
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-[#425B51] hover:text-[#0F3D2E] cursor-pointer"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        <div className="manuscript-folio paper-grain rounded-[6px] divide-y divide-[#B8924A]/20 overflow-hidden">
+          {visibleDuas.length === 0 ? (
+            <div className="py-10 px-4 text-center">
+              <p className="font-display font-bold text-sm text-[#425B51]">
+                لم نعثر على دعاء مطابق لعنوان «{searchQuery}».
+              </p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="mt-2 btn-text-ornate text-xs cursor-pointer"
+              >
+                عرض جميع الأدعية
+              </button>
+            </div>
+          ) : (
+            visibleDuas.map((dua) => {
+              const done = completedReadingIds.includes(dua.id);
+              const fav = bookmarkedIds.includes(dua.id);
+              const hasProgress = !done && getSavedReadingPosition(dua.id) > 0;
+
+              return (
+                <div
+                  key={dua.id}
+                  onClick={() => handleOpenDua(dua.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenDua(dua.id);
+                    }
+                  }}
+                  className="w-full text-right px-4 sm:px-5 py-3.5 hover:bg-[#F3ECDA]/75 transition-colors cursor-pointer flex items-center justify-between gap-3 group"
+                >
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-display font-bold text-base sm:text-lg text-[#0F3D2E] group-hover:text-[#1F6B50] leading-snug">
+                      {dua.title}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5 text-xs text-[#425B51]">
+                      <span className="truncate">{dua.subtitle}</span>
+                      {hasProgress && (
+                        <span className="text-[#9C7835] font-bold">
+                          · موضع قراءة محفوظ
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {done && (
+                      <CheckCircle2
+                        className="w-4 h-4 text-[#1F6B50]"
+                        aria-label="تمت قراءته"
+                      />
+                    )}
+                    {onToggleBookmark && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleBookmark(dua.id);
+                        }}
+                        aria-label={fav ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
+                        className={`min-w-[36px] min-h-[36px] rounded-[4px] flex items-center justify-center cursor-pointer transition-colors ${
+                          fav
+                            ? 'text-[#B8924A]'
+                            : 'text-[#425B51]/60 hover:text-[#0F3D2E]'
+                        }`}
+                      >
+                        <Bookmark
+                          className={`w-4 h-4 ${fav ? 'fill-current' : ''}`}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
+                    <ArrowLeft
+                      className="w-4 h-4 text-[#1F6B50] transition-transform group-hover:-translate-x-1"
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  // View 2: Full-Page Single Dua Reader
+  return (
+    <main className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 mb-5 pb-3.5 border-b border-[#B8924A]/35">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={handleBackToList}
+            className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+            <span>رجوع إلى القائمة</span>
           </button>
 
-          <div>
-            <h1 className="font-display font-black text-2xl sm:text-3xl text-emerald-900 flex items-center gap-2">
-              <BookHeart className="w-7 h-7 text-emerald-600 shrink-0" aria-hidden="true" />
-              <span>رياض الأدعية</span>
+          <div className="min-w-0">
+            <h1 className="font-calligraphy font-bold text-xl sm:text-2xl text-[#0F3D2E] truncate">
+              {activeDua.title}
             </h1>
-            <p className="text-sm font-bold text-slate-600 mt-0.5 tabular-nums">
-              أدعية مشكولة واضحة للأطفال · أتممت {totalCompletedDuas} من {DUAS_LIST.length}
+            <p className="text-xs text-[#425B51] truncate mt-0.5">
+              {activeDua.sourceNote}
             </p>
           </div>
         </div>
 
-        {/* Reading Controls: Font Size + Night Mode */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center bg-white border border-emerald-200 rounded-xl p-1 shadow-xs">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div
+            role="group"
+            aria-label="نمط عرض الصفحات"
+            className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[5px] p-0.5"
+          >
+            <button
+              type="button"
+              onClick={() => handleChangeViewMode('book')}
+              aria-pressed={viewMode === 'book'}
+              className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
+                viewMode === 'book'
+                  ? 'bg-[#0F3D2E] text-[#FAF6EC]'
+                  : 'text-[#425B51] hover:text-[#0F3D2E]'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>كتاب</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleChangeViewMode('scroll')}
+              aria-pressed={viewMode === 'scroll'}
+              className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
+                viewMode === 'scroll'
+                  ? 'bg-[#0F3D2E] text-[#FAF6EC]'
+                  : 'text-[#425B51] hover:text-[#0F3D2E]'
+              }`}
+            >
+              <ScrollText className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>متصل</span>
+            </button>
+          </div>
+
+          <div className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[5px] p-0.5">
             <button
               type="button"
               onClick={() => setFontStep((s) => Math.max(0, s - 1))}
               disabled={fontStep === 0}
               aria-label="تصغير الخط"
-              className="min-h-[40px] min-w-[40px] px-2.5 rounded-lg hover:bg-emerald-50 disabled:opacity-40 text-emerald-900 font-bold flex items-center justify-center gap-1 cursor-pointer"
+              className="min-h-[38px] px-2.5 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center gap-1 cursor-pointer"
             >
               <ZoomOut className="w-4 h-4" aria-hidden="true" />
               <span className="text-xs">أ-</span>
             </button>
-            <span className="px-2 text-xs font-bold text-slate-500 border-x border-emerald-100">
-              حجم الخط
+            <span className="px-2 text-xs text-[#425B51] border-x border-[#B8924A]/30">
+              الخط
             </span>
             <button
               type="button"
@@ -162,7 +614,7 @@ export const DuasScreen: React.FC<DuasScreenProps> = ({
               }
               disabled={fontStep === FONT_SIZE_STEPS.length - 1}
               aria-label="تكبير الخط"
-              className="min-h-[40px] min-w-[40px] px-2.5 rounded-lg hover:bg-emerald-50 disabled:opacity-40 text-emerald-900 font-bold flex items-center justify-center gap-1 cursor-pointer"
+              className="min-h-[38px] px-2.5 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center gap-1 cursor-pointer"
             >
               <ZoomIn className="w-4 h-4" aria-hidden="true" />
               <span className="text-xs">أ+</span>
@@ -172,21 +624,21 @@ export const DuasScreen: React.FC<DuasScreenProps> = ({
           <button
             type="button"
             onClick={() => setNightMode((prev) => !prev)}
-            className={`min-h-[44px] px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border shadow-xs cursor-pointer transition-colors whitespace-nowrap ${
+            className={`min-h-[40px] px-3.5 py-1.5 rounded-[5px] font-bold text-xs sm:text-sm flex items-center gap-1.5 border cursor-pointer transition-colors ${
               nightMode
-                ? 'bg-slate-900 text-amber-300 border-amber-400/60 hover:bg-slate-800'
-                : 'bg-white text-slate-800 border-emerald-200 hover:bg-sky-50'
+                ? 'bg-[#081A14] text-[#D9B96A] border-[#D9B96A]/60'
+                : 'bg-[#FAF6EC] text-[#0F3D2E] border-[#B8924A]/50 hover:bg-[#F3ECDA]'
             }`}
           >
             {nightMode ? (
               <>
-                <Sun className="w-4 h-4 text-amber-300" aria-hidden="true" />
+                <Sun className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
                 <span>الوضع النهاري</span>
               </>
             ) : (
               <>
-                <Moon className="w-4 h-4 text-sky-600" aria-hidden="true" />
-                <span>الوضع الليلي المريح</span>
+                <Moon className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+                <span>قراءة ليلية</span>
               </>
             )}
           </button>
@@ -195,233 +647,289 @@ export const DuasScreen: React.FC<DuasScreenProps> = ({
             type="button"
             onClick={onOpenSettings}
             aria-label="إعدادات ألوان تغميق السطر"
-            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-sm flex items-center gap-2 shadow-xs cursor-pointer transition-colors whitespace-nowrap"
+            className="min-h-[40px] px-3 py-1.5 btn-manuscript text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
           >
-            <Settings className="w-4 h-4 text-emerald-700" aria-hidden="true" />
+            <AstrolabeIcon className="w-4 h-4 text-[#0F3D2E]" />
             <span>الإعدادات</span>
           </button>
         </div>
       </div>
 
-      {/* Category Switcher */}
-      <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2.5 sm:gap-3 mb-5 sm:mb-6">
-        <button
-          type="button"
-          onClick={() => handleCategoryChange('days')}
-          className={`min-h-[46px] px-4 sm:px-6 py-2.5 rounded-2xl font-display font-extrabold text-sm sm:text-lg transition-all cursor-pointer border-2 ${
-            activeCategory === 'days'
-              ? 'bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-900/15'
-              : 'bg-white text-emerald-900 border-emerald-200 hover:bg-emerald-50'
-          }`}
-        >
-          أدعية الأيام السبعة (٧)
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleCategoryChange('daily')}
-          className={`min-h-[46px] px-4 sm:px-6 py-2.5 rounded-2xl font-display font-extrabold text-sm sm:text-lg transition-all cursor-pointer border-2 ${
-            activeCategory === 'daily'
-              ? 'bg-sky-600 text-white border-sky-700 shadow-md shadow-sky-900/15'
-              : 'bg-white text-sky-900 border-sky-200 hover:bg-sky-50'
-          }`}
-        >
-          أدعية المناسبات اليومية (٥)
-        </button>
-      </div>
-
-      {/* Main Split Layout: Selector List + Reader Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
-        {/* Dua List Sidebar (Horizontal on mobile, Sidebar on desktop) */}
-        <div className="lg:col-span-4 flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
-          {filteredDuas.map((dua) => {
-            const selected = dua.id === activeDua.id;
-            const done = completedReadingIds.includes(dua.id);
-
-            return (
-              <button
-                key={dua.id}
-                type="button"
-                onClick={() => handleSelectDua(dua.id)}
-                className={`min-w-[205px] sm:min-w-[230px] lg:min-w-0 lg:w-full shrink-0 text-right p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-2.5 sm:gap-3 ${
-                  selected
-                    ? 'bg-gradient-to-l from-emerald-50 to-amber-50/70 border-emerald-500 shadow-md'
-                    : 'bg-white/90 border-emerald-100 hover:border-emerald-300 hover:bg-white'
-                }`}
-              >
-                <div className="min-w-0">
-                  <h2 className="font-display font-extrabold text-sm sm:text-lg text-slate-900 truncate">
-                    {dua.title}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 truncate mt-0.5">
-                    {dua.subtitle}
-                  </p>
-                </div>
-
-                {done && (
-                  <CheckCircle2
-                    className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 shrink-0"
-                    aria-label="تمت قراءته"
-                  />
+      {viewMode === 'book' ? (
+        <div className="space-y-4">
+          <div
+            className={`rounded-[6px] border p-4 transition-colors duration-300 ${
+              nightMode
+                ? 'manuscript-folio-dark'
+                : 'manuscript-folio paper-grain text-[#11271F]'
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {onToggleBookmark && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleBookmark(activeDua.id)}
+                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      isBookmarked
+                        ? nightMode
+                          ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
+                          : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
+                        : nightMode
+                        ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80'
+                        : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51]'
+                    }`}
+                  >
+                    <Bookmark
+                      className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`}
+                      aria-hidden="true"
+                    />
+                    <span>{isBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
+                  </button>
                 )}
-              </button>
-            );
-          })}
-        </div>
 
-        {/* Dua Reader Card */}
+                <button
+                  type="button"
+                  onClick={handleOpenShareCard}
+                  className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    nightMode
+                      ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A]'
+                      : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
+                  }`}
+                >
+                  <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>مشاركة كبطاقة</span>
+                </button>
+              </div>
+            </div>
+
+            <AudioReciterPlayer
+              mode="entry"
+              entryId={activeDua.id}
+              entryTitle={activeDua.title}
+              tracks={ENTRY_AUDIO_TRACKS[activeDua.id] || []}
+              nightMode={nightMode}
+            />
+          </div>
+
+          <ManuscriptBookFlip
+            bookKey={activeDua.id}
+            title={activeDua.title}
+            pages={bookPages}
+            currentPage={bookPage}
+            onPageChange={handleBookPageChange}
+            nightMode={nightMode}
+            pageFlipSoundEnabled={focusSettings.pageFlipSound}
+            colophonFooter={
+              <div className="space-y-3">
+                {justAwarded && (
+                  <div className="rounded-[5px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
+                    <span>بارك الله فيك! تم تسجيل إتمام قراءة هذا الدعاء المبارك</span>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {isCompleted ? (
+                    <div
+                      className={`flex items-center gap-2 font-bold text-sm ${
+                        nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                      <span>أتممت قراءة هذا الدعاء المبارك</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleFinishReading}
+                      className={`w-full sm:w-auto min-h-[46px] px-7 py-2 text-base flex items-center justify-center gap-2 cursor-pointer ${
+                        nightMode ? 'btn-gilded' : 'btn-emerald'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                      <span>أتممت القراءة</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleOpenShareCard}
+                    className="min-h-[42px] px-4 py-2 btn-manuscript text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Share2 className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+                    <span>مشاركة كبطاقة</span>
+                  </button>
+                </div>
+              </div>
+            }
+          />
+        </div>
+      ) : (
         <motion.div
           key={activeDua.id}
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
-          className={`lg:col-span-8 rounded-3xl border-2 p-4 sm:p-8 shadow-xl transition-colors duration-300 ${
-            nightMode
-              ? 'bg-slate-900 border-amber-500/40 text-amber-50 shadow-slate-950/50'
-              : 'bg-white/95 border-amber-200 text-slate-900 shadow-emerald-950/5'
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className={`relative rounded-[6px] p-5 sm:p-10 transition-colors duration-300 ${
+            nightMode ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
           }`}
         >
-          <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-current/10">
-            <div>
+          <ManuscriptCornerBracket
+            position="top-right"
+            color={nightMode ? '#D9B96A' : '#B8924A'}
+            className="absolute top-2.5 right-2.5"
+          />
+          <ManuscriptCornerBracket
+            position="top-left"
+            color={nightMode ? '#D9B96A' : '#B8924A'}
+            className="absolute top-2.5 left-2.5"
+          />
+
+          <div className="max-w-prose mx-auto">
+            <header className="text-center pb-4">
               <span
-                className={`text-xs sm:text-sm font-bold ${
-                  nightMode ? 'text-amber-300' : 'text-emerald-700'
+                className={`text-xs font-medium ${
+                  nightMode ? 'text-[#D9B96A]' : 'text-[#7A5E2A]'
                 }`}
               >
                 {activeDua.sourceNote}
               </span>
               <h2
-                className={`font-display font-black text-2xl sm:text-3xl mt-1 ${
-                  nightMode ? 'text-amber-200' : 'text-emerald-950'
+                className={`font-calligraphy font-bold text-3xl sm:text-4xl mt-1 ${
+                  nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
                 }`}
               >
                 {activeDua.title}
               </h2>
-            </div>
 
-            {isCompleted && (
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-sm ${
-                  nightMode
-                    ? 'bg-emerald-900/70 text-emerald-300 border border-emerald-700'
-                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                <span>مقروء</span>
-              </span>
-            )}
-          </div>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                {onToggleBookmark && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleBookmark(activeDua.id)}
+                    className={`min-h-[36px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      isBookmarked
+                        ? nightMode
+                          ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
+                          : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
+                        : nightMode
+                        ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80'
+                        : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51]'
+                    }`}
+                  >
+                    <Bookmark
+                      className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`}
+                      aria-hidden="true"
+                    />
+                    <span>{isBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
+                  </button>
+                )}
 
-          <AudioReciterPlayer
-            mode="entry"
-            entryId={activeDua.id}
-            entryTitle={activeDua.title}
-            tracks={ENTRY_AUDIO_TRACKS[activeDua.id] || []}
-            nightMode={nightMode}
-          />
+                <button
+                  type="button"
+                  onClick={handleOpenShareCard}
+                  className={`min-h-[36px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    nightMode
+                      ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A]'
+                      : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
+                  }`}
+                >
+                  <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>مشاركة كبطاقة</span>
+                </button>
 
-          {/* Child-friendly Meaning Summary */}
-          <div
-            className={`mt-5 rounded-2xl p-4 border ${
-              nightMode
-                ? 'bg-slate-800/80 border-slate-700 text-sky-200'
-                : 'bg-sky-50/90 border-sky-200 text-sky-950'
-            }`}
-          >
-            <p className="font-display font-extrabold text-sm sm:text-base flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
-              <span>معنى الدعاء باختصار:</span>
-            </p>
-            <p className="text-sm sm:text-base leading-relaxed">
-              {activeDua.meaningSummary}
-            </p>
-          </div>
-
-          {/* Vocalized Arabic Dua Text */}
-          <div className="mt-6 space-y-5" ref={readerBodyRef}>
-            {splitParagraphs.map((lines, idx) => (
-              <p
-                key={idx}
-                className={`font-display font-bold whitespace-pre-line transition-all ${
-                  FONT_SIZE_STEPS[fontStep]
-                } ${nightMode ? 'text-amber-50' : 'text-slate-900'}`}
-              >
-                {lines.map(({ text, unitIdx }) => {
-                  const trailingNewlinesMatch = text.match(/\n+$/);
-                  const visibleChunk = trailingNewlinesMatch
-                    ? text.slice(0, text.length - trailingNewlinesMatch[0].length)
-                    : text;
-                  const trailingBreaks = trailingNewlinesMatch
-                    ? trailingNewlinesMatch[0]
-                    : '';
-                  const isActive =
-                    focusTrackerEnabled && activeUnitIndex === unitIdx;
-
-                  return (
-                    <React.Fragment key={unitIdx}>
-                      <span
-                        data-reading-unit-index={unitIdx}
-                        onMouseEnter={() => {
-                          if (focusTrackerEnabled) setActiveUnitIndex(unitIdx);
-                        }}
-                        onClick={() => {
-                          if (!focusTrackerEnabled) return;
-                          const sel = window.getSelection()?.toString();
-                          if (sel && sel.trim().length > 0) return;
-                          setActiveUnitIndex(unitIdx);
-                        }}
-                        className={getReadingUnitClasses({
-                          isActive,
-                          enabled: focusTrackerEnabled,
-                          nightMode,
-                          theme: focusTheme,
-                        })}
-                      >
-                        {visibleChunk}
-                      </span>
-                      {trailingBreaks}
-                    </React.Fragment>
-                  );
-                })}
-              </p>
-            ))}
-          </div>
-
-          {/* Completion Toast */}
-          {justAwarded && (
-            <div className="mt-6 rounded-2xl bg-emerald-600 text-white p-4 font-display font-extrabold text-base sm:text-lg flex items-center justify-center gap-2 shadow-md">
-              <CheckCircle2 className="w-5 h-5 text-amber-200" aria-hidden="true" />
-              <span>بارك الله فيك! تم تسجيل إتمام قراءة هذا الدعاء المبارك</span>
-            </div>
-          )}
-
-          {/* Completion CTA */}
-          <div className="mt-7 pt-5 border-t border-current/10 flex flex-wrap items-center justify-between gap-4">
-            {isCompleted ? (
-              <div
-                className={`flex items-center gap-2 font-bold text-base ${
-                  nightMode ? 'text-emerald-300' : 'text-emerald-700'
-                }`}
-              >
-                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                <span>أتممت قراءة هذا الدعاء المبارك</span>
+                {isCompleted && (
+                  <div
+                    className={`inline-flex items-center gap-1.5 text-xs font-bold ${
+                      nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                    <span>تمت القراءة</span>
+                  </div>
+                )}
               </div>
-            ) : (
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleFinishReading}
-                className="w-full sm:w-auto min-h-[54px] px-7 py-3 rounded-2xl bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-display font-black text-lg shadow-lg flex items-center justify-center gap-2.5 cursor-pointer transition-colors"
-              >
-                <CheckCircle2 className="w-5 h-5 text-amber-200" aria-hidden="true" />
-                <span>أتممت القراءة</span>
-              </motion.button>
+            </header>
+
+            <AudioReciterPlayer
+              mode="entry"
+              entryId={activeDua.id}
+              entryTitle={activeDua.title}
+              tracks={ENTRY_AUDIO_TRACKS[activeDua.id] || []}
+              nightMode={nightMode}
+            />
+
+            <div
+              className={`my-5 pr-4 border-r-2 text-sm leading-relaxed ${
+                nightMode
+                  ? 'border-[#D9B96A] text-[#C8B88A]'
+                  : 'border-[#B8924A] text-[#425B51]'
+              }`}
+            >
+              <strong className={nightMode ? 'text-[#E8CE88]' : 'text-[#0F3D2E]'}>
+                معنى الدعاء:{' '}
+              </strong>
+              {activeDua.meaningSummary}
+            </div>
+
+            <ManuscriptDivider variant="rosette" dark={nightMode} />
+
+            <div className="mt-6 space-y-6" ref={readerBodyRef}>
+              {splitParagraphs.map((lines, idx) => (
+                <React.Fragment key={idx}>
+                  {renderParagraphLines(lines)}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {justAwarded && (
+              <div className="mt-6 rounded-[5px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] p-4 font-display font-bold text-base flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
+                <span>بارك الله فيك! تم تسجيل إتمام قراءة هذا الدعاء المبارك</span>
+              </div>
             )}
+
+            <div className="mt-8 pt-5 border-t border-[#B8924A]/30 flex flex-wrap items-center justify-between gap-4">
+              {isCompleted ? (
+                <div
+                  className={`flex items-center gap-2 font-bold text-sm ${
+                    nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
+                  }`}
+                >
+                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                  <span>أتممت قراءة هذا الدعاء المبارك</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleFinishReading}
+                  className={`w-full sm:w-auto min-h-[48px] px-7 py-2.5 text-base flex items-center justify-center gap-2 cursor-pointer ${
+                    nightMode ? 'btn-gilded' : 'btn-emerald'
+                  }`}
+                >
+                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                  <span>أتممت القراءة</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleOpenShareCard}
+                className="min-h-[42px] px-4 py-2 btn-manuscript text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Share2 className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+                <span>مشاركة كبطاقة</span>
+              </button>
+            </div>
           </div>
         </motion.div>
-      </div>
+      )}
+
+      <ShareCardModal
+        payload={sharePayload}
+        onClose={() => setSharePayload(null)}
+      />
     </main>
   );
 };

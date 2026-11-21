@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Star,
   Volume2,
@@ -6,15 +6,21 @@ import {
   User,
   Crown,
   Pencil,
-  Settings,
   Menu,
   X,
   Bell,
-  WifiOff,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import {
+  AppAppearanceSettings,
+  loadAppAppearanceSettings,
+  saveAppAppearanceSettings,
+  subscribeAppAppearance,
+} from '../utils/appAppearance';
 import { RihlatLogo } from './RihlatLogo';
 import { SpiritualNotificationsModal } from './SpiritualNotificationsModal';
-import { useOnlineStatus } from '../utils/useOnlineStatus';
+import { AstrolabeIcon, MinaretAdhanIcon } from './IslamicOrnaments';
 import { DigitalLibrarySection, ScreenView } from '../types/game';
 import { TOTAL_POSSIBLE_STARS } from '../data/stations';
 import { STORE_ITEMS } from '../data/storeItems';
@@ -57,7 +63,22 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [draftAge, setDraftAge] = useState(userAge ? String(userAge) : '');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const isOnline = useOnlineStatus();
+  const [appearance, setAppearance] = useState<AppAppearanceSettings>(
+    loadAppAppearanceSettings
+  );
+
+  useEffect(() => {
+    return subscribeAppAppearance(setAppearance);
+  }, []);
+
+  const toggleColorTheme = () => {
+    const next: AppAppearanceSettings = {
+      ...appearance,
+      colorTheme: appearance.colorTheme === 'night' ? 'morning' : 'night',
+    };
+    setAppearance(next);
+    saveAppAppearanceSettings(next);
+  };
 
   const activeTitle = activeTitleId
     ? STORE_ITEMS.find((i) => i.id === activeTitleId)?.name
@@ -98,12 +119,26 @@ export const TopBar: React.FC<TopBarProps> = ({
       onClick: onNavigateHome,
     },
     {
+      id: 'quran',
+      label: 'القرآن الكريم',
+      active:
+        currentScreen === 'digital-library' && activeLibrarySection === 'quran',
+      onClick: () => onOpenLibrarySection('quran'),
+    },
+    {
       id: 'adiyat',
       label: 'الأدعية',
       active:
         currentScreen === 'duas' ||
         (currentScreen === 'digital-library' && activeLibrarySection === 'adiyat'),
       onClick: () => onOpenLibrarySection('adiyat'),
+    },
+    {
+      id: 'sahifa',
+      label: 'الصحيفة',
+      active:
+        currentScreen === 'digital-library' && activeLibrarySection === 'sahifa',
+      onClick: () => onOpenLibrarySection('sahifa'),
     },
     {
       id: 'ziyarat',
@@ -117,13 +152,12 @@ export const TopBar: React.FC<TopBarProps> = ({
       label: 'المناجاة',
       active:
         currentScreen === 'munajat' ||
-        (currentScreen === 'digital-library' &&
-          activeLibrarySection === 'munajat'),
+        (currentScreen === 'digital-library' && activeLibrarySection === 'munajat'),
       onClick: () => onOpenLibrarySection('munajat'),
     },
     {
       id: 'tasbih',
-      label: 'التسبيح',
+      label: 'المسبحة',
       active: currentScreen === 'tasbih',
       onClick: () => onNavigateScreen('tasbih'),
     },
@@ -133,32 +167,25 @@ export const TopBar: React.FC<TopBarProps> = ({
       active: currentScreen === 'calendar',
       onClick: () => onNavigateScreen('calendar'),
     },
-    {
-      id: 'quran',
-      label: 'القرآن',
-      active:
-        currentScreen === 'digital-library' && activeLibrarySection === 'quran',
-      onClick: () => onOpenLibrarySection('quran'),
-    },
   ];
 
   return (
     <>
-      <header className="sticky top-0 z-40 h-14 sm:h-16 bg-[#FDFCF9]/95 backdrop-blur-md border-b border-[#E5E0D5] shadow-2xs">
-        <div className="max-w-7xl mx-auto h-full px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 lg:gap-6">
-          {/* Zone 1: Brand Wordmark */}
+      <header className="sticky top-0 z-40 h-14 sm:h-16 bg-[#FAF6EC]/95 backdrop-blur-md border-b border-[#B8924A]/35">
+        <div className="max-w-7xl mx-auto h-full px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
+          {/* Masthead Brand */}
           <button
             type="button"
             onClick={onNavigateHome}
-            className="min-h-[40px] sm:min-h-[44px] flex items-center rounded-xl px-1 hover:bg-emerald-50/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 shrink-0 cursor-pointer"
+            className="min-h-[42px] flex items-center px-1 hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F3D2E] shrink-0 cursor-pointer"
             aria-label="العودة إلى الشاشة الرئيسية رحلة النور"
           >
             <RihlatLogo size="sm" />
           </button>
 
-          {/* Zone 2: Clean Single-Line Navigation Links */}
+          {/* Editorial Typographic Navigation (Desktop) */}
           <nav
-            className="hidden lg:flex items-center gap-6 text-sm font-extrabold text-emerald-800 shrink-0"
+            className="hidden lg:flex items-center gap-4 xl:gap-6 text-sm font-display font-semibold text-[#11271F] shrink-0"
             aria-label="التنقل الرئيسي"
           >
             {navItems.map((item) => (
@@ -168,8 +195,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 onClick={item.onClick}
                 className={`min-h-[44px] px-1 flex items-center whitespace-nowrap shrink-0 border-b-2 transition-colors cursor-pointer ${
                   item.active
-                    ? 'border-emerald-600 text-emerald-950'
-                    : 'border-transparent text-emerald-700 hover:text-emerald-950 hover:border-emerald-300'
+                    ? 'border-[#B8924A] text-[#0F3D2E] font-bold'
+                    : 'border-transparent text-[#425B51] hover:text-[#0F3D2E] hover:border-[#B8924A]/50'
                 }`}
               >
                 {item.label}
@@ -177,8 +204,8 @@ export const TopBar: React.FC<TopBarProps> = ({
             ))}
           </nav>
 
-          {/* Zone 3: Profile, Stars, Audio & Mobile Menu */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Utility Cluster: Profile, Star Ledger, Chime, Astrolabe Settings */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -187,19 +214,19 @@ export const TopBar: React.FC<TopBarProps> = ({
                 setEditingName(true);
               }}
               title="اضغط لتعديل الاسم والعمر"
-              className="hidden sm:flex min-h-[44px] px-2 py-1 rounded-xl hover:bg-emerald-50/80 items-center gap-2 transition-colors cursor-pointer min-w-0"
+              className="hidden sm:flex min-h-[42px] px-2.5 py-1 hover:bg-[#F3ECDA] rounded-[6px] items-center gap-2 transition-colors cursor-pointer min-w-0"
             >
               <div
-                className={`relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                className={`relative w-8 h-8 rounded-[5px] flex items-center justify-center shrink-0 border ${
                   hasGoldFrame
-                    ? 'bg-gradient-to-br from-amber-200 via-yellow-100 to-amber-300 border-2 border-amber-500 ring-2 ring-amber-300 shadow-sm text-amber-800'
-                    : 'bg-sky-100 border border-sky-200 text-sky-800'
+                    ? 'bg-gradient-to-br from-[#F7E8BD] to-[#D9B96A] border-[#9C7835] text-[#0F3D2E]'
+                    : 'bg-[#F3ECDA] border-[#B8924A]/50 text-[#0F3D2E]'
                 }`}
               >
                 <User className="w-4 h-4" aria-hidden="true" />
                 {hasGoldFrame && (
                   <Crown
-                    className="w-3.5 h-3.5 text-amber-600 fill-amber-400 absolute -top-1.5 -right-1"
+                    className="w-3.5 h-3.5 text-[#9C7835] fill-[#D9B96A] absolute -top-2 -right-1.5"
                     aria-hidden="true"
                   />
                 )}
@@ -207,13 +234,13 @@ export const TopBar: React.FC<TopBarProps> = ({
 
               <div className="text-right min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="font-display font-extrabold text-xs sm:text-sm text-emerald-950 truncate max-w-[110px]">
+                  <span className="font-display font-bold text-xs sm:text-sm text-[#11271F] truncate max-w-[105px]">
                     {childName}
                   </span>
-                  <Pencil className="w-3 h-3 text-slate-400 shrink-0" aria-hidden="true" />
+                  <Pencil className="w-3 h-3 text-[#425B51] shrink-0" aria-hidden="true" />
                 </div>
                 {(activeTitle || userAge != null) && (
-                  <div className="text-[11px] font-bold text-[#7D602B] truncate max-w-[140px]">
+                  <div className="text-[11px] font-medium text-[#7A5E2A] truncate max-w-[135px]">
                     {[activeTitle, userAge != null ? `${userAge} سنة` : null]
                       .filter(Boolean)
                       .join(' · ')}
@@ -223,14 +250,14 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
 
             <div
-              className="min-h-[40px] sm:min-h-[44px] px-2.5 sm:px-3 py-1 rounded-xl bg-[#F6F3EA] border border-[#E2DBC8] flex items-center gap-1.5"
+              className="min-h-[38px] sm:min-h-[42px] px-2.5 sm:px-3 py-1 rounded-[5px] bg-[#F3ECDA] border border-[#B8924A]/55 flex items-center gap-1.5"
               aria-label={`رصيد نجوم النور المتاح: ${availableStars} من ${TOTAL_POSSIBLE_STARS}`}
             >
               <Star
-                className="w-4 h-4 text-[#9A7B3E] fill-[#C9A962] shrink-0"
+                className="w-3.5 h-3.5 text-[#B8924A] fill-[#D9B96A] shrink-0"
                 aria-hidden="true"
               />
-              <span className="font-display font-extrabold text-sm sm:text-base text-[#4A3B1C] tabular-nums whitespace-nowrap">
+              <span className="font-display font-bold text-sm text-[#0F3D2E] tabular-nums whitespace-nowrap">
                 {availableStars}
               </span>
             </div>
@@ -238,53 +265,63 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               type="button"
               onClick={onToggleMute}
-              className="hidden sm:flex min-w-[44px] min-h-[44px] rounded-xl border border-[#DFDBD0] bg-[#F7F5EE] hover:bg-[#EEEAE0] text-[#145344] items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#145344]"
+              className="hidden sm:flex min-w-[40px] min-h-[40px] rounded-[5px] border border-[#B8924A]/45 bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#0F3D2E] items-center justify-center transition-colors cursor-pointer"
               aria-label={muted ? 'تشغيل المؤثرات الصوتية' : 'كتم المؤثرات الصوتية'}
               title={muted ? 'تشغيل الصوت' : 'كتم الصوت'}
             >
               {muted ? (
-                <VolumeX className="w-5 h-5" aria-hidden="true" />
+                <VolumeX className="w-4 h-4" aria-hidden="true" />
               ) : (
-                <Volume2 className="w-5 h-5" aria-hidden="true" />
+                <Volume2 className="w-4 h-4" aria-hidden="true" />
               )}
             </button>
 
-            {!isOnline && (
-              <div
-                title="أنت تعمل في وضع عدم الاتصال (بدون إنترنت)"
-                className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#EEF4F1] text-[#145344] text-xs font-bold shrink-0 border border-[#CFE0D8]"
-              >
-                <WifiOff className="w-3.5 h-3.5 text-[#145344]" aria-hidden="true" />
-                <span>أوفلاين</span>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={toggleColorTheme}
+              className="min-w-[40px] min-h-[40px] rounded-[5px] border border-[#B8924A]/45 bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#0F3D2E] flex items-center justify-center transition-colors cursor-pointer"
+              aria-label={
+                appearance.colorTheme === 'night'
+                  ? 'التبديل إلى الوضع الصباحي'
+                  : 'التبديل إلى الوضع الليلي'
+              }
+              title={
+                appearance.colorTheme === 'night' ? 'الوضع الصباحي' : 'الوضع الليلي'
+              }
+            >
+              {appearance.colorTheme === 'night' ? (
+                <Sun className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
+              ) : (
+                <Moon className="w-4 h-4" aria-hidden="true" />
+              )}
+            </button>
 
             <button
               type="button"
               onClick={() => setNotificationsOpen(true)}
-              className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-xl border border-[#DFDBD0] bg-[#F7F5EE] hover:bg-[#EEEAE0] text-[#145344] flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#145344]"
+              className="min-w-[40px] min-h-[40px] rounded-[5px] border border-[#B8924A]/45 bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#0F3D2E] flex items-center justify-center transition-colors cursor-pointer"
               title="إشعارات مستحبات الأيام ودعاء كميل"
               aria-label="إشعارات مستحبات الأيام ودعاء كميل"
             >
-              <Bell className="w-5 h-5 text-[#145344]" aria-hidden="true" />
+              <Bell className="w-4 h-4" aria-hidden="true" />
             </button>
 
             <button
               type="button"
               onClick={onOpenSettings}
-              className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-xl border border-[#D4E2DA] bg-[#EFF5F2] hover:bg-[#E3EFE9] text-[#145344] flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#145344]"
+              className="min-w-[40px] min-h-[40px] rounded-[5px] border border-[#0F3D2E]/30 bg-[#0F3D2E] hover:bg-[#17513E] text-[#FAF6EC] flex items-center justify-center transition-colors cursor-pointer"
               aria-label="الإعدادات واللمحة العامة"
               title="الإعدادات"
             >
-              <Settings className="w-5 h-5" aria-hidden="true" />
+              <AstrolabeIcon className="w-4 h-4 text-[#D9B96A]" />
             </button>
 
             <button
               type="button"
               onClick={() => setMobileMenuOpen((v) => !v)}
-              aria-label="فتح القائمة الرئيسية"
+              aria-label="فتح فهرس الأقسام"
               aria-expanded={mobileMenuOpen}
-              className="lg:hidden min-w-[40px] min-h-[40px] rounded-xl border border-[#D4E2DA] bg-[#EFF5F2] hover:bg-[#E3EFE9] text-[#145344] flex items-center justify-center cursor-pointer transition-colors"
+              className="lg:hidden min-w-[40px] min-h-[40px] rounded-[5px] border border-[#B8924A]/50 bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#0F3D2E] flex items-center justify-center cursor-pointer transition-colors"
             >
               {mobileMenuOpen ? (
                 <X className="w-5 h-5" aria-hidden="true" />
@@ -296,34 +333,31 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </header>
 
-      {/* Mobile Navigation Drawer */}
+      {/* Mobile Manuscript Index Drawer */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-50 lg:hidden flex justify-end"
           role="dialog"
           aria-modal="true"
-          aria-label="قائمة الأقسام"
+          aria-label="فهرس الأقسام"
         >
           <div
-            className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs"
+            className="fixed inset-0 bg-[#081A14]/60 backdrop-blur-xs"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="relative z-10 w-[85%] max-w-xs bg-white h-full p-4 shadow-2xl border-r border-emerald-200 flex flex-col">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-emerald-100">
-              <div className="flex items-center gap-2">
-                <RihlatLogo size="sm" />
-              </div>
+          <div className="relative z-10 w-[86%] max-w-xs bg-[#FAF6EC] paper-grain h-full p-4 shadow-2xl border-r border-[#B8924A]/60 flex flex-col">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#B8924A]/35">
+              <RihlatLogo size="sm" />
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="إغلاق القائمة"
-                className="min-h-[40px] min-w-[40px] rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center cursor-pointer"
+                className="min-h-[40px] min-w-[40px] rounded-[5px] border border-[#B8924A]/45 text-[#0F3D2E] flex items-center justify-center cursor-pointer hover:bg-[#F3ECDA]"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
-            {/* Mobile Profile Card inside Drawer */}
             <button
               type="button"
               onClick={() => {
@@ -332,39 +366,39 @@ export const TopBar: React.FC<TopBarProps> = ({
                 setDraftAge(userAge ? String(userAge) : '');
                 setEditingName(true);
               }}
-              className="mb-3 p-3 rounded-2xl bg-[#F6F3EA] border border-[#E2DBC8] flex items-center justify-between gap-2 text-right cursor-pointer"
+              className="mb-3 p-3 rounded-[6px] bg-[#F3ECDA] border border-[#B8924A]/45 flex items-center justify-between gap-2 text-right cursor-pointer"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className={`relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                  className={`relative w-9 h-9 rounded-[5px] flex items-center justify-center shrink-0 border ${
                     hasGoldFrame
-                      ? 'bg-gradient-to-br from-amber-200 via-yellow-100 to-amber-300 border-2 border-amber-500 text-amber-800'
-                      : 'bg-[#EFF5F2] border border-[#D4E2DA] text-[#145344]'
+                      ? 'bg-[#D9B96A]/35 border-[#B8924A] text-[#0F3D2E]'
+                      : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#0F3D2E]'
                   }`}
                 >
                   <User className="w-4 h-4" aria-hidden="true" />
                   {hasGoldFrame && (
                     <Crown
-                      className="w-3.5 h-3.5 text-amber-600 fill-amber-400 absolute -top-1.5 -right-1"
+                      className="w-3.5 h-3.5 text-[#9C7835] fill-[#D9B96A] absolute -top-2 -right-1"
                       aria-hidden="true"
                     />
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-display font-bold text-sm text-[#143D32] truncate">
+                  <div className="font-display font-bold text-sm text-[#0F3D2E] truncate">
                     {childName}
                   </div>
-                  <div className="text-[11px] font-semibold text-[#7D602B] truncate">
+                  <div className="text-[11px] font-medium text-[#7A5E2A] truncate">
                     {[activeTitle, userAge != null ? `${userAge} سنة` : null]
                       .filter(Boolean)
                       .join(' · ') || 'اضغط لتعديل الاسم والعمر'}
                   </div>
                 </div>
               </div>
-              <Pencil className="w-4 h-4 text-[#145344] shrink-0" aria-hidden="true" />
+              <Pencil className="w-4 h-4 text-[#0F3D2E] shrink-0" aria-hidden="true" />
             </button>
 
-            <nav className="space-y-1 flex-1 overflow-y-auto">
+            <nav className="divide-y divide-[#B8924A]/20 flex-1 overflow-y-auto">
               {[
                 ...navItems,
                 {
@@ -393,89 +427,125 @@ export const TopBar: React.FC<TopBarProps> = ({
                     item.onClick();
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-extrabold text-sm sm:text-base flex items-center justify-between cursor-pointer transition-colors ${
+                  className={`w-full min-h-[44px] px-3 text-right font-display font-bold text-sm flex items-center justify-between cursor-pointer transition-colors ${
                     item.active
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-emerald-950 hover:bg-emerald-50'
+                      ? 'bg-[#0F3D2E] text-[#FAF6EC]'
+                      : 'text-[#11271F] hover:bg-[#F3ECDA]'
                   }`}
                 >
                   <span>{item.label}</span>
+                  {item.active && (
+                    <span className="w-1.5 h-4 bg-[#D9B96A]" aria-hidden="true" />
+                  )}
                 </button>
               ))}
-
-              <div className="border-t border-[#E5E0D5] mt-3 pt-3 space-y-1.5">
-                <button
-                  type="button"
-                  onClick={onToggleMute}
-                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-bold text-sm flex items-center justify-between text-[#145344] bg-[#F7F5EE] hover:bg-[#EEEAE0] border border-[#E5E0D5] cursor-pointer transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    {muted ? (
-                      <VolumeX className="w-4 h-4 text-[#145344]" aria-hidden="true" />
-                    ) : (
-                      <Volume2 className="w-4 h-4 text-[#145344]" aria-hidden="true" />
-                    )}
-                    <span>المؤثرات الصوتية</span>
-                  </span>
-                  <span className="text-xs font-extrabold text-stone-600">
-                    {muted ? 'مكتومة' : 'مفعّلة'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setNotificationsOpen(true);
-                  }}
-                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-bold text-sm flex items-center justify-between text-[#145344] bg-[#EFF5F2] border border-[#D4E2DA] hover:bg-[#E4EFE9] cursor-pointer transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-[#145344]" aria-hidden="true" />
-                    <span>إشعارات المستحبات</span>
-                  </span>
-                  <span className="text-xs font-bold text-[#145344]">تنبيهات</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenSettings();
-                  }}
-                  className="w-full min-h-[44px] px-3.5 rounded-xl text-right font-display font-bold text-sm flex items-center gap-2 text-[#1E3B32] hover:bg-[#F4F1EA] cursor-pointer transition-colors"
-                >
-                  <Settings className="w-4 h-4 text-[#145344] shrink-0" aria-hidden="true" />
-                  <span>الإعدادات واللمحة العامة</span>
-                </button>
-              </div>
             </nav>
+
+            <div className="border-t border-[#B8924A]/35 pt-3 mt-2 space-y-2">
+              <button
+                type="button"
+                onClick={toggleColorTheme}
+                className="w-full min-h-[42px] px-3 rounded-[5px] text-right font-semibold text-xs flex items-center justify-between text-[#11271F] bg-[#F3ECDA] border border-[#B8924A]/40 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  {appearance.colorTheme === 'night' ? (
+                    <Moon className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+                  )}
+                  <span>مظهر التطبيق</span>
+                </span>
+                <span className="text-[#7A5E2A] font-bold">
+                  {appearance.colorTheme === 'night' ? 'الوضع الليلي' : 'الوضع الصباحي'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onToggleMute}
+                className="w-full min-h-[42px] px-3 rounded-[5px] text-right font-semibold text-xs flex items-center justify-between text-[#11271F] bg-[#F3ECDA] border border-[#B8924A]/40 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  {muted ? (
+                    <VolumeX className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+                  )}
+                  <span>المؤثرات الصوتية</span>
+                </span>
+                <span className="text-[#7A5E2A] font-bold">
+                  {muted ? 'مكتومة' : 'مفعّلة'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setNotificationsOpen(true);
+                }}
+                className="w-full min-h-[42px] px-3 rounded-[5px] text-right font-semibold text-xs flex items-center justify-between text-[#0F3D2E] bg-[#FAF6EC] border border-[#B8924A]/45 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Bell className="w-4 h-4" aria-hidden="true" />
+                  <span>إشعارات المستحبات اليومية</span>
+                </span>
+                <span className="text-[#7A5E2A]">ضبط</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigateScreen('adhan-settings');
+                }}
+                className="w-full min-h-[42px] px-3 rounded-[5px] text-right font-semibold text-xs flex items-center justify-between text-[#0F3D2E] bg-[#FAF6EC] border border-[#B8924A]/45 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <MinaretAdhanIcon className="w-4 h-4 text-[#B8924A]" />
+                  <span>الأذان ومواقيت الصلاة</span>
+                </span>
+                <span className="text-[#7A5E2A]">ضبط</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenSettings();
+                }}
+                className="w-full min-h-[42px] px-3 rounded-[5px] text-right font-semibold text-xs flex items-center gap-2 text-[#FAF6EC] bg-[#0F3D2E] cursor-pointer"
+              >
+                <AstrolabeIcon className="w-4 h-4 text-[#D9B96A]" />
+                <span>الإعدادات واللمحة العامة</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Child Name Edit Modal */}
+      {/* Edit Profile Modal */}
       {editingName && (
         <div
-          className="fixed inset-0 z-50 bg-emerald-950/40 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-[#081A14]/65 backdrop-blur-xs flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="edit-name-title"
         >
           <form
             onSubmit={handleSaveName}
-            className="w-full max-w-sm bg-[#FDFCF9] rounded-3xl p-6 border border-[#DDD4BE] shadow-2xl"
+            className="w-full max-w-sm manuscript-folio rounded-[8px] p-6 shadow-2xl"
           >
             <h2
               id="edit-name-title"
-              className="font-display font-bold text-xl text-[#143D32]"
+              className="font-display font-bold text-xl text-[#0F3D2E]"
             >
               بياناتك في رحلة النور
             </h2>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-[#425B51] mt-1">
               يمكنك تعديل اسمك وعمرك في أي وقت.
             </p>
-            <label className="block mt-4 text-xs font-bold text-[#145344]">
+            <label className="block mt-4 text-xs font-bold text-[#0F3D2E]">
               الاسم
             </label>
             <input
@@ -485,9 +555,9 @@ export const TopBar: React.FC<TopBarProps> = ({
               onChange={(e) => setDraftName(e.target.value)}
               placeholder="اكتب اسمك هنا..."
               autoFocus
-              className="mt-1.5 w-full min-h-[46px] px-4 rounded-xl border border-[#D4E2DA] bg-white focus:border-[#145344] focus:outline-none font-bold text-base text-[#143D32]"
+              className="mt-1.5 w-full min-h-[46px] px-3.5 rounded-[5px] border border-[#B8924A]/55 bg-white focus:border-[#0F3D2E] focus:outline-none font-bold text-base text-[#11271F]"
             />
-            <label className="block mt-3.5 text-xs font-bold text-[#145344]">
+            <label className="block mt-3.5 text-xs font-bold text-[#0F3D2E]">
               العمر (بالسنوات)
             </label>
             <input
@@ -499,19 +569,19 @@ export const TopBar: React.FC<TopBarProps> = ({
                 setDraftAge(e.target.value.replace(/[^0-9٠-٩۰-۹]/g, ''))
               }
               placeholder="اكتب عمرك..."
-              className="mt-1.5 w-full min-h-[46px] px-4 rounded-xl border border-[#D4E2DA] bg-white focus:border-[#145344] focus:outline-none font-bold text-base text-[#143D32]"
+              className="mt-1.5 w-full min-h-[46px] px-3.5 rounded-[5px] border border-[#B8924A]/55 bg-white focus:border-[#0F3D2E] focus:outline-none font-bold text-base text-[#11271F]"
             />
             <div className="mt-5 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setEditingName(false)}
-                className="min-h-[44px] px-5 rounded-xl bg-[#F4F1E8] hover:bg-[#EAE4D5] text-slate-700 font-bold cursor-pointer"
+                className="min-h-[44px] px-5 btn-manuscript cursor-pointer"
               >
                 إلغاء
               </button>
               <button
                 type="submit"
-                className="min-h-[44px] px-6 rounded-xl bg-[#145344] hover:bg-[#0F4236] text-white font-bold cursor-pointer"
+                className="min-h-[44px] px-6 btn-emerald cursor-pointer"
               >
                 حفظ البيانات
               </button>
@@ -523,6 +593,10 @@ export const TopBar: React.FC<TopBarProps> = ({
       <SpiritualNotificationsModal
         isOpen={notificationsOpen}
         onClose={() => setNotificationsOpen(false)}
+        onOpenAdhanSettings={() => {
+          setNotificationsOpen(false);
+          onNavigateScreen('adhan-settings');
+        }}
         onOpenSection={(sec, entryId) => {
           if (sec === 'library' || sec === 'tasbih') {
             onNavigateScreen(sec);

@@ -194,6 +194,14 @@ export interface SpiritualNotificationSettings {
   soundEnabled: boolean;
   includeHijriOccasions: boolean;
   inAppToastEnabled: boolean;
+  prayerAlertsEnabled: boolean;
+  prayerAlertKeys: {
+    fajr: boolean;
+    dhuhr: boolean;
+    asr: boolean;
+    maghrib: boolean;
+    isha: boolean;
+  };
   lastNotifiedDate: string; // YYYY-MM-DD
 }
 
@@ -215,6 +223,14 @@ export const DEFAULT_NOTIFICATION_SETTINGS: SpiritualNotificationSettings = {
   soundEnabled: true,
   includeHijriOccasions: true,
   inAppToastEnabled: true,
+  prayerAlertsEnabled: true,
+  prayerAlertKeys: {
+    fajr: true,
+    dhuhr: true,
+    asr: false,
+    maghrib: true,
+    isha: false,
+  },
   lastNotifiedDate: '',
 };
 
@@ -230,6 +246,10 @@ export function loadNotificationSettings(): SpiritualNotificationSettings {
         enabledDays: {
           ...DEFAULT_NOTIFICATION_SETTINGS.enabledDays,
           ...(parsed.enabledDays || {}),
+        },
+        prayerAlertKeys: {
+          ...DEFAULT_NOTIFICATION_SETTINGS.prayerAlertKeys,
+          ...(parsed.prayerAlertKeys || {}),
         },
       };
     }

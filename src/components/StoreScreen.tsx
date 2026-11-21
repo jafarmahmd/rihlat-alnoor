@@ -23,6 +23,11 @@ import {
 } from 'lucide-react';
 import { STORE_ITEMS } from '../data/storeItems';
 import { GameProgress, StoreCategory, StoreItem } from '../types/game';
+import {
+  ManuscriptCornerBracket,
+  ManuscriptDivider,
+  StoreTreasuryIcon,
+} from './IslamicOrnaments';
 
 interface StoreScreenProps {
   progress: GameProgress;
@@ -123,20 +128,20 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
   }[] = [
     {
       id: 'titles',
-      title: 'القسم الأول: ألقاب الشرف',
+      title: 'ألقاب الشرف الكشفية',
       subtitle: 'تُعرض ألقاب الشرف المفعّلة بجانب اسمك في أعلى الشاشة بكل فخر.',
       items: STORE_ITEMS.filter((i) => i.category === 'titles'),
     },
     {
       id: 'medals',
-      title: 'القسم الثاني: أوسمة وبطاقات معنوية',
+      title: 'أوسمة وبطاقات معنوية',
       subtitle: 'أوسمة وحكم قصيرة مستوحاة من أهل البيت (عليهم السلام) تُحفظ في خزانة إنجازاتك.',
       items: STORE_ITEMS.filter((i) => i.category === 'medals'),
     },
     {
       id: 'themes',
-      title: 'القسم الثالث: إطارات وخلفيات مبهجة',
-      subtitle: 'غيّر شكل واجهة اللعبة وزيّن صورة ملفك بألوان وإطارات جميلة.',
+      title: 'إطارات وخلفيات مبهجة',
+      subtitle: 'غيّر مظهر الواجهة وزيّن إطار ملفك بألوان مستوحاة من المخطوطات.',
       items: STORE_ITEMS.filter((i) => i.category === 'themes'),
     },
   ];
@@ -149,47 +154,48 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
       : sections.filter((s) => s.id === activeTab);
 
   return (
-    <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-10">
-      {/* Top Store Header */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-4 sm:p-7 border border-amber-200/90 shadow-lg shadow-emerald-950/5 mb-5 sm:mb-6">
+    <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+      {/* Top Store Masthead */}
+      <div className="manuscript-folio paper-grain rounded-[6px] p-5 sm:p-7 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5">
             <button
               type="button"
               onClick={onBackHome}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-900 font-bold text-sm sm:text-base flex items-center gap-2 transition-colors cursor-pointer shrink-0"
+              className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-2 cursor-pointer shrink-0"
             >
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
               <span>الرئيسية</span>
             </button>
             <div>
-              <h1 className="font-display font-black text-2xl sm:text-3xl text-emerald-950">
-                متجر الأنوار
+              <h1 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E] flex items-center gap-2">
+                <StoreTreasuryIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
+                <span>خزانة الأنوار</span>
               </h1>
-              <p className="text-sm sm:text-base text-slate-700 mt-0.5">
-                استبدل نجوم النور التي جمعتها بألقاب شرف وأوسمة وخلفيات مبهجة!
+              <p className="text-xs sm:text-sm text-[#425B51] mt-0.5">
+                استبدل نجوم النور التي جمعتها بألقاب شرف وأوسمة وخلفيات تراثية
               </p>
             </div>
           </div>
 
-          {/* Available Star Balance */}
-          <div className="rounded-2xl px-5 py-3 bg-gradient-to-l from-amber-50 to-amber-100 border-2 border-amber-300 flex items-center justify-between sm:justify-start gap-3 shrink-0">
+          {/* Gilded Star Balance */}
+          <div className="rounded-[5px] px-4 py-2.5 bg-[#0F3D2E] border border-[#D9B96A] text-[#FAF6EC] flex items-center justify-between sm:justify-start gap-3 shrink-0">
             <div className="flex items-center gap-2">
               <Star
-                className="w-7 h-7 text-amber-500 fill-amber-400"
+                className="w-5 h-5 text-[#D9B96A] fill-[#D9B96A]"
                 aria-hidden="true"
               />
-              <span className="text-sm font-bold text-amber-900">رصيدك المتاح:</span>
+              <span className="text-xs sm:text-sm font-medium text-[#D9B96A]">رصيدك المتاح:</span>
             </div>
-            <span className="font-display font-black text-2xl text-amber-950 tabular-nums">
+            <span className="font-display font-bold text-xl sm:text-2xl text-[#FAF6EC] tabular-nums">
               {availableStars} نجمة
             </span>
           </div>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Architectural Treasury Filter Tabs */}
         <div
-          className="mt-5 sm:mt-6 pt-4 border-t border-emerald-100 flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 sm:flex-wrap"
+          className="mt-5 pt-4 border-t border-[#B8924A]/30 flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 sm:flex-wrap"
           role="tablist"
           aria-label="أقسام متجر الأنوار"
         >
@@ -209,10 +215,10 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
               role="tab"
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`min-h-[42px] px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs sm:text-base transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`min-h-[40px] px-3.5 py-1.5 rounded-[5px] border font-display font-bold text-xs sm:text-sm transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === tab.id
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-900'
+                  ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
+                  : 'btn-manuscript'
               }`}
             >
               {tab.label}
@@ -225,37 +231,34 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
       {activeTab === 'cabinet' && (
         <section
           aria-label="خزانة إنجازات الطفل"
-          className="bg-white/90 rounded-3xl p-6 sm:p-8 border border-emerald-200 shadow-md mb-8"
+          className="manuscript-folio paper-grain rounded-[6px] p-6 sm:p-8 mb-8"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700">
-              <Trophy className="w-6 h-6" aria-hidden="true" />
-            </div>
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#B8924A]/30">
+            <Trophy className="w-7 h-7 text-[#B8924A] shrink-0" aria-hidden="true" />
             <div>
-              <h2 className="font-display font-black text-2xl text-emerald-950">
+              <h2 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E]">
                 خزانة إنجازات {progress.childName}
               </h2>
-              <p className="text-sm sm:text-base text-slate-600">
-                كل الأوسمة والبطاقات والألقاب والخلفيات التي اقتنيتها في رحلتك محفوظة هنا.
+              <p className="text-sm text-[#425B51]">
+                كل الأوسمة والبطاقات والألقاب والخلفيات التي اقتنيتها محفوظة هنا.
               </p>
             </div>
           </div>
 
           {progress.purchasedItemIds.length === 0 ? (
-            <div className="py-12 px-4 text-center rounded-2xl bg-sky-50/70 border border-sky-200">
-              <Sparkles className="w-10 h-10 text-amber-500 mx-auto mb-3" aria-hidden="true" />
-              <p className="font-display font-bold text-lg text-emerald-950">
+            <div className="py-12 px-4 text-center rounded-[5px] bg-[#F3ECDA]/55 border border-[#B8924A]/35">
+              <p className="font-display font-bold text-lg text-[#0F3D2E]">
                 خزانتك بانتظار أول وسام أو لقب!
               </p>
-              <p className="text-slate-600 mt-1 text-base">
-                اجمع 10 نجوم من المحطات الأولى واختر ما يعجبك من متجر الأنوار.
+              <p className="text-[#425B51] mt-1 text-sm sm:text-base">
+                اجمع ١٠ نجوم من المحطات الأولى واختر ما يعجبك من خزانة الأنوار.
               </p>
               <button
                 type="button"
                 onClick={() => setActiveTab('all')}
-                className="mt-5 min-h-[44px] px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer transition-colors"
+                className="mt-5 min-h-[42px] px-6 py-2 btn-emerald text-sm cursor-pointer"
               >
-                استعراض المتجر
+                استعراض الخزانة
               </button>
             </div>
           ) : (
@@ -265,30 +268,30 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
                 return (
                   <div
                     key={item.id}
-                    className="rounded-2xl p-5 bg-gradient-to-br from-white to-amber-50/50 border border-amber-200 flex flex-col justify-between gap-4"
+                    className="rounded-[5px] p-5 bg-[#FAF6EC] border border-[#B8924A]/55 flex flex-col justify-between gap-4"
                   >
                     <div>
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                        <span className="text-[#B8924A] shrink-0">
                           {renderStoreIcon(item.iconName)}
-                        </div>
+                        </span>
                         <div>
-                          <h3 className="font-display font-extrabold text-lg text-emerald-950">
+                          <h3 className="font-display font-bold text-lg text-[#0F3D2E]">
                             {item.name}
                           </h3>
                           {item.inspiration && (
-                            <p className="text-xs font-bold text-sky-700">
+                            <p className="text-xs font-bold text-[#1F6B50]">
                               {item.inspiration}
                             </p>
                           )}
                         </div>
                       </div>
                       {item.wisdomText ? (
-                        <p className="mt-3 text-sm text-slate-700 leading-relaxed bg-white/80 p-3 rounded-xl border border-amber-100">
+                        <p className="mt-3 text-sm text-[#11271F] leading-relaxed bg-[#F3ECDA]/70 p-3 rounded-[4px] border-r-2 border-[#B8924A]">
                           {item.wisdomText}
                         </p>
                       ) : (
-                        <p className="mt-3 text-sm text-slate-600">{item.description}</p>
+                        <p className="mt-3 text-sm text-[#425B51]">{item.description}</p>
                       )}
                     </div>
 
@@ -298,7 +301,7 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
                         onClick={() =>
                           setCelebratingItem({ item, justPurchased: false })
                         }
-                        className="min-h-[44px] w-full rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 font-bold text-sm cursor-pointer transition-colors"
+                        className="min-h-[42px] w-full btn-manuscript text-sm cursor-pointer"
                       >
                         عرض البطاقة والحكمة
                       </button>
@@ -306,10 +309,8 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
                       <button
                         type="button"
                         onClick={() => handleToggleActivate(item)}
-                        className={`min-h-[44px] w-full rounded-xl font-bold text-sm cursor-pointer transition-colors ${
-                          active
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                            : 'bg-amber-100 text-amber-950 hover:bg-amber-200'
+                        className={`min-h-[42px] w-full text-sm cursor-pointer ${
+                          active ? 'btn-emerald' : 'btn-gilded'
                         }`}
                       >
                         {active ? 'مُفعّل حالياً (إلغاء)' : 'تفعيل الآن'}
@@ -323,24 +324,24 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
         </section>
       )}
 
-      {/* Owned Medals Quick Bar when viewing Store */}
+      {/* Owned Medals Summary Bar */}
       {activeTab === 'all' && ownedMedals.length > 0 && (
-        <div className="mb-8 rounded-2xl bg-amber-50/90 border border-amber-200 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="mb-8 rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#B8924A] p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Trophy className="w-6 h-6 text-amber-600 shrink-0" aria-hidden="true" />
+            <Trophy className="w-6 h-6 text-[#D9B96A] shrink-0" aria-hidden="true" />
             <div>
-              <p className="font-display font-extrabold text-base text-amber-950">
+              <p className="font-display font-bold text-sm sm:text-base text-[#FAF6EC]">
                 في خزانة إنجازاتك الآن: {ownedMedals.length} من 6 أوسمة وبطاقات معنوية
               </p>
-              <p className="text-xs sm:text-sm text-amber-800">
-                اضغط على أي وسام مقتنى لقراءة حكمته أو افتح خزانة إنجازاتك.
+              <p className="text-xs text-[#D9B96A]/90">
+                افتح خزانتك لقراءة الحكم المعنوية المقتناة.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setActiveTab('cabinet')}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 text-amber-950 font-bold text-sm cursor-pointer transition-colors"
+            className="min-h-[40px] px-4 py-1.5 btn-gilded text-xs sm:text-sm cursor-pointer"
           >
             فتح خزانة إنجازاتي
           </button>
@@ -351,14 +352,14 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
       <div className="space-y-10">
         {visibleSections.map((section) => (
           <section key={section.id} aria-labelledby={`section-heading-${section.id}`}>
-            <div className="mb-4">
+            <div className="mb-4 pb-2 border-b border-[#B8924A]/30">
               <h2
                 id={`section-heading-${section.id}`}
-                className="font-display font-black text-xl sm:text-2xl text-emerald-950"
+                className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E]"
               >
                 {section.title}
               </h2>
-              <p className="text-sm sm:text-base text-slate-600 mt-1">
+              <p className="text-xs sm:text-sm text-[#425B51] mt-0.5">
                 {section.subtitle}
               </p>
             </div>
@@ -372,56 +373,52 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
                 return (
                   <article
                     key={item.id}
-                    className={`rounded-3xl p-5 sm:p-6 bg-white/95 border-2 flex flex-col justify-between gap-5 shadow-sm transition-shadow ${
+                    className={`manuscript-folio paper-grain rounded-[6px] p-5 flex flex-col justify-between gap-5 transition-colors ${
                       isActive
-                        ? 'border-emerald-500 shadow-emerald-900/10'
+                        ? 'ring-2 ring-[#0F3D2E] border-[#B8924A]'
                         : isPurchased
-                        ? 'border-amber-300'
-                        : 'border-emerald-100 hover:border-sky-200'
+                        ? 'border-[#B8924A]'
+                        : ''
                     }`}
                   >
                     <div>
-                      {/* Preview Swatch for Themes */}
                       {item.previewGradient && (
                         <div
-                          className={`h-16 rounded-2xl mb-4 bg-gradient-to-l ${item.previewGradient} border border-amber-200/80 flex items-center justify-center`}
+                          className={`h-14 rounded-[4px] mb-4 bg-gradient-to-l ${item.previewGradient} border border-[#B8924A]/55 flex items-center justify-center`}
                         >
-                          <div className="w-10 h-10 rounded-full bg-white/85 flex items-center justify-center text-amber-600 shadow-xs">
+                          <span className="text-[#7A5420]">
                             {renderStoreIcon(item.iconName, 'w-5 h-5')}
-                          </div>
+                          </span>
                         </div>
                       )}
 
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-start gap-2.5">
                           {!item.previewGradient && (
-                            <div
-                              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                                isPurchased
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-emerald-50 text-emerald-700'
+                            <span
+                              className={`mt-0.5 shrink-0 ${
+                                isPurchased ? 'text-[#B8924A]' : 'text-[#1F6B50]'
                               }`}
                             >
-                              {renderStoreIcon(item.iconName, 'w-6 h-6')}
-                            </div>
+                              {renderStoreIcon(item.iconName, 'w-5 h-5')}
+                            </span>
                           )}
                           <div>
-                            <h3 className="font-display font-black text-lg text-emerald-950 leading-snug">
+                            <h3 className="font-display font-bold text-lg text-[#0F3D2E] leading-snug">
                               {item.name}
                             </h3>
                             {item.inspiration && (
-                              <p className="text-xs font-bold text-sky-700 mt-0.5">
+                              <p className="text-xs font-bold text-[#7A5420] mt-0.5">
                                 {item.inspiration}
                               </p>
                             )}
                           </div>
                         </div>
 
-                        {/* Price display */}
                         {!isPurchased && (
-                          <div className="flex items-center gap-1 text-amber-800 font-display font-black text-base shrink-0 tabular-nums">
+                          <div className="flex items-center gap-1 text-[#7A5420] font-display font-bold text-sm shrink-0 tabular-nums">
                             <Star
-                              className="w-4 h-4 text-amber-500 fill-amber-400"
+                              className="w-4 h-4 text-[#B8924A] fill-[#D9B96A]"
                               aria-hidden="true"
                             />
                             <span>{item.price}</span>
@@ -429,27 +426,26 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
                         )}
                       </div>
 
-                      <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed">
+                      <p className="mt-3 text-sm text-[#425B51] leading-relaxed">
                         {item.description}
                       </p>
                     </div>
 
-                    {/* Action Area */}
                     <div>
                       {!isPurchased ? (
                         <button
                           type="button"
                           onClick={() => handleBuyClick(item)}
                           disabled={!canAfford}
-                          className={`w-full min-h-[48px] px-4 py-2.5 rounded-2xl font-display font-bold text-base flex items-center justify-center gap-2 transition-colors ${
+                          className={`w-full min-h-[44px] px-4 py-2 text-sm flex items-center justify-center gap-2 transition-colors ${
                             canAfford
-                              ? 'bg-gradient-to-l from-amber-500 to-amber-400 hover:from-amber-600 hover:to-amber-500 text-white shadow-sm cursor-pointer'
-                              : 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                              ? 'btn-gilded cursor-pointer'
+                              : 'rounded-[6px] bg-[#F3ECDA] border border-[#B8924A]/30 text-[#425B51]/70 font-display font-bold cursor-not-allowed'
                           }`}
                         >
                           <Star
                             className={`w-4 h-4 ${
-                              canAfford ? 'fill-white text-white' : 'text-slate-400'
+                              canAfford ? 'fill-current' : 'opacity-45'
                             }`}
                             aria-hidden="true"
                           />
@@ -465,24 +461,22 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
                           onClick={() =>
                             setCelebratingItem({ item, justPurchased: false })
                           }
-                          className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-950 font-display font-bold text-base flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                          className="w-full min-h-[44px] px-4 py-2 btn-manuscript text-sm flex items-center justify-center gap-2 cursor-pointer"
                         >
-                          <Check className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                          <Check className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
                           <span>في خزانتك · اقرأ الحكمة</span>
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={() => handleToggleActivate(item)}
-                          className={`w-full min-h-[48px] px-4 py-2.5 rounded-2xl font-display font-bold text-base flex items-center justify-center gap-2 cursor-pointer transition-colors ${
-                            isActive
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              : 'bg-sky-50 border border-sky-300 hover:bg-sky-100 text-sky-900'
+                          className={`w-full min-h-[44px] px-4 py-2 text-sm flex items-center justify-center gap-2 cursor-pointer ${
+                            isActive ? 'btn-emerald' : 'btn-manuscript'
                           }`}
                         >
-                          {isActive && <Check className="w-4 h-4" aria-hidden="true" />}
+                          {isActive && <Check className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />}
                           <span>
-                            {isActive ? 'مُفعّل الآن · اضغط للإلغاء' : 'تفعيل'}
+                            {isActive ? 'مُفعّل الآن · اضغط للإلغاء' : 'تفعيل الآن'}
                           </span>
                         </button>
                       )}
@@ -498,41 +492,42 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
       {/* Purchase / Medal Celebration Modal */}
       {celebratingItem && (
         <div
-          className="fixed inset-0 z-50 bg-emerald-950/45 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-[#081A14]/65 backdrop-blur-xs flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="celebrate-item-title"
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 12 }}
+            initial={{ opacity: 0, scale: 0.94, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 20 }}
-            className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 border-2 border-amber-300 shadow-2xl text-center"
+            transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+            className="relative w-full max-w-md manuscript-folio paper-grain rounded-[6px] p-6 sm:p-8 shadow-2xl text-center"
           >
-            <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 border-2 border-amber-400 text-amber-700 mb-4">
-              <span
-                className="absolute -inset-2 rounded-full border-2 border-amber-300/70 animate-noor-halo pointer-events-none"
-                aria-hidden="true"
-              />
-              {renderStoreIcon(celebratingItem.item.iconName, 'w-10 h-10')}
+            <ManuscriptCornerBracket position="top-right" className="absolute top-2.5 right-2.5" />
+            <ManuscriptCornerBracket position="top-left" className="absolute top-2.5 left-2.5" />
+
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#0F3D2E] border-2 border-[#D9B96A] text-[#D9B96A] mb-3">
+              {renderStoreIcon(celebratingItem.item.iconName, 'w-8 h-8')}
             </div>
 
-            <p className="text-sm font-bold text-emerald-700">
-              {celebratingItem.justPurchased ? 'مبارك لك الاقتناء الجديد!' : 'من خزانة إنجازاتك'}
+            <p className="text-xs font-bold text-[#1F6B50]">
+              {celebratingItem.justPurchased ? 'مبارك لك الاقتناء الجديد' : 'من خزانة إنجازاتك'}
             </p>
             <h2
               id="celebrate-item-title"
-              className="mt-1 font-display font-black text-2xl sm:text-3xl text-emerald-950"
+              className="mt-1 font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E]"
             >
               {celebratingItem.item.name}
             </h2>
 
-            <p className="mt-3 text-slate-700 text-base sm:text-lg leading-relaxed">
+            <ManuscriptDivider variant="rosette" />
+
+            <p className="text-[#425B51] text-sm sm:text-base leading-relaxed">
               {celebratingItem.item.celebrationMessage}
             </p>
 
             {celebratingItem.item.wisdomText && (
-              <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 font-display font-bold text-base leading-relaxed">
+              <div className="mt-4 p-4 rounded-[5px] bg-[#F3ECDA]/75 border border-[#B8924A]/50 text-[#0F3D2E] font-arabic font-bold text-base leading-relaxed">
                 {celebratingItem.item.wisdomText}
               </div>
             )}
@@ -547,7 +542,7 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
                       onActivateItem(celebratingItem.item);
                       setCelebratingItem(null);
                     }}
-                    className="w-full sm:w-auto min-h-[48px] px-7 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-base cursor-pointer transition-colors"
+                    className="w-full sm:w-auto min-h-[44px] px-6 py-2 btn-emerald text-sm sm:text-base cursor-pointer"
                   >
                     تفعيل الآن
                   </button>
@@ -556,7 +551,7 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setCelebratingItem(null)}
-                className="w-full sm:w-auto min-h-[48px] px-7 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-display font-bold text-base cursor-pointer transition-colors"
+                className="w-full sm:w-auto min-h-[44px] px-6 py-2 btn-gilded text-sm sm:text-base cursor-pointer"
               >
                 {celebratingItem.item.category === 'medals' ? 'حفظ في خزانتي' : 'حسناً'}
               </button>

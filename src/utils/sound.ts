@@ -85,3 +85,42 @@ export function playTasbihPhaseSound(muted: boolean) {
   playTone(587.33, 0.16, 0, 0.06, 'sine'); // D5
   playTone(880, 0.26, 0.09, 0.07, 'triangle'); // A5
 }
+
+export function playPageFlipSound(enabled: boolean) {
+  if (!enabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const duration = 0.11;
+    const sampleRate = ctx.sampleRate;
+    const frameCount = Math.floor(sampleRate * duration);
+    const buffer = ctx.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < frameCount; i++) {
+      const env = Math.sin((i / frameCount) * Math.PI);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1150, ctx.currentTime);
+    filter.Q.setValueAtTime(0.85, ctx.currentTime);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+  } catch {
+    // Ignore audio context restriction errors
+  }
+}
+

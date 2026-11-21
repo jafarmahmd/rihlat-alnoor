@@ -1,16 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  Calendar,
-  Sparkles,
-  HeartHandshake,
-  BookOpenCheck,
-  Star,
-  ChevronDown,
-  X,
-  CheckCircle2,
-  CalendarDays,
-} from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, ArrowLeft } from 'lucide-react';
 import {
   HIJRI_MONTH_NAMES,
   HIJRI_OCCASIONS,
@@ -20,6 +10,15 @@ import {
   toGregorianInfoFromUtcNoon,
 } from '../data/hijriCalendar';
 import { DigitalLibrarySection, HijriOccasion } from '../types/game';
+import {
+  BirthStarMark,
+  CalendarArchIcon,
+  DuaScrollIcon,
+  EidRosetteMark,
+  ManuscriptDivider,
+  MartyrdomCrescentMark,
+  StoriesLanternIcon,
+} from './IslamicOrnaments';
 
 interface HijriBannerProps {
   hijriOffset: number;
@@ -61,8 +60,6 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
   const [showAllOccasions, setShowAllOccasions] = useState(false);
   const [justRewardedId, setJustRewardedId] = useState<string | null>(null);
 
-  const isBirth = featuredOccasion.type === 'birth';
-
   const handleMarkOccasionRead = (occId: string) => {
     const awarded = onCompleteReading(occId);
     if (awarded) {
@@ -71,69 +68,83 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
     }
   };
 
+  const renderOccasionMark = (occ: HijriOccasion) => {
+    if (occ.id.includes('eid') || occ.title.includes('عيد')) {
+      return <EidRosetteMark className="w-4 h-4 text-[#B8924A] shrink-0" />;
+    }
+    if (occ.type === 'birth') {
+      return <BirthStarMark className="w-4 h-4 text-[#1F6B50] shrink-0" />;
+    }
+    return <MartyrdomCrescentMark className="w-4 h-4 text-[#6B5423] shrink-0" />;
+  };
+
   return (
     <>
       <motion.section
-        initial={{ opacity: 0, y: -6 }}
+        initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
         aria-label="التقويم الهجري الجعفري والميلادي والمناسبات"
-        className="rounded-2xl sm:rounded-3xl bg-[#FDFCF9] border border-[#E5E0D5] p-4 sm:p-5 shadow-2xs transition-colors"
+        className="manuscript-folio rounded-[6px] p-3.5 sm:p-4"
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4">
-          {/* Synchronized Hijri & Gregorian Dates + Occasion Headline */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Synchronized Date Ribbon & Occasion */}
           <div className="flex items-start sm:items-center gap-3 min-w-0">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border border-[#D4E2DA] bg-[#EFF5F2] text-[#145344]">
-              <Calendar className="w-5 h-5" aria-hidden="true" />
+            <div className="w-10 h-10 rounded-[5px] bg-[#0F3D2E] text-[#D9B96A] flex items-center justify-center shrink-0 border border-[#B8924A]/60">
+              <CalendarArchIcon className="w-5 h-5" />
             </div>
 
-            <div className="space-y-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm font-semibold text-stone-600 tabular-nums">
-                <span className="text-[#145344] font-bold">الهجري: {hijriToday.formattedArabic}</span>
-                <span className="text-stone-400" aria-hidden="true">·</span>
-                <span>
-                  الميلادي: {gregorianToday.day} {gregorianToday.monthNameAr} {gregorianToday.year} م
+            <div className="space-y-0.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs sm:text-sm font-medium text-[#425B51] tabular-nums">
+                <span className="text-[#0F3D2E] font-bold">
+                  {hijriToday.formattedArabic}
                 </span>
-                <span className="text-stone-400" aria-hidden="true">·</span>
-                <span className={isExactToday ? 'text-[#7D602B] font-bold' : 'text-[#145344]'}>
-                  {isExactToday
-                    ? 'مناسبة اليوم المباركة'
-                    : daysUntil === 1
-                    ? 'مناسبة غداً بمشيئة الله'
-                    : `المناسبة القادمة (${featuredOccasion.day} ${HIJRI_MONTH_NAMES[featuredOccasion.month]})`}
+                <span className="text-[#B8924A]" aria-hidden="true">|</span>
+                <span>
+                  {gregorianToday.day} {gregorianToday.monthNameAr} {gregorianToday.year} م
+                </span>
+                <span className="text-[#B8924A]" aria-hidden="true">|</span>
+                <span className="inline-flex items-center gap-1 text-[#7A5E2A] font-semibold">
+                  {renderOccasionMark(featuredOccasion)}
+                  <span>
+                    {isExactToday
+                      ? 'مناسبة اليوم المباركة'
+                      : daysUntil === 1
+                      ? 'مناسبة غداً بمشيئة الله'
+                      : `${featuredOccasion.day} ${HIJRI_MONTH_NAMES[featuredOccasion.month]}`}
+                  </span>
                 </span>
               </div>
 
-              <h2 className="font-display font-bold text-base sm:text-lg text-[#172B24] leading-snug">
+              <h2 className="font-display font-bold text-base sm:text-lg text-[#11271F] leading-snug">
                 {featuredOccasion.title}
               </h2>
             </div>
           </div>
 
-          {/* Simplified Calm Action Strip */}
+          {/* 3 Architectural Action Links */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={onOpenCalendar}
-              className="min-h-[42px] px-3.5 py-2 rounded-xl bg-[#EFF5F2] hover:bg-[#E2EFE8] text-[#145344] border border-[#CFE0D8] font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-3.5 py-1.5 btn-manuscript text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
             >
-              <CalendarDays className="w-4 h-4 text-[#145344] shrink-0" aria-hidden="true" />
-              <span>التقويم</span>
+              <CalendarArchIcon className="w-4 h-4 text-[#0F3D2E]" />
+              <span>التقويم السنوي</span>
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedOccasion(featuredOccasion)}
-              className="min-h-[42px] px-3.5 py-2 rounded-xl bg-[#F7F5EE] hover:bg-[#EEEAE0] text-[#1E3B32] border border-[#E2DDD0] font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-3.5 py-1.5 btn-emerald text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-[#9A7B3E] shrink-0" aria-hidden="true" />
               <span>القصة والدعاء</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowAllOccasions((prev) => !prev)}
-              className="min-h-[42px] px-3 py-2 rounded-xl bg-white hover:bg-[#F7F5EE] text-stone-700 border border-[#E5E0D5] font-bold text-xs sm:text-sm flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-2.5 py-1.5 btn-text-ornate text-xs sm:text-sm flex items-center gap-1 cursor-pointer"
             >
               <span>المناسبات ({HIJRI_OCCASIONS.length})</span>
               <ChevronDown
@@ -146,7 +157,7 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
           </div>
         </div>
 
-        {/* Expandable Yearly Occasions Grid */}
+        {/* Expandable Ledger Grid */}
         <AnimatePresence>
           {showAllOccasions && (
             <motion.div
@@ -156,7 +167,7 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
-              <div className="mt-4 pt-4 border-t border-emerald-200/70 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pl-1">
+              <div className="mt-4 pt-4 border-t border-[#B8924A]/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto pl-1">
                 {HIJRI_OCCASIONS.map((occ) => {
                   const done = completedReadingIds.includes(occ.id);
                   return (
@@ -164,20 +175,22 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
                       key={occ.id}
                       type="button"
                       onClick={() => setSelectedOccasion(occ)}
-                      className="text-right p-3 rounded-2xl bg-white/90 hover:bg-amber-50/70 border border-emerald-100 hover:border-amber-300 transition-colors cursor-pointer flex items-start justify-between gap-2"
+                      className="text-right p-3 rounded-[4px] bg-[#F4EEDB]/75 hover:bg-[#EDE4CC] border border-[#B8924A]/30 transition-colors cursor-pointer flex items-start justify-between gap-2"
                     >
-                      <div>
-                        <p className="text-xs font-bold text-sky-700 tabular-nums">
-                          {occ.day} {HIJRI_MONTH_NAMES[occ.month]} ·{' '}
-                          {occ.type === 'birth' ? 'ذكرى ولادة / عيد' : 'ذكرى عطرة'}
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-[#7A5E2A] tabular-nums flex items-center gap-1.5">
+                          {renderOccasionMark(occ)}
+                          <span>
+                            {occ.day} {HIJRI_MONTH_NAMES[occ.month]}
+                          </span>
                         </p>
-                        <p className="font-display font-bold text-sm text-slate-900 mt-0.5 line-clamp-2">
+                        <p className="font-display font-bold text-sm text-[#11271F] mt-0.5 line-clamp-2">
                           {occ.title}
                         </p>
                       </div>
                       {done && (
                         <CheckCircle2
-                          className="w-4 h-4 text-emerald-600 shrink-0 mt-1"
+                          className="w-4 h-4 text-[#1F6B50] shrink-0 mt-1"
                           aria-label="مقروء"
                         />
                       )}
@@ -197,25 +210,28 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4"
+            className="fixed inset-0 z-50 bg-[#081A14]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
             onClick={() => setSelectedOccasion(null)}
           >
             <motion.div
-              initial={{ scale: 0.94, opacity: 0, y: 12 }}
+              initial={{ scale: 0.96, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 12 }}
-              transition={{ duration: 0.2 }}
+              exit={{ scale: 0.96, opacity: 0, y: 10 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl border-2 border-amber-300 shadow-2xl"
+              className="w-full max-w-xl max-h-[92vh] overflow-y-auto manuscript-folio rounded-[8px] shadow-2xl"
             >
-              <div className="bg-gradient-to-l from-emerald-600 to-teal-600 p-5 text-white flex items-start justify-between gap-3">
+              <div className="bg-[#0F3D2E] border-b border-[#B8924A] p-5 text-[#FAF6EC] flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs sm:text-sm font-bold text-amber-200 tabular-nums">
-                    {selectedOccasion.day}{' '}
-                    {HIJRI_MONTH_NAMES[selectedOccasion.month]} ·{' '}
-                    {selectedOccasion.figureName}
+                  <p className="text-xs sm:text-sm font-medium text-[#D9B96A] tabular-nums flex items-center gap-1.5">
+                    {renderOccasionMark(selectedOccasion)}
+                    <span>
+                      {selectedOccasion.day}{' '}
+                      {HIJRI_MONTH_NAMES[selectedOccasion.month]} ·{' '}
+                      {selectedOccasion.figureName}
+                    </span>
                   </p>
-                  <h3 className="font-display font-black text-xl sm:text-2xl mt-1 leading-snug">
+                  <h3 className="font-calligraphy font-bold text-2xl sm:text-3xl mt-1 leading-snug text-[#FAF6EC]">
                     {selectedOccasion.title}
                   </h3>
                 </div>
@@ -223,42 +239,44 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
                   type="button"
                   onClick={() => setSelectedOccasion(null)}
                   aria-label="إغلاق النافذة"
-                  className="w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center cursor-pointer shrink-0"
+                  className="w-9 h-9 rounded-[4px] border border-[#D9B96A]/45 text-[#FAF6EC] hover:bg-white/10 flex items-center justify-center cursor-pointer shrink-0"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="p-5 sm:p-6 space-y-5">
-                <div className="rounded-2xl bg-emerald-50/80 border border-emerald-200 p-4">
-                  <h4 className="font-display font-extrabold text-emerald-900 flex items-center gap-2 text-base mb-2">
-                    <BookOpenCheck className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+                <div className="pr-3.5 border-r-2 border-[#1F6B50]">
+                  <h4 className="font-display font-bold text-[#0F3D2E] flex items-center gap-2 text-base mb-1.5">
+                    <StoriesLanternIcon className="w-4 h-4 text-[#B8924A]" />
                     <span>نبذة عن المناسبة</span>
                   </h4>
-                  <p className="text-slate-800 text-base sm:text-lg leading-relaxed">
+                  <p className="text-[#11271F] text-base sm:text-lg leading-relaxed">
                     {selectedOccasion.shortStory}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-amber-50/90 border border-amber-200 p-4">
-                  <h4 className="font-display font-extrabold text-amber-900 flex items-center gap-2 text-base mb-2">
-                    <HeartHandshake className="w-5 h-5 text-amber-600" aria-hidden="true" />
-                    <span>دعاء قصير بهذه المناسبة</span>
+                <ManuscriptDivider variant="flourish" />
+
+                <div className="p-4 rounded-[6px] bg-[#F3ECDA]/85 border border-[#B8924A]/45">
+                  <h4 className="font-display font-bold text-[#0F3D2E] flex items-center gap-2 text-base mb-1.5">
+                    <DuaScrollIcon className="w-4 h-4 text-[#B8924A]" />
+                    <span>دعاء ومناجاة بهذه المناسبة</span>
                   </h4>
-                  <p className="font-display font-bold text-amber-950 text-lg sm:text-xl leading-loose">
+                  <p className="font-arabic font-bold text-[#11271F] text-lg sm:text-xl leading-loose">
                     {selectedOccasion.shortDua}
                   </p>
                 </div>
 
                 {justRewardedId === selectedOccasion.id && (
-                  <div className="rounded-2xl bg-emerald-600 text-white p-3.5 text-center font-display font-extrabold flex items-center justify-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-amber-200" aria-hidden="true" />
+                  <div className="rounded-[5px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] p-3 text-center font-display font-bold flex items-center justify-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
                     <span>بارك الله فيك! تم تسجيل قراءة المناسبة</span>
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#B8924A]/25">
+                  <div className="flex flex-wrap items-center gap-2.5">
                     {selectedOccasion.linkedSection && (
                       <button
                         type="button"
@@ -268,27 +286,27 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
                           setSelectedOccasion(null);
                           onOpenLibraryEntry(sec, eid);
                         }}
-                        className="min-h-[48px] px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-display font-extrabold text-sm sm:text-base flex items-center gap-2 cursor-pointer transition-colors"
+                        className="min-h-[44px] px-5 py-2 btn-gilded text-sm flex items-center gap-2 cursor-pointer"
                       >
-                        <Sparkles className="w-4 h-4 text-amber-200" aria-hidden="true" />
                         <span>
                           {selectedOccasion.linkedLabel || 'افتح الزيارة / الدعاء'}
                         </span>
+                        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                       </button>
                     )}
 
                     {completedReadingIds.includes(selectedOccasion.id) ? (
-                      <span className="inline-flex items-center gap-2 text-emerald-700 font-extrabold text-sm sm:text-base">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+                      <span className="inline-flex items-center gap-1.5 text-[#1F6B50] font-bold text-sm">
+                        <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                         <span>تمت القراءة</span>
                       </span>
                     ) : (
                       <button
                         type="button"
                         onClick={() => handleMarkOccasionRead(selectedOccasion.id)}
-                        className="min-h-[48px] px-5 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-display font-black text-sm sm:text-base flex items-center gap-2 cursor-pointer transition-colors"
+                        className="min-h-[44px] px-4 py-2 btn-manuscript text-sm flex items-center gap-1.5 cursor-pointer"
                       >
-                        <CheckCircle2 className="w-5 h-5 text-emerald-700" aria-hidden="true" />
+                        <CheckCircle2 className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
                         <span>أتممت القراءة</span>
                       </button>
                     )}
@@ -297,7 +315,7 @@ export const HijriBanner: React.FC<HijriBannerProps> = ({
                   <button
                     type="button"
                     onClick={() => setSelectedOccasion(null)}
-                    className="min-h-[48px] px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm cursor-pointer transition-colors"
+                    className="min-h-[44px] px-4 btn-text-ornate text-sm cursor-pointer"
                   >
                     إغلاق
                   </button>

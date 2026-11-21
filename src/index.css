@@ -1,116 +1,312 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Cairo", "Tajawal", sans-serif;
-  --font-sans: "Tajawal", "Cairo", sans-serif;
+  --font-display: "Reem Kufi", "IBM Plex Sans Arabic", sans-serif;
+  --font-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
+  --font-calligraphy: "Aref Ruqaa", "Amiri", serif;
+  --font-lalezar: "Lalezar", "Reem Kufi", sans-serif;
+  --font-quran: "Amiri Quran", "KFGQPC Uthmanic Script HAFS", "Amiri", serif;
+  --font-naskh: "Amiri", "Noto Naskh Arabic", serif;
+
+  --color-emerald-deep: #0F3D2E;
+  --color-emerald-mid: #1F6B50;
+  --color-gold-matte: #B8924A;
+  --color-gold-leaf: #D9B96A;
+  --color-ivory-paper: #FAF6EC;
+  --color-ivory-fold: #F3ECDA;
+  --color-ink-emerald: #11271F;
+  --color-ink-muted: #425B51;
+  --color-night-bg: #081A14;
+  --color-night-surface: #0E2920;
+  --color-night-ink: #F3EBD6;
 }
 
 @layer base {
+  :root {
+    --ease-manuscript: cubic-bezier(0.22, 1, 0.36, 1);
+    --app-font-body: "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
+    --app-font-display: "Reem Kufi", "IBM Plex Sans Arabic", sans-serif;
+    --app-font-arabic: "Amiri", "Noto Naskh Arabic", serif;
+  }
+
   html {
-    font-family: "Tajawal", "Cairo", sans-serif;
+    font-family: var(--app-font-body);
     scroll-behavior: smooth;
     overflow-x: hidden;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    background-color: #f7f5ee;
+    background-color: #FAF6EC;
+    color: #11271F;
   }
 
   body {
+    font-family: var(--app-font-body);
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: #FAF6EC;
+    color: #11271F;
+    transition: background-color 220ms ease, color 220ms ease;
   }
 
   h1, h2, h3, h4, .font-display {
-    font-family: "Cairo", "Tajawal", sans-serif;
+    font-family: var(--app-font-display);
     text-wrap: balance;
+  }
+
+  button, a, [role="button"] {
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
 @layer components {
+  .font-quran {
+    font-family: "Amiri Quran", "KFGQPC Uthmanic Script HAFS", "Amiri", serif;
+    line-height: 2.65;
+    letter-spacing: 0;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
+
   .font-arabic {
-    font-family: "Amiri", "Cairo", serif;
-    line-height: 2.3;
+    font-family: var(--app-font-arabic);
+    line-height: 2.35;
+  }
+
+  .font-calligraphy {
+    font-family: "Aref Ruqaa", "Amiri", serif;
+  }
+
+  .font-kufi {
+    font-family: var(--app-font-display);
+  }
+
+  .font-headline-art {
+    font-family: "Lalezar", "Aref Ruqaa", serif;
+  }
+
+  html[data-app-font]:not([data-app-font="default"]) .font-sans {
+    font-family: var(--app-font-body);
+  }
+
+  html[data-app-font]:not([data-app-font="default"]) .font-calligraphy {
+    font-family: var(--app-font-display);
+  }
+
+  /* Subtle gold-leaf foil typography & hairline borders — use sparingly on major titles & frames */
+  .gold-foil-text {
+    background: linear-gradient(135deg, #9C7835 0%, #D9B96A 48%, #B8924A 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .gold-foil-light-text {
+    background: linear-gradient(135deg, #E8CE88 0%, #FAF0CF 50%, #C69F52 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* 3 Unified Button Archetypes (Zero pills) */
+  .btn-gilded {
+    background: linear-gradient(135deg, #B8924A 0%, #D9B96A 55%, #B8924A 100%);
+    color: #0F3D2E;
+    border: 1px solid #8F6E30;
+    border-radius: 6px;
+    font-family: var(--app-font-display);
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(15, 61, 46, 0.14), inset 0 1px 0 rgba(255, 252, 240, 0.45);
+    transition: transform 220ms var(--ease-manuscript), box-shadow 250ms var(--ease-manuscript), filter 250ms ease;
+  }
+
+  .btn-gilded:hover:not(:disabled) {
+    filter: brightness(1.04);
+    box-shadow: 0 4px 12px rgba(184, 146, 74, 0.3), inset 0 1px 0 rgba(255, 252, 240, 0.6);
+  }
+
+  .btn-gilded:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-emerald {
+    background-color: #0F3D2E;
+    color: #FAF6EC;
+    border: 1px solid #B8924A;
+    border-radius: 6px;
+    font-family: var(--app-font-display);
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(15, 61, 46, 0.18);
+    transition: transform 220ms var(--ease-manuscript), background-color 250ms ease;
+  }
+
+  .btn-emerald:hover:not(:disabled) {
+    background-color: #154E3B;
+  }
+
+  .btn-emerald:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-manuscript {
+    background-color: #FAF6EC;
+    color: #11271F;
+    border: 1px solid rgba(184, 146, 74, 0.55);
+    border-radius: 6px;
+    font-family: var(--app-font-body);
+    font-weight: 600;
+    transition: transform 220ms var(--ease-manuscript), background-color 220ms ease, border-color 220ms ease;
+  }
+
+  .btn-manuscript:hover:not(:disabled) {
+    background-color: #F3ECDA;
+    border-color: #B8924A;
+  }
+
+  .btn-manuscript:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-text-ornate {
+    background: transparent;
+    color: #0F3D2E;
+    border-bottom: 1px solid rgba(184, 146, 74, 0.7);
+    padding-bottom: 2px;
+    font-family: var(--app-font-display);
+    font-weight: 600;
+    transition: color 200ms ease, border-color 200ms ease;
+  }
+
+  .btn-text-ornate:hover:not(:disabled) {
+    color: #1F6B50;
+    border-color: #B8924A;
+  }
+
+  /* Illuminated Manuscript Frame */
+  .manuscript-folio {
+    background-color: #FAF6EC;
+    border: 1px solid rgba(184, 146, 74, 0.48);
+    box-shadow:
+      0 1px 2px rgba(17, 39, 31, 0.04),
+      0 8px 24px -10px rgba(15, 61, 46, 0.08),
+      inset 0 0 0 3px #FAF6EC,
+      inset 0 0 0 4px rgba(184, 146, 74, 0.22);
+  }
+
+  .manuscript-folio-dark {
+    background-color: #0B221A;
+    color: #F3EBD6;
+    border: 1px solid rgba(217, 185, 106, 0.38);
+    box-shadow:
+      0 10px 30px -12px rgba(0, 0, 0, 0.55),
+      inset 0 0 0 3px #0B221A,
+      inset 0 0 0 4px rgba(217, 185, 106, 0.16);
   }
 }
 
+/* Marginal Rubric / Editorial Prayer Notes (Authentic Book Margin Treatment) */
 .editorial-note {
-  color: #6f5523;
-  font-style: italic;
-  font-weight: 700;
-  background-color: rgba(180, 149, 88, 0.12);
-  padding: 0.25rem 0.65rem;
-  border-radius: 0.5rem;
-  border-right: 3px solid #9a7b3e;
-  margin: 0.5rem 0;
+  color: #7A5420;
+  font-style: normal;
+  font-weight: 600;
+  background-color: rgba(184, 146, 74, 0.09);
+  padding: 0.2rem 0.75rem;
+  border-radius: 3px;
+  border-right: 2px solid #B8924A;
+  margin: 0.6rem 0;
   display: inline-block;
-  font-size: 0.88em;
-  font-family: "Tajawal", "Cairo", sans-serif;
+  font-size: 0.85em;
+  font-family: var(--app-font-body);
 }
 
 .editorial-note-dark {
-  color: #e6d5a9;
-  font-style: italic;
-  font-weight: 700;
-  background-color: rgba(230, 213, 169, 0.12);
-  padding: 0.25rem 0.65rem;
-  border-radius: 0.5rem;
-  border-right: 3px solid #c4a462;
-  margin: 0.5rem 0;
+  color: #E3C987;
+  font-style: normal;
+  font-weight: 600;
+  background-color: rgba(217, 185, 106, 0.11);
+  padding: 0.2rem 0.75rem;
+  border-radius: 3px;
+  border-right: 2px solid #D9B96A;
+  margin: 0.6rem 0;
   display: inline-block;
-  font-size: 0.88em;
-  font-family: "Tajawal", "Cairo", sans-serif;
+  font-size: 0.85em;
+  font-family: var(--app-font-body);
 }
 
-/* Calm serene canvas: warm ivory parchment, light earth-sand, and tranquil sage green */
+/* Aged Warm Manuscript Paper Texture (SVG Noise + Subtle Fiber Vignette) */
+.paper-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.032'/%3E%3C/svg%3E");
+}
+
+/* Base Ivory Parchment Canvas */
 .noor-canvas {
-  background:
-    radial-gradient(circle at 18% 8%, rgba(212, 228, 219, 0.42) 0%, transparent 45%),
-    radial-gradient(circle at 85% 18%, rgba(232, 224, 206, 0.48) 0%, transparent 46%),
-    linear-gradient(180deg, #faf9f5 0%, #f5f3ec 55%, #f0ede4 100%);
+  background-color: #FAF6EC;
+  background-image:
+    radial-gradient(ellipse at 14% 6%, rgba(184, 146, 74, 0.08) 0%, transparent 48%),
+    radial-gradient(ellipse at 86% 14%, rgba(31, 107, 80, 0.055) 0%, transparent 45%),
+    linear-gradient(180deg, #FCF9F2 0%, #FAF6EC 55%, #F4EEDB 100%);
 }
 
-/* Purchasable Theme 1: حديقة النور (Calm Sage Meadow) */
+/* Purchasable Store Theme 1: حديقة النور */
 .noor-theme-garden {
-  background:
-    radial-gradient(circle at 20% 15%, rgba(202, 232, 216, 0.5) 0%, transparent 48%),
-    radial-gradient(circle at 82% 22%, rgba(226, 234, 208, 0.45) 0%, transparent 44%),
-    linear-gradient(180deg, #f3f8f5 0%, #f5f7f2 55%, #f7f4eb 100%);
+  background-color: #F4F6EE;
+  background-image:
+    radial-gradient(ellipse at 18% 12%, rgba(31, 107, 80, 0.085) 0%, transparent 50%),
+    radial-gradient(ellipse at 82% 20%, rgba(184, 146, 74, 0.09) 0%, transparent 46%),
+    linear-gradient(180deg, #F7F8F1 0%, #F2F4EA 55%, #ECEFE2 100%);
 }
 
-/* Purchasable Theme 2: سماء النجوم المتلألئة */
+/* Purchasable Store Theme 2: سماء النجوم المتلألئة */
 .noor-theme-stars {
-  background:
-    radial-gradient(circle at 25% 12%, rgba(203, 218, 224, 0.42) 0%, transparent 46%),
-    radial-gradient(circle at 80% 20%, rgba(234, 226, 205, 0.45) 0%, transparent 42%),
-    linear-gradient(180deg, #f2f6f7 0%, #f6f7f5 55%, #f5f2ea 100%);
+  background-color: #F4F4EE;
+  background-image:
+    radial-gradient(ellipse at 24% 12%, rgba(15, 61, 46, 0.075) 0%, transparent 48%),
+    radial-gradient(ellipse at 80% 18%, rgba(217, 185, 106, 0.12) 0%, transparent 44%),
+    linear-gradient(180deg, #F8F7F2 0%, #F3F2EA 55%, #EDEAE0 100%);
 }
 
-/* Purchasable Theme 3: الروضة المزهرة */
+/* Purchasable Store Theme 3: الروضة المزهرة */
 .noor-theme-rawda {
-  background:
-    radial-gradient(circle at 18% 14%, rgba(238, 222, 220, 0.42) 0%, transparent 44%),
-    radial-gradient(circle at 82% 16%, rgba(207, 228, 217, 0.48) 0%, transparent 45%),
-    linear-gradient(180deg, #faf6f5 0%, #f4f7f4 55%, #f6f2e8 100%);
+  background-color: #FBF4EB;
+  background-image:
+    radial-gradient(ellipse at 16% 14%, rgba(184, 146, 74, 0.1) 0%, transparent 46%),
+    radial-gradient(ellipse at 82% 16%, rgba(31, 107, 80, 0.07) 0%, transparent 46%),
+    linear-gradient(180deg, #FDF8F2 0%, #FAF4EA 55%, #F3E9D8 100%);
 }
 
-/* Subtle Islamic geometric star lattice overlay */
+/* Low-opacity (4%–6%) Sacred 8-Pointed Khatam Geometric Lattice */
 .noor-pattern {
-  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23145344' stroke-opacity='0.035' stroke-width='1'%3E%3Cpath d='M40 8 L48 32 L72 40 L48 48 L40 72 L32 48 L8 40 L32 32 Z'/%3E%3Ccircle cx='40' cy='40' r='10'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='96' height='96' viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%230F3D2E' stroke-opacity='0.045' stroke-width='0.85'%3E%3Cpath d='M48 10 L58 38 L86 48 L58 58 L48 86 L38 58 L10 48 L38 38 Z'/%3E%3Crect x='27' y='27' width='42' height='42' transform='rotate(45 48 48)' stroke='%23B8924A' stroke-opacity='0.055'/%3E%3Ccircle cx='48' cy='48' r='9'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .noor-pattern-stars {
-  background-image: url("data:image/svg+xml,%3Csvg width='96' height='96' viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239A7B3E' fill-opacity='0.09'%3E%3Cpath d='M24 8 L26.5 15.5 L34 18 L26.5 20.5 L24 28 L21.5 20.5 L14 18 L21.5 15.5 Z'/%3E%3Ccircle cx='72' cy='24' r='2.5'/%3E%3Cpath d='M68 58 L70 63 L75 65 L70 67 L68 72 L66 67 L61 65 L66 63 Z'/%3E%3Ccircle cx='28' cy='74' r='2'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='112' height='112' viewBox='0 0 112 112' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23B8924A' stroke-opacity='0.075' stroke-width='0.85'%3E%3Cpath d='M28 12 L32 24 L44 28 L32 32 L28 44 L24 32 L12 28 L24 24 Z'/%3E%3Cpath d='M84 68 L87 79 L98 82 L87 85 L84 96 L81 85 L70 82 L81 79 Z'/%3E%3Ccircle cx='84' cy='28' r='2' fill='%23B8924A' fill-opacity='0.09'/%3E%3Ccircle cx='28' cy='84' r='1.75' fill='%230F3D2E' fill-opacity='0.08'/%3E%3C/g%3E%3C/svg%3E");
 }
 
-@keyframes noor-glow-halo {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.72;
+/* Custom Subtle Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(244, 238, 219, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(184, 146, 74, 0.45);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 61, 46, 0.55);
+}
+
+@keyframes astrolabe-spin {
+  from {
+    transform: rotate(0deg);
   }
-  50% {
-    transform: scale(1.16);
-    opacity: 0.25;
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -119,7 +315,7 @@
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-6px);
+    transform: translateY(-4px);
   }
 }
 
@@ -128,32 +324,306 @@
     transform: rotate(0deg);
   }
   25% {
-    transform: rotate(-8deg);
+    transform: rotate(-6deg);
   }
   50% {
-    transform: rotate(8deg);
+    transform: rotate(6deg);
   }
   75% {
-    transform: rotate(-4deg);
+    transform: rotate(-3deg);
   }
 }
 
-.animate-noor-halo {
-  animation: noor-glow-halo 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+.animate-astrolabe {
+  animation: astrolabe-spin 18s linear infinite;
 }
 
 .animate-gentle-float {
-  animation: gentle-float 4s ease-in-out infinite;
+  animation: gentle-float 4.5s ease-in-out infinite;
 }
 
 .animate-lock-wiggle {
-  animation: lock-wiggle 0.42s ease-in-out;
+  animation: lock-wiggle 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 3D Manuscript Book Flip Helpers (Safari / Chromium / Android WebView safe) */
+.book-stage-3d {
+  perspective: 2200px;
+  perspective-origin: 50% 45%;
+}
+
+.book-leaf-3d {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.book-face-front,
+.book-face-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.book-face-back {
+  transform: rotateY(180deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-noor-halo,
+  .animate-astrolabe,
   .animate-gentle-float,
   .animate-lock-wiggle {
     animation: none !important;
   }
+
+  .book-leaf-3d {
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ============================================================================
+   App-Wide Night Mode (الوضع الليلي الشامل لكامل التطبيق)
+   ============================================================================ */
+html[data-theme="night"],
+html[data-theme="night"] body {
+  background-color: #071712;
+  color: #F3EBD6;
+}
+
+html[data-theme="night"] select,
+html[data-theme="night"] input,
+html[data-theme="night"] textarea {
+  color-scheme: dark;
+}
+
+html[data-theme="night"] ::placeholder {
+  color: rgba(183, 204, 195, 0.68);
+}
+
+html[data-theme="night"] .noor-canvas,
+html[data-theme="night"] .noor-theme-garden,
+html[data-theme="night"] .noor-theme-stars,
+html[data-theme="night"] .noor-theme-rawda {
+  background-color: #071712;
+  background-image:
+    radial-gradient(ellipse at 14% 6%, rgba(217, 185, 106, 0.08) 0%, transparent 48%),
+    radial-gradient(ellipse at 86% 14%, rgba(31, 107, 80, 0.12) 0%, transparent 46%),
+    linear-gradient(180deg, #071712 0%, #091E17 55%, #05110D 100%);
+  color: #F3EBD6;
+}
+
+html[data-theme="night"] .noor-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='96' height='96' viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23D9B96A' stroke-opacity='0.055' stroke-width='0.85'%3E%3Cpath d='M48 10 L58 38 L86 48 L58 58 L48 86 L38 58 L10 48 L38 38 Z'/%3E%3Crect x='27' y='27' width='42' height='42' transform='rotate(45 48 48)' stroke='%239FD3C2' stroke-opacity='0.045'/%3E%3Ccircle cx='48' cy='48' r='9'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+html[data-theme="night"] .noor-pattern-stars {
+  background-image: url("data:image/svg+xml,%3Csvg width='112' height='112' viewBox='0 0 112 112' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23D9B96A' stroke-opacity='0.08' stroke-width='0.85'%3E%3Cpath d='M28 12 L32 24 L44 28 L32 32 L28 44 L24 32 L12 28 L24 24 Z'/%3E%3Cpath d='M84 68 L87 79 L98 82 L87 85 L84 96 L81 85 L70 82 L81 79 Z'/%3E%3Ccircle cx='84' cy='28' r='2' fill='%23D9B96A' fill-opacity='0.12'/%3E%3Ccircle cx='28' cy='84' r='1.75' fill='%239FD3C2' fill-opacity='0.1'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+html[data-theme="night"] .manuscript-folio {
+  background-color: #0C251D;
+  color: #F3EBD6;
+  border-color: rgba(217, 185, 106, 0.4);
+  box-shadow:
+    0 10px 28px -12px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 3px #0C251D,
+    inset 0 0 0 4px rgba(217, 185, 106, 0.16);
+}
+
+html[data-theme="night"] .gold-foil-text {
+  background: linear-gradient(135deg, #E8CE88 0%, #FAF0CF 50%, #D9B96A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+html[data-theme="night"] .editorial-note {
+  color: #E3C987;
+  background-color: rgba(217, 185, 106, 0.12);
+  border-right-color: #D9B96A;
+}
+
+html[data-theme="night"] .btn-manuscript {
+  background-color: #113127;
+  color: #F3EBD6;
+  border-color: rgba(217, 185, 106, 0.48);
+}
+
+html[data-theme="night"] .btn-manuscript:hover:not(:disabled) {
+  background-color: #163E31;
+  border-color: #D9B96A;
+}
+
+html[data-theme="night"] .btn-text-ornate {
+  color: #E8CE88;
+  border-bottom-color: rgba(217, 185, 106, 0.7);
+}
+
+html[data-theme="night"] .btn-text-ornate:hover:not(:disabled) {
+  color: #FAF0CF;
+  border-bottom-color: #D9B96A;
+}
+
+/* Primary Parchment Surfaces -> Deep Night Emerald Surfaces */
+html[data-theme="night"] .bg-\[\#FAF6EC\] {
+  background-color: #0C251D;
+}
+html[data-theme="night"] .bg-\[\#FAF6EC\]\/95 {
+  background-color: rgba(10, 31, 24, 0.95);
+}
+html[data-theme="night"] .bg-\[\#FAF6EC\]\/92 {
+  background-color: rgba(10, 31, 24, 0.92);
+}
+html[data-theme="night"] .bg-\[\#FAF6EC\]\/85 {
+  background-color: rgba(12, 37, 29, 0.85);
+}
+html[data-theme="night"] .bg-\[\#FAF6EC\]\/45 {
+  background-color: rgba(12, 37, 29, 0.45);
+}
+
+html[data-theme="night"] .bg-\[\#F3ECDA\],
+html[data-theme="night"] .bg-\[\#F4EEDB\],
+html[data-theme="night"] .bg-\[\#EFE6CE\],
+html[data-theme="night"] .bg-\[\#E5DEC9\] {
+  background-color: #113127;
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/90 {
+  background-color: rgba(17, 49, 39, 0.9);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/85 {
+  background-color: rgba(17, 49, 39, 0.85);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/80 {
+  background-color: rgba(17, 49, 39, 0.8);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/75,
+html[data-theme="night"] .bg-\[\#F4EEDB\]\/75 {
+  background-color: rgba(17, 49, 39, 0.75);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/70 {
+  background-color: rgba(17, 49, 39, 0.7);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/65 {
+  background-color: rgba(17, 49, 39, 0.65);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/60 {
+  background-color: rgba(17, 49, 39, 0.6);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/55 {
+  background-color: rgba(17, 49, 39, 0.55);
+}
+html[data-theme="night"] .bg-\[\#F3ECDA\]\/45,
+html[data-theme="night"] .bg-\[\#F4EEDB\]\/45 {
+  background-color: rgba(17, 49, 39, 0.45);
+}
+
+/* Inputs & Search Bars */
+html[data-theme="night"] input.bg-white,
+html[data-theme="night"] textarea.bg-white,
+html[data-theme="night"] select.bg-white,
+html[data-theme="night"] .focus\:bg-white:focus {
+  background-color: #091D16;
+  color: #F3EBD6;
+}
+
+/* Hover States on Dark Surfaces */
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]:hover,
+html[data-theme="night"] .hover\:bg-\[\#F4EEDB\]:hover,
+html[data-theme="night"] .hover\:bg-\[\#EFE6CE\]:hover,
+html[data-theme="night"] .hover\:bg-\[\#E7DEC4\]:hover,
+html[data-theme="night"] .hover\:bg-\[\#FAF6EC\]:hover,
+html[data-theme="night"] .hover\:bg-\[\#FAF6EC\]\/80:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/85:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/80:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/75:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/70:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/65:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/60:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/55:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/50:hover,
+html[data-theme="night"] .hover\:bg-\[\#F3ECDA\]\/45:hover,
+html[data-theme="night"] .focus\:bg-\[\#FAF6EC\]:focus {
+  background-color: #163E31;
+}
+
+/* Keep Toggle Switch Thumbs Bright */
+html[data-theme="night"] [role="switch"] > span {
+  background-color: #FAF6EC !important;
+}
+
+/* Typography & Accent Inks on Dark Surfaces */
+html[data-theme="night"] .text-\[\#11271F\] {
+  color: #F3EBD6;
+}
+html[data-theme="night"] .text-\[\#11271F\]\/85 {
+  color: rgba(243, 235, 214, 0.88);
+}
+html[data-theme="night"] .text-\[\#11271F\]\/80 {
+  color: rgba(243, 235, 214, 0.82);
+}
+
+html[data-theme="night"] .text-\[\#0F3D2E\] {
+  color: #E8CE88;
+}
+html[data-theme="night"] .hover\:text-\[\#0F3D2E\]:hover,
+html[data-theme="night"] .group:hover .group-hover\:text-\[\#0F3D2E\] {
+  color: #FAF6EC;
+}
+
+html[data-theme="night"] .text-\[\#425B51\] {
+  color: #B7CCC3;
+}
+html[data-theme="night"] .text-\[\#425B51\]\/85 {
+  color: rgba(183, 204, 195, 0.85);
+}
+html[data-theme="night"] .text-\[\#425B51\]\/75 {
+  color: rgba(183, 204, 195, 0.75);
+}
+html[data-theme="night"] .text-\[\#425B51\]\/70 {
+  color: rgba(183, 204, 195, 0.7);
+}
+html[data-theme="night"] .text-\[\#425B51\]\/60 {
+  color: rgba(183, 204, 195, 0.62);
+}
+html[data-theme="night"] .text-\[\#425B51\]\/30 {
+  color: rgba(183, 204, 195, 0.35);
+}
+
+html[data-theme="night"] .text-\[\#7A5E2A\],
+html[data-theme="night"] .text-\[\#7A5420\] {
+  color: #D9B96A;
+}
+
+html[data-theme="night"] .text-\[\#1F6B50\],
+html[data-theme="night"] .hover\:text-\[\#1F6B50\]:hover,
+html[data-theme="night"] .group:hover .group-hover\:text-\[\#1F6B50\] {
+  color: #8FD3BC;
+}
+
+/* Preserve Dark Ink on Gold Buttons & Gold Badges */
+html[data-theme="night"] .btn-gilded,
+html[data-theme="night"] .btn-gilded *,
+html[data-theme="night"] [class*="bg-[#D9B96A]"],
+html[data-theme="night"] [class*="to-[#D9B96A]"] {
+  color: #0F3D2E;
+}
+
+/* Borders & Subtle Tints */
+html[data-theme="night"] .bg-\[\#0F3D2E\]\/8 {
+  background-color: rgba(31, 107, 80, 0.24);
+}
+html[data-theme="night"] .border-\[\#0F3D2E\] {
+  border-color: #D9B96A;
+}
+html[data-theme="night"] .border-\[\#11271F\]\/25 {
+  border-color: rgba(217, 185, 106, 0.3);
+}
+
+html[data-theme="night"] ::-webkit-scrollbar-track {
+  background: rgba(9, 29, 22, 0.85);
+}
+html[data-theme="night"] ::-webkit-scrollbar-thumb {
+  background: rgba(217, 185, 106, 0.45);
+}
+html[data-theme="night"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 185, 106, 0.75);
 }

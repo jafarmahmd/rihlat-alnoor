@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  Lock,
-  Star,
-  CheckCircle2,
-  Sparkles,
   ArrowRight,
-  RotateCcw,
+  CheckCircle2,
+  Lock,
   Navigation,
+  RotateCcw,
+  Star,
 } from 'lucide-react';
 import { STAGES, STATIONS, TOTAL_POSSIBLE_STARS } from '../data/stations';
 import { GameProgress, StageData, StationData } from '../types/game';
+import {
+  BirthStarMark,
+  JourneyCompassIcon,
+  ManuscriptDivider,
+} from './IslamicOrnaments';
 
 interface MapScreenProps {
   progress: GameProgress;
@@ -37,39 +41,34 @@ const STAGE_THEME_STYLES: Record<
   StageData['themeColor'],
   {
     headerBg: string;
-    border: string;
     mapBg: string;
-    progressBar: string;
-    badgeText: string;
+    hillLight: string;
+    hillDeep: string;
   }
 > = {
   emerald: {
-    headerBg: 'from-emerald-600 to-teal-600',
-    border: 'border-emerald-200',
-    mapBg: 'from-sky-50/90 via-emerald-50/90 to-teal-50/80',
-    progressBar: 'bg-emerald-500',
-    badgeText: 'text-emerald-800',
+    headerBg: 'bg-[#0F3D2E]',
+    mapBg: 'from-[#FBF7ED] via-[#F3ECDA] to-[#EAE4D1]',
+    hillLight: '#DCE7DB',
+    hillDeep: '#C5D8C7',
   },
   sky: {
-    headerBg: 'from-sky-600 to-cyan-600',
-    border: 'border-sky-200',
-    mapBg: 'from-sky-100/80 via-cyan-50/85 to-emerald-50/85',
-    progressBar: 'bg-sky-500',
-    badgeText: 'text-sky-800',
+    headerBg: 'bg-[#124536]',
+    mapBg: 'from-[#F9F6EC] via-[#EEF3EC] to-[#E6EDE6]',
+    hillLight: '#D8E5DF',
+    hillDeep: '#BFD5CC',
   },
   amber: {
-    headerBg: 'from-amber-500 to-orange-500',
-    border: 'border-amber-200',
-    mapBg: 'from-amber-50/90 via-yellow-50/75 to-emerald-50/85',
-    progressBar: 'bg-amber-500',
-    badgeText: 'text-amber-800',
+    headerBg: 'bg-[#184B39]',
+    mapBg: 'from-[#FCF8EE] via-[#F5EBD6] to-[#EDE1C6]',
+    hillLight: '#EADEC2',
+    hillDeep: '#DDD0AE',
   },
   teal: {
-    headerBg: 'from-teal-600 to-emerald-600',
-    border: 'border-teal-200',
-    mapBg: 'from-teal-50/90 via-sky-50/85 to-emerald-50/90',
-    progressBar: 'bg-teal-500',
-    badgeText: 'text-teal-800',
+    headerBg: 'bg-[#0C3629]',
+    mapBg: 'from-[#FAF6EC] via-[#EFF2E8] to-[#E5EBDF]',
+    hillLight: '#D4E2D8',
+    hillDeep: '#BDD1C5',
   },
 };
 
@@ -119,7 +118,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
       setLockedMessage(
         `المحطة ${station.id} مقفلة حالياً — أكمل المحطة ${
           station.id - 1
-        } أولاً لتضيء لك!`
+        } أولاً لتضيء لك.`
       );
       window.setTimeout(() => setWigglingId(null), 460);
     }
@@ -143,41 +142,40 @@ export const MapScreen: React.FC<MapScreenProps> = ({
 
   return (
     <main className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-      {/* Map Header & Overall Journey Progress */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-4 sm:p-6 border border-emerald-200/90 shadow-md shadow-emerald-950/5 mb-5 sm:mb-6">
+      {/* Journey Ledger Header */}
+      <div className="manuscript-folio paper-grain rounded-[6px] p-4 sm:p-6 mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onBackHome}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-900 font-bold text-sm sm:text-base flex items-center gap-2 transition-colors cursor-pointer"
+              className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-2 cursor-pointer"
             >
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
               <span>الرئيسية</span>
             </button>
             <div>
-              <h1 className="font-display font-black text-2xl sm:text-3xl text-emerald-950">
-                خريطة رحلة النور
+              <h1 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E] flex items-center gap-2">
+                <JourneyCompassIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
+                <span>خريطة رحلة النور</span>
               </h1>
-              <p className="text-sm sm:text-base text-emerald-800 font-medium">
+              <p className="text-xs sm:text-sm text-[#425B51] font-medium mt-0.5 tabular-nums">
                 المحطات المكتملة:{' '}
-                <span className="font-bold tabular-nums">{completedCount}</span> من{' '}
-                <span className="tabular-nums">{STATIONS.length}</span>
-                <span className="mx-2 text-amber-500" aria-hidden="true">
-                  ·
-                </span>
+                <strong className="text-[#0F3D2E]">{completedCount}</strong> من{' '}
+                {STATIONS.length}
+                <span className="mx-2 text-[#B8924A]" aria-hidden="true">·</span>
                 النجوم:{' '}
-                <span className="font-bold tabular-nums">{totalStars}</span> /{' '}
-                <span className="tabular-nums">{TOTAL_POSSIBLE_STARS}</span>
+                <strong className="text-[#7A5420]">{totalStars}</strong> /{' '}
+                {TOTAL_POSSIBLE_STARS}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={scrollToActiveStation}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm sm:text-base flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+              className="min-h-[42px] px-4 py-2 btn-gilded text-xs sm:text-sm flex items-center gap-2 cursor-pointer"
             >
               <Navigation className="w-4 h-4" aria-hidden="true" />
               <span>محطتي الحالية ({progress.unlockedStationId})</span>
@@ -187,32 +185,32 @@ export const MapScreen: React.FC<MapScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setConfirmReset(true)}
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-800 font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+                className="min-h-[42px] px-3.5 py-2 btn-manuscript text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer"
               >
-                <RotateCcw className="w-4 h-4" aria-hidden="true" />
+                <RotateCcw className="w-4 h-4 text-[#7A5420]" aria-hidden="true" />
                 <span>إعادة الرحلة</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Overall Journey Progress Bar */}
+        {/* Crisp Gilded Progress Rule */}
         <div className="mt-5">
-          <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-700 mb-1.5">
+          <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-[#425B51] mb-1.5">
             <span>تقدّمك العام عبر المراحل العشر</span>
-            <span className="tabular-nums text-emerald-800">{overallPercent}%</span>
+            <span className="tabular-nums text-[#0F3D2E]">{overallPercent}%</span>
           </div>
-          <div className="w-full h-3.5 rounded-full bg-slate-100 border border-slate-200 overflow-hidden">
+          <div className="w-full h-2.5 bg-[#F3ECDA] border border-[#B8924A]/45 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-l from-amber-400 via-emerald-500 to-teal-500 transition-all duration-500"
+              className="h-full bg-gradient-to-l from-[#D9B96A] via-[#B8924A] to-[#1F6B50] transition-all duration-500"
               style={{ width: `${Math.max(overallPercent, completedCount > 0 ? 2 : 0)}%` }}
             />
           </div>
         </div>
 
-        {/* Quick-Jump 10 Stages Strip */}
-        <div className="mt-5 pt-4 border-t border-emerald-100">
-          <p className="text-xs sm:text-sm font-bold text-slate-600 mb-2.5">
+        {/* Quick-Jump 10 Stages Index */}
+        <div className="mt-5 pt-4 border-t border-[#B8924A]/30">
+          <p className="text-xs font-bold text-[#425B51] mb-2.5">
             الانتقال السريع بين المراحل التربوية:
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -230,34 +228,31 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                   key={stage.id}
                   type="button"
                   onClick={() => scrollToStage(stage.id)}
-                  className={`min-h-[48px] px-3 py-2 rounded-xl border text-right transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                  className={`min-h-[46px] px-3 py-1.5 rounded-[5px] border text-right transition-colors cursor-pointer flex items-center justify-between gap-2 ${
                     isStageComplete
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
+                      ? 'bg-[#0F3D2E] border-[#B8924A] text-[#FAF6EC]'
                       : isStageUnlocked
-                      ? 'bg-amber-50/80 border-amber-300 text-amber-950 hover:bg-amber-100'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-[#F3ECDA] border-[#B8924A]/70 text-[#0F3D2E] hover:bg-[#EAE0C5]'
+                      : 'bg-[#FAF6EC] border-[#B8924A]/25 text-[#425B51]/75 hover:bg-[#F3ECDA]/50'
                   }`}
                 >
                   <div className="min-w-0">
-                    <div className="font-display font-extrabold text-xs sm:text-sm truncate">
+                    <div className="font-display font-bold text-xs sm:text-sm truncate">
                       المرحلة {stage.id}
                     </div>
-                    <div className="text-[11px] font-bold opacity-80 tabular-nums">
+                    <div className="text-[11px] font-bold opacity-85 tabular-nums">
                       {stageDoneCount}/10
                     </div>
                   </div>
                   {isStageComplete ? (
                     <CheckCircle2
-                      className="w-4 h-4 text-emerald-600 shrink-0"
+                      className="w-4 h-4 text-[#D9B96A] shrink-0"
                       aria-hidden="true"
                     />
                   ) : isStageUnlocked ? (
-                    <Sparkles
-                      className="w-4 h-4 text-amber-500 shrink-0"
-                      aria-hidden="true"
-                    />
+                    <BirthStarMark className="w-4 h-4 text-[#B8924A] shrink-0" />
                   ) : (
-                    <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                    <Lock className="w-3.5 h-3.5 opacity-55 shrink-0" aria-hidden="true" />
                   )}
                 </button>
               );
@@ -266,41 +261,39 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         </div>
       </div>
 
-      {/* Friendly Locked Feedback Banner */}
+      {/* Locked Station Notice */}
       {lockedMessage && (
         <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           role="status"
-          className="sticky top-20 z-30 mb-5 px-5 py-3.5 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 font-bold text-sm sm:text-base flex items-center gap-3 shadow-lg"
+          className="sticky top-20 z-30 mb-5 px-5 py-3 rounded-[6px] bg-[#0F3D2E] border border-[#D9B96A] text-[#FAF6EC] font-display font-bold text-sm sm:text-base flex items-center gap-3 shadow-lg"
         >
-          <Lock className="w-5 h-5 text-amber-600 shrink-0" aria-hidden="true" />
+          <Lock className="w-4 h-4 text-[#D9B96A] shrink-0" aria-hidden="true" />
           <span>{lockedMessage}</span>
         </motion.div>
       )}
 
-      {/* Grand Completion Celebration Banner */}
+      {/* Grand Completion Celebration */}
       {completedCount === STATIONS.length && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
+          initial={{ opacity: 0, scale: 0.99 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="mb-6 p-6 rounded-3xl bg-gradient-to-l from-emerald-600 to-teal-600 text-white border-2 border-amber-300 shadow-lg flex flex-col sm:flex-row items-center gap-4"
+          className="mb-6 p-6 rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] shadow-lg flex flex-col sm:flex-row items-center gap-4"
         >
-          <div className="w-14 h-14 rounded-2xl bg-amber-300/25 border border-amber-200 flex items-center justify-center shrink-0">
-            <Sparkles className="w-8 h-8 text-amber-200" aria-hidden="true" />
-          </div>
+          <BirthStarMark className="w-9 h-9 text-[#D9B96A] shrink-0" />
           <div className="text-center sm:text-right">
-            <h2 className="font-display font-black text-xl sm:text-2xl">
-              مبارك لك يا سفير النور! أتممت جميع المحطات الـ 100
+            <h2 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#D9B96A]">
+              مبارك لك يا سفير النور! أتممت المحطات الـ ١٠٠
             </h2>
-            <p className="text-emerald-50 text-sm sm:text-base mt-1">
+            <p className="text-[#FAF6EC]/90 text-sm sm:text-base mt-1">
               جمعت {totalStars} نجمة نور وتعلمت أروع القيم من القصص الواقعية لأهل البيت (عليهم السلام).
             </p>
           </div>
         </motion.div>
       )}
 
-      {/* 10 Scrolling Educational Stages */}
+      {/* 10 Illuminated Cartographic Stage Trails */}
       <div className="space-y-8">
         {STAGES.map((stage) => {
           const stageStations = STATIONS.filter((s) => s.stageId === stage.id);
@@ -325,48 +318,45 @@ export const MapScreen: React.FC<MapScreenProps> = ({
               key={stage.id}
               id={`stage-${stage.id}`}
               aria-label={`المرحلة ${stage.id}: ${stage.title}`}
-              className={`rounded-3xl overflow-hidden border-2 ${theme.border} shadow-lg shadow-emerald-950/5 bg-white scroll-mt-20`}
+              className="rounded-[6px] overflow-hidden border border-[#B8924A]/65 shadow-md bg-[#FAF6EC] scroll-mt-20"
             >
-              {/* Stage Banner Header */}
+              {/* Deep Emerald Stage Header */}
               <div
-                className={`bg-gradient-to-l ${theme.headerBg} text-white p-5 sm:p-7`}
+                className={`${theme.headerBg} text-[#FAF6EC] p-5 sm:p-6 border-b border-[#B8924A]/60`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <div className="text-xs sm:text-sm font-bold text-white/90">
-                      المرحلة <span className="tabular-nums">{stage.id}</span> من 10
-                      <span className="mx-2" aria-hidden="true">
-                        ·
-                      </span>
+                    <div className="text-xs font-bold text-[#D9B96A]">
+                      المرحلة <span className="tabular-nums">{stage.id}</span> من ١٠
+                      <span className="mx-2" aria-hidden="true">·</span>
                       المحطات{' '}
                       <span className="tabular-nums">
                         {stage.stationRange[0]} – {stage.stationRange[1]}
                       </span>
                     </div>
-                    <h2 className="mt-1 font-display font-black text-xl sm:text-2xl lg:text-3xl">
+                    <h2 className="mt-1 font-calligraphy font-bold text-2xl sm:text-3xl text-[#FAF6EC]">
                       {stage.title}
                     </h2>
-                    <p className="mt-1.5 text-sm sm:text-base text-white/90 max-w-2xl">
+                    <p className="mt-1 text-sm text-[#FAF6EC]/85 max-w-2xl">
                       {stage.description}
                     </p>
                   </div>
 
-                  {/* Stage Progress Summary Box */}
-                  <div className="bg-white/15 backdrop-blur-xs rounded-2xl px-4 py-3 border border-white/25 shrink-0 min-w-[175px]">
-                    <div className="flex items-center justify-between text-xs sm:text-sm font-bold">
+                  <div className="bg-[#081A14]/55 rounded-[5px] px-4 py-3 border border-[#D9B96A]/45 shrink-0 min-w-[175px]">
+                    <div className="flex items-center justify-between text-xs font-bold text-[#FAF6EC]">
                       <span>إنجاز المرحلة</span>
-                      <span className="tabular-nums">
+                      <span className="tabular-nums text-[#D9B96A]">
                         {stageCompletedCount} / {stageStations.length}
                       </span>
                     </div>
-                    <div className="mt-2 w-full h-2.5 rounded-full bg-black/20 overflow-hidden">
+                    <div className="mt-2 w-full h-1.5 bg-[#05120E] overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-amber-300 transition-all duration-500"
+                        className="h-full bg-[#D9B96A] transition-all duration-500"
                         style={{ width: `${stagePercent}%` }}
                       />
                     </div>
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-amber-100">
-                      <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" aria-hidden="true" />
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-[#D9B96A]">
+                      <Star className="w-3.5 h-3.5 fill-[#D9B96A]" aria-hidden="true" />
                       <span className="tabular-nums">
                         {stageStarsEarned} / {stageMaxStars} نجمة
                       </span>
@@ -375,36 +365,30 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                 </div>
               </div>
 
-              {/* Winding Road Map Canvas for the 10 Stations of this Stage */}
+              {/* Cartographic Winding Path Canvas */}
               <div
-                className={`relative w-full h-[1120px] sm:h-[1180px] bg-gradient-to-b ${theme.mapBg}`}
+                className={`relative w-full h-[1120px] sm:h-[1180px] bg-gradient-to-b ${theme.mapBg} paper-grain`}
               >
-                {/* Scenic Hills & Clouds SVG */}
+                {/* Warm Parchment Scenic Hills SVG */}
                 <svg
                   viewBox="0 0 1000 1000"
                   preserveAspectRatio="none"
                   className="absolute inset-0 w-full h-full pointer-events-none"
                   aria-hidden="true"
                 >
-                  <g fill="#FFFFFF" opacity="0.65">
-                    <ellipse cx="200" cy="80" rx="70" ry="22" />
-                    <ellipse cx="800" cy="180" rx="65" ry="20" />
-                    <ellipse cx="180" cy="540" rx="60" ry="18" />
-                    <ellipse cx="830" cy="760" rx="70" ry="22" />
-                  </g>
                   <path
                     d="M 0 380 Q 300 330 600 375 T 1000 350 L 1000 1000 L 0 1000 Z"
-                    fill="#D1FAE5"
-                    opacity="0.3"
+                    fill={theme.hillLight}
+                    opacity="0.4"
                   />
                   <path
                     d="M 0 720 Q 350 670 680 725 T 1000 700 L 1000 1000 L 0 1000 Z"
-                    fill="#A7F3D0"
-                    opacity="0.24"
+                    fill={theme.hillDeep}
+                    opacity="0.32"
                   />
                 </svg>
 
-                {/* Winding S-Curve Road Connecting Stations 1..10 of the Stage */}
+                {/* Winding Golden / Brass Cartographic Trail */}
                 <svg
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
@@ -414,32 +398,31 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                   <path
                     d={FULL_STAGE_PATH_D}
                     fill="none"
-                    stroke="#CBD5E1"
-                    strokeWidth="22"
+                    stroke="#B8924A"
+                    strokeWidth="16"
                     strokeLinecap="round"
                     vectorEffect="non-scaling-stroke"
-                    opacity="0.5"
+                    opacity="0.18"
                   />
                   <path
                     d={FULL_STAGE_PATH_D}
                     fill="none"
-                    stroke="#FEFCE8"
-                    strokeWidth="15"
+                    stroke="#FAF6EC"
+                    strokeWidth="12"
                     strokeLinecap="round"
                     vectorEffect="non-scaling-stroke"
                   />
                   <path
                     d={FULL_STAGE_PATH_D}
                     fill="none"
-                    stroke="#94A3B8"
-                    strokeWidth="2.5"
-                    strokeDasharray="8 8"
+                    stroke="#425B51"
+                    strokeWidth="1.5"
+                    strokeDasharray="7 7"
                     strokeLinecap="round"
                     vectorEffect="non-scaling-stroke"
-                    opacity="0.55"
+                    opacity="0.4"
                   />
 
-                  {/* Illuminated Gold/Emerald Path for Unlocked Segments */}
                   {STAGE_SEGMENTS.map((seg) => {
                     const fromStation = stageStations[seg.index];
                     const toStation = stageStations[seg.index + 1];
@@ -451,17 +434,18 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                         <path
                           d={seg.d}
                           fill="none"
-                          stroke="#A7F3D0"
-                          strokeWidth="15"
+                          stroke="#D9B96A"
+                          strokeWidth="12"
                           strokeLinecap="round"
                           vectorEffect="non-scaling-stroke"
+                          opacity="0.35"
                         />
                         <path
                           d={seg.d}
                           fill="none"
-                          stroke="#F59E0B"
-                          strokeWidth="3.5"
-                          strokeDasharray="10 7"
+                          stroke="#0F3D2E"
+                          strokeWidth="2.5"
+                          strokeDasharray="9 6"
                           strokeLinecap="round"
                           vectorEffect="non-scaling-stroke"
                         />
@@ -470,7 +454,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                   })}
                 </svg>
 
-                {/* 10 Numbered Circular Stations */}
+                {/* 10 Illuminated Station Medallions */}
                 {stageStations.map((station, idx) => {
                   const pos = NODE_POSITIONS[idx];
                   const isCompleted = Boolean(progress.completedStations[station.id]);
@@ -493,15 +477,15 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                       <div className="relative flex items-center justify-center">
                         {isCurrentActive && (
                           <span
-                            className="absolute -inset-2.5 rounded-full bg-amber-300/70 blur-xs animate-noor-halo pointer-events-none"
+                            className="absolute -inset-2 rounded-full border border-[#B8924A] pointer-events-none"
                             aria-hidden="true"
                           />
                         )}
 
                         <motion.button
                           type="button"
-                          whileHover={isUnlocked ? { scale: 1.07 } : { scale: 1.02 }}
-                          whileTap={{ scale: 0.95 }}
+                          whileHover={isUnlocked ? { scale: 1.06 } : { scale: 1.02 }}
+                          whileTap={{ scale: 0.96 }}
                           onClick={() => handleStationPress(station)}
                           aria-label={
                             isUnlocked
@@ -510,40 +494,37 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                                 }`
                               : `المحطة ${station.id}: ${station.title} - مقفلة`
                           }
-                          className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full flex flex-col items-center justify-center transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-400 ${
+                          className={`relative w-16 h-16 sm:w-[74px] sm:h-[74px] rounded-full flex flex-col items-center justify-center transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8924A] ${
                             isWiggling ? 'animate-lock-wiggle' : ''
                           } ${
                             isCompleted
-                              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-4 border-amber-300 shadow-md shadow-emerald-700/25'
+                              ? 'bg-[#0F3D2E] text-[#FAF6EC] border-2 border-[#D9B96A] shadow-md'
                               : isCurrentActive
-                              ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-500 text-white border-4 border-white shadow-xl shadow-amber-500/40 ring-4 ring-amber-300/75'
-                              : 'bg-slate-200/95 text-slate-600 border-3 border-white shadow-sm hover:bg-slate-300/90'
+                              ? 'bg-gradient-to-b from-[#D9B96A] to-[#B8924A] text-[#0F3D2E] border-2 border-[#0F3D2E] shadow-lg'
+                              : 'bg-[#EFE8D6] text-[#425B51] border border-[#B8924A]/45 hover:bg-[#E7DEC8]'
                           }`}
                         >
                           {isUnlocked ? (
                             <>
-                              <span className="font-display font-black text-xl sm:text-2xl leading-none tabular-nums">
+                              <span className="font-display font-bold text-xl sm:text-2xl leading-none tabular-nums">
                                 {station.id}
                               </span>
                               {isCompleted ? (
                                 <CheckCircle2
-                                  className="w-4 h-4 text-amber-200 mt-0.5"
+                                  className="w-4 h-4 text-[#D9B96A] mt-0.5"
                                   aria-hidden="true"
                                 />
                               ) : (
-                                <Sparkles
-                                  className="w-4 h-4 text-amber-100 mt-0.5"
-                                  aria-hidden="true"
-                                />
+                                <BirthStarMark className="w-3.5 h-3.5 text-[#0F3D2E] mt-0.5" />
                               )}
                             </>
                           ) : (
                             <>
                               <Lock
-                                className="w-5 h-5 text-slate-500 mb-0.5"
+                                className="w-4 h-4 text-[#425B51] mb-0.5"
                                 aria-hidden="true"
                               />
-                              <span className="font-display font-extrabold text-xs sm:text-sm text-slate-600 leading-none tabular-nums">
+                              <span className="font-display font-bold text-xs text-[#425B51] leading-none tabular-nums">
                                 {station.id}
                               </span>
                             </>
@@ -551,17 +532,17 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                         </motion.button>
                       </div>
 
-                      {/* Station Title Card */}
+                      {/* Station Parchment Plaque */}
                       <button
                         type="button"
                         onClick={() => handleStationPress(station)}
-                        className={`mt-1.5 px-2 sm:px-3 py-1.5 rounded-xl border text-center shadow-xs transition-colors cursor-pointer w-[128px] min-[400px]:w-[148px] sm:w-[190px] ${
+                        className={`mt-1.5 px-2.5 py-1.5 rounded-[5px] border text-center shadow-xs transition-colors cursor-pointer w-[132px] min-[400px]:w-[152px] sm:w-[192px] ${
                           isUnlocked
-                            ? 'bg-white/95 border-emerald-200 hover:border-amber-400 text-emerald-950'
-                            : 'bg-white/80 border-slate-200 text-slate-500'
+                            ? 'bg-[#FAF6EC] border-[#B8924A]/65 hover:border-[#0F3D2E] text-[#0F3D2E]'
+                            : 'bg-[#FAF6EC]/85 border-[#B8924A]/30 text-[#425B51]'
                         }`}
                       >
-                        <p className="font-display font-extrabold text-xs sm:text-sm leading-snug line-clamp-1">
+                        <p className="font-display font-bold text-xs sm:text-sm leading-snug line-clamp-1">
                           {station.title}
                         </p>
 
@@ -575,19 +556,19 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                                 key={starIdx}
                                 className={`w-3.5 h-3.5 ${
                                   starIdx <= earnedStars
-                                    ? 'text-amber-500 fill-amber-400'
-                                    : 'text-slate-300'
+                                    ? 'text-[#B8924A] fill-[#D9B96A]'
+                                    : 'text-[#425B51]/30'
                                 }`}
                                 aria-hidden="true"
                               />
                             ))}
                           </div>
                         ) : isCurrentActive ? (
-                          <span className="block mt-0.5 text-[11px] font-extrabold text-emerald-700">
+                          <span className="block mt-0.5 text-[11px] font-bold text-[#1F6B50]">
                             مفتوحة · اضغط للانطلاق
                           </span>
                         ) : (
-                          <span className="block mt-0.5 text-[11px] font-bold text-slate-500">
+                          <span className="block mt-0.5 text-[11px] font-medium text-[#425B51]/75">
                             مقفلة
                           </span>
                         )}
@@ -601,26 +582,27 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         })}
       </div>
 
-      {/* In-UI Reset Confirmation Modal */}
+      {/* Reset Confirmation Modal */}
       {confirmReset && (
         <div
-          className="fixed inset-0 z-50 bg-emerald-950/40 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-[#081A14]/65 backdrop-blur-xs flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="reset-dialog-title"
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 border border-emerald-200 shadow-2xl text-center"
+            className="w-full max-w-md manuscript-folio paper-grain rounded-[6px] p-6 sm:p-7 shadow-2xl text-center"
           >
             <h2
               id="reset-dialog-title"
-              className="font-display font-black text-xl sm:text-2xl text-emerald-950"
+              className="font-calligraphy font-bold text-2xl text-[#0F3D2E]"
             >
               هل تريد بدء الرحلة من جديد؟
             </h2>
-            <p className="mt-2.5 text-slate-600 text-base">
+            <ManuscriptDivider variant="rosette" />
+            <p className="text-[#425B51] text-sm sm:text-base">
               سيعود رصيد نجوم النور إلى الصفر وتُفتح المحطة الأولى فقط لتلعبها مجدداً.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
@@ -630,14 +612,14 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                   setConfirmReset(false);
                   onResetProgress();
                 }}
-                className="w-full sm:w-auto min-h-[48px] px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-base cursor-pointer transition-colors"
+                className="w-full sm:w-auto min-h-[44px] px-6 py-2 btn-gilded text-sm sm:text-base cursor-pointer"
               >
                 نعم، ابدأ من جديد
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmReset(false)}
-                className="w-full sm:w-auto min-h-[48px] px-6 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-base cursor-pointer transition-colors"
+                className="w-full sm:w-auto min-h-[44px] px-6 py-2 btn-manuscript text-sm sm:text-base cursor-pointer"
               >
                 إلغاء
               </button>

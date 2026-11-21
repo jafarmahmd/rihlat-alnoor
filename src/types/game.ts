@@ -8,7 +8,8 @@ export type ScreenView =
   | 'library'
   | 'digital-library'
   | 'tasbih'
-  | 'calendar';
+  | 'calendar'
+  | 'adhan-settings';
 
 export interface StationQuestion {
   id: string;
@@ -165,7 +166,12 @@ export interface GameProgress {
   bookmarkedIds: string[];
 }
 
-export type DigitalLibrarySection = 'adiyat' | 'ziyarat' | 'munajat' | 'quran';
+export type DigitalLibrarySection =
+  | 'adiyat'
+  | 'sahifa'
+  | 'ziyarat'
+  | 'munajat'
+  | 'quran';
 
 export interface DigitalLibrarySegment {
   type: 'text' | 'note';

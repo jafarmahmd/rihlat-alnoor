@@ -946,7 +946,7 @@ export const StationIllustration: React.FC<StationIllustrationProps> = ({
   };
 
   return (
-    <figure className="relative w-full overflow-hidden bg-gradient-to-b from-sky-100 to-emerald-50 border-b-2 border-amber-200/80">
+    <figure className="relative w-full overflow-hidden bg-gradient-to-b from-[#FAF6EC] to-[#EFE5CC] border-b border-[#B8924A]/50">
       <svg
         viewBox="0 0 800 340"
         className="w-full h-52 sm:h-64 md:h-72 object-cover block"
@@ -956,7 +956,7 @@ export const StationIllustration: React.FC<StationIllustrationProps> = ({
         <SceneBackdrop kind={backdrop} uid={uid} />
         {renderForegroundScene()}
       </svg>
-      <figcaption className="absolute top-3 right-3 px-3 py-1 rounded-xl bg-white/85 backdrop-blur-xs border border-amber-300/80 text-xs sm:text-sm font-bold text-emerald-950 shadow-xs">
+      <figcaption className="absolute top-3 right-3 px-3 py-1 rounded-[4px] bg-[#FAF6EC]/92 border border-[#B8924A]/65 text-xs sm:text-sm font-medium text-[#11271F] shadow-xs">
         مشهد القصة · المحطة <span className="tabular-nums">{stationId}</span>
       </figcaption>
     </figure>

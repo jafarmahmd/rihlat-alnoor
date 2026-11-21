@@ -3,7 +3,7 @@ export interface AppOverviewSectionItem {
   title: string;
   description: string;
   targetAction:
-    | { type: 'library'; section: 'quran' | 'adiyat' }
+    | { type: 'library'; section: 'quran' | 'adiyat' | 'sahifa' }
     | { type: 'screen'; screen: 'library' | 'tasbih' | 'calendar' | 'map' };
 }
 
@@ -34,7 +34,7 @@ export const APP_OVERVIEW = {
       id: 'sahifa',
       title: 'الصحيفة السجادية',
       description: 'زبور آل محمد وأدعية الإمام زين العابدين (ع).',
-      targetAction: { type: 'library', section: 'adiyat' },
+      targetAction: { type: 'library', section: 'sahifa' },
     },
     {
       id: 'stories-games',

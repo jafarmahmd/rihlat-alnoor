@@ -2,15 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowRight,
-  BookOpen,
-  Calendar as CalendarIcon,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Compass,
   Moon,
-  Sparkles,
-  Star,
   Sun,
 } from 'lucide-react';
 import {
@@ -23,11 +18,19 @@ import {
   buildHijriMonthDays,
   getHijriFromUtcNoon,
   getTodayUtcNoon,
-  loadHijriOffset,
   saveHijriOffset,
   toGregorianInfoFromUtcNoon,
 } from '../data/hijriCalendar';
 import { DigitalLibrarySection, HijriOccasion } from '../types/game';
+import {
+  BirthStarMark,
+  CalendarArchIcon,
+  EidRosetteMark,
+  JourneyCompassIcon,
+  ManuscriptDivider,
+  MartyrdomCrescentMark,
+  QuranBookIcon,
+} from './IslamicOrnaments';
 
 interface CalendarScreenProps {
   completedReadingIds: string[];
@@ -83,7 +86,6 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
   const [occasionFilter, setOccasionFilter] = useState<OccasionFilter>('all');
   const [justAwardedId, setJustAwardedId] = useState<string | null>(null);
 
-  // Build visible month cells
   const monthDays: DualCalendarDay[] = useMemo(() => {
     if (mode === 'hijri') {
       return buildHijriMonthDays(viewHYear, viewHMonth, hijriOffset);
@@ -91,7 +93,6 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
     return buildGregorianMonthDays(viewGYear, viewGMonth, hijriOffset);
   }, [mode, viewHYear, viewHMonth, viewGYear, viewGMonth, hijriOffset]);
 
-  // Keep selectedIso valid inside current viewed month when navigating
   useEffect(() => {
     if (monthDays.length === 0) return;
     const stillVisible = monthDays.some(
@@ -120,7 +121,6 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
 
   const firstWeekdayOffset = monthDays[0]?.gregorian.weekdayIndex ?? 0;
 
-  // Spanning counterpart label (e.g., if viewing Muharram -> shows matching Gregorian months)
   const secondaryHeaderSpan = useMemo(() => {
     if (monthDays.length === 0) return '';
     const first = monthDays[0];
@@ -162,7 +162,6 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
 
   const handleModeSwitch = (nextMode: CalendarMode) => {
     if (nextMode === mode) return;
-    // Sync target month to the currently selected day so switching is seamless
     if (nextMode === 'gregorian') {
       setViewGYear(selectedDay.gregorian.year);
       setViewGMonth(selectedDay.gregorian.month);
@@ -255,87 +254,102 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
     const cat = occ.category || (occ.type === 'birth' ? 'birth' : 'martyrdom');
     if (cat === 'eid') {
       return {
+        cat,
         label: 'عيد ومناسبة سعيدة',
-        dotClass: 'bg-amber-400',
-        textLight: 'text-amber-800',
-        textDark: 'text-amber-300',
-        borderLight: 'border-amber-300 bg-amber-50/70',
-        borderDark: 'border-amber-400/40 bg-[#13332C]',
+        textLight: 'text-[#8C6423]',
+        textDark: 'text-[#D9B96A]',
+        boxLight: 'border-[#B8924A]/50 bg-[#F3ECDA]/75',
+        boxDark: 'border-[#D9B96A]/45 bg-[#123328]',
       };
     }
     if (cat === 'birth') {
       return {
+        cat,
         label: 'ذكرى ولادة مباركة',
-        dotClass: 'bg-emerald-500',
-        textLight: 'text-emerald-800',
-        textDark: 'text-emerald-300',
-        borderLight: 'border-emerald-200 bg-emerald-50/65',
-        borderDark: 'border-emerald-400/35 bg-[#0E2B26]',
+        textLight: 'text-[#1F6B50]',
+        textDark: 'text-[#9ED3BA]',
+        boxLight: 'border-[#1F6B50]/35 bg-[#FAF6EC]',
+        boxDark: 'border-[#347A61]/45 bg-[#0E2920]',
       };
     }
     if (cat === 'martyrdom') {
       return {
+        cat,
         label: 'ذكرى شهادة ومواساة',
-        dotClass: 'bg-sky-500',
-        textLight: 'text-sky-800',
-        textDark: 'text-sky-300',
-        borderLight: 'border-sky-200 bg-sky-50/65',
-        borderDark: 'border-sky-400/35 bg-[#0C242B]',
+        textLight: 'text-[#425B51]',
+        textDark: 'text-[#C8D8CE]',
+        boxLight: 'border-[#11271F]/25 bg-[#F3ECDA]/45',
+        boxDark: 'border-[#B8924A]/30 bg-[#0A2018]',
       };
     }
     return {
+      cat,
       label: 'حدث إسلامي وتاريخي',
-      dotClass: 'bg-teal-500',
-      textLight: 'text-teal-800',
-      textDark: 'text-teal-300',
-      borderLight: 'border-teal-200 bg-teal-50/65',
-      borderDark: 'border-teal-400/35 bg-[#0D2B2A]',
+      textLight: 'text-[#0F3D2E]',
+      textDark: 'text-[#D9B96A]',
+      boxLight: 'border-[#B8924A]/35 bg-[#FAF6EC]',
+      boxDark: 'border-[#B8924A]/35 bg-[#0E2920]',
     };
+  };
+
+  const renderOccasionIcon = (cat: string | null, selected: boolean) => {
+    const colorClass = selected
+      ? darkTheme
+        ? 'text-[#081A14]'
+        : 'text-[#D9B96A]'
+      : cat === 'eid'
+      ? 'text-[#B8924A]'
+      : cat === 'birth'
+      ? darkTheme
+        ? 'text-[#9ED3BA]'
+        : 'text-[#1F6B50]'
+      : darkTheme
+      ? 'text-[#C8D8CE]'
+      : 'text-[#425B51]';
+
+    if (cat === 'eid') return <EidRosetteMark className={`w-3.5 h-3.5 shrink-0 ${colorClass}`} />;
+    if (cat === 'birth') return <BirthStarMark className={`w-3.5 h-3.5 shrink-0 ${colorClass}`} />;
+    return <MartyrdomCrescentMark className={`w-3.5 h-3.5 shrink-0 ${colorClass}`} />;
   };
 
   return (
     <section
       aria-label="التقويم الهجري الجعفري والميلادي"
-      className={`min-h-[calc(100vh-3.5rem)] transition-colors duration-300 py-4 sm:py-8 px-3 sm:px-6 ${
+      className={`min-h-[calc(100vh-3.5rem)] transition-colors duration-300 py-5 sm:py-8 px-3 sm:px-6 ${
         darkTheme
-          ? 'bg-[#061816] text-amber-50'
-          : 'text-slate-900'
+          ? 'bg-[#081A14] text-[#F3EBD6]'
+          : 'text-[#11271F]'
       }`}
     >
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        {/* Top Bar & Theme / Mode Switch */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4">
+      <div className="max-w-7xl mx-auto space-y-5">
+        {/* Masthead & Mode Controls */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 pb-4 border-b border-[#B8924A]/35">
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={onBackHome}
-              className={`min-h-[44px] px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border cursor-pointer transition-colors whitespace-nowrap ${
+              className={`min-h-[42px] px-3.5 py-2 rounded-[6px] font-display font-bold text-sm flex items-center gap-2 border cursor-pointer transition-colors whitespace-nowrap ${
                 darkTheme
-                  ? 'bg-[#0B2622] hover:bg-[#113630] text-amber-100 border-amber-400/30'
-                  : 'bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-200 shadow-xs'
+                  ? 'bg-[#0E2920] hover:bg-[#143B2E] text-[#F3EBD6] border-[#B8924A]/45'
+                  : 'btn-manuscript'
               }`}
             >
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              <ArrowRight className="w-4 h-4 text-[#B8924A]" aria-hidden="true" />
               <span>الرئيسية</span>
             </button>
 
             <div className="min-w-0">
               <h1
-                className={`font-display font-black text-xl sm:text-3xl flex items-center gap-2 ${
-                  darkTheme ? 'text-amber-100' : 'text-emerald-950'
+                className={`font-calligraphy font-bold text-2xl sm:text-3xl flex items-center gap-2.5 ${
+                  darkTheme ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
                 }`}
               >
-                <CalendarIcon
-                  className={`w-6 h-6 sm:w-7 sm:h-7 shrink-0 ${
-                    darkTheme ? 'text-amber-300' : 'text-emerald-600'
-                  }`}
-                  aria-hidden="true"
-                />
-                <span>التقويم الهجري الجعفري والميلادي</span>
+                <CalendarArchIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
+                <span>التقويم الهجري والميلادي</span>
               </h1>
               <p
-                className={`text-xs sm:text-sm font-bold mt-0.5 tabular-nums ${
-                  darkTheme ? 'text-emerald-200/80' : 'text-slate-600'
+                className={`text-xs sm:text-sm font-medium mt-0.5 tabular-nums ${
+                  darkTheme ? 'text-[#C8D8CE]/85' : 'text-[#425B51]'
                 }`}
               >
                 اليوم: {todayHijri.formattedArabic} · الموافق {todayGreg.formattedArabic}
@@ -344,14 +358,14 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
-            {/* Hijri vs Gregorian Mode Switcher */}
+            {/* Segmented Architectural Calendar Switch */}
             <div
               role="tablist"
               aria-label="نوع عرض التقويم"
-              className={`w-full sm:w-auto grid grid-cols-2 sm:inline-flex items-center p-1 rounded-2xl border ${
+              className={`w-full sm:w-auto grid grid-cols-2 sm:inline-flex border rounded-[6px] overflow-hidden ${
                 darkTheme
-                  ? 'bg-[#04110F] border-amber-400/25'
-                  : 'bg-emerald-50/90 border-emerald-200'
+                  ? 'bg-[#05120E] border-[#B8924A]/45'
+                  : 'bg-[#F3ECDA]/80 border-[#B8924A]/50'
               }`}
             >
               <button
@@ -359,31 +373,31 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                 role="tab"
                 aria-selected={mode === 'hijri'}
                 onClick={() => handleModeSwitch('hijri')}
-                className={`min-h-[42px] px-2 sm:px-4 py-1.5 rounded-xl font-display font-extrabold text-[11px] sm:text-sm transition-all cursor-pointer truncate ${
+                className={`min-h-[40px] px-3 sm:px-4 py-1.5 font-display font-bold text-xs sm:text-sm transition-colors cursor-pointer truncate ${
                   mode === 'hijri'
                     ? darkTheme
-                      ? 'bg-amber-400 text-[#061816] shadow-sm'
-                      : 'bg-emerald-600 text-white shadow-sm'
+                      ? 'bg-[#D9B96A] text-[#081A14]'
+                      : 'bg-[#0F3D2E] text-[#FAF6EC]'
                     : darkTheme
-                    ? 'text-amber-100/80 hover:text-white'
-                    : 'text-emerald-900 hover:bg-white/80'
+                    ? 'text-[#F3EBD6]/80 hover:text-[#D9B96A]'
+                    : 'text-[#11271F] hover:bg-[#FAF6EC]'
                 }`}
               >
-                التقويم الهجري الجعفري
+                التقويم الهجري
               </button>
               <button
                 type="button"
                 role="tab"
                 aria-selected={mode === 'gregorian'}
                 onClick={() => handleModeSwitch('gregorian')}
-                className={`min-h-[42px] px-2 sm:px-4 py-1.5 rounded-xl font-display font-extrabold text-[11px] sm:text-sm transition-all cursor-pointer truncate ${
+                className={`min-h-[40px] px-3 sm:px-4 py-1.5 font-display font-bold text-xs sm:text-sm transition-colors cursor-pointer truncate border-r border-[#B8924A]/30 ${
                   mode === 'gregorian'
                     ? darkTheme
-                      ? 'bg-teal-400 text-[#061816] shadow-sm'
-                      : 'bg-sky-600 text-white shadow-sm'
+                      ? 'bg-[#D9B96A] text-[#081A14]'
+                      : 'bg-[#0F3D2E] text-[#FAF6EC]'
                     : darkTheme
-                    ? 'text-amber-100/80 hover:text-white'
-                    : 'text-emerald-900 hover:bg-white/80'
+                    ? 'text-[#F3EBD6]/80 hover:text-[#D9B96A]'
+                    : 'text-[#11271F] hover:bg-[#FAF6EC]'
                 }`}
               >
                 التقويم الميلادي
@@ -393,44 +407,41 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
             <button
               type="button"
               onClick={() => setDarkTheme((d) => !d)}
-              className={`min-h-[44px] px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border cursor-pointer transition-colors whitespace-nowrap ${
+              className={`min-h-[42px] px-3.5 py-2 rounded-[6px] font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border cursor-pointer transition-colors whitespace-nowrap ${
                 darkTheme
-                  ? 'bg-[#0B2622] border-amber-400/40 text-amber-200 hover:bg-[#113630]'
-                  : 'bg-white border-emerald-200 text-slate-800 hover:bg-slate-50 shadow-xs'
+                  ? 'bg-[#0E2920] border-[#D9B96A]/55 text-[#D9B96A] hover:bg-[#143B2E]'
+                  : 'btn-manuscript'
               }`}
             >
               {darkTheme ? (
                 <>
-                  <Sun className="w-4 h-4 text-amber-300" aria-hidden="true" />
+                  <Sun className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
                   <span>الوضع النهاري</span>
                 </>
               ) : (
                 <>
-                  <Moon className="w-4 h-4 text-emerald-700" aria-hidden="true" />
-                  <span>الداكن الليلي</span>
+                  <Moon className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+                  <span>المخطوط الليلي</span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        {/* Lunar Sighting Offset & Quick Converter Bar */}
+        {/* Lunar Offset & Date Converter Strip */}
         <div
-          className={`rounded-3xl border p-3.5 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4 ${
-            darkTheme
-              ? 'bg-[#0A221E] border-amber-400/20'
-              : 'bg-white/95 border-emerald-200 shadow-sm'
+          className={`rounded-[6px] border p-3.5 sm:p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 ${
+            darkTheme ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
           }`}
         >
-          {/* Lunar Sighting Offset */}
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
             <span
-              className={`text-xs sm:text-sm font-extrabold flex items-center gap-1.5 ml-1 ${
-                darkTheme ? 'text-amber-300' : 'text-emerald-900'
+              className={`text-xs sm:text-sm font-display font-bold flex items-center gap-1.5 ml-1 ${
+                darkTheme ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
               }`}
             >
-              <Compass className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>مطابقة هلال الشهر (الرؤية الشرعية):</span>
+              <JourneyCompassIcon className="w-4 h-4 text-[#B8924A] shrink-0" />
+              <span>مطابقة الرؤية الشرعية للهلال:</span>
             </span>
             <div className="flex flex-wrap items-center gap-1.5">
               {OFFSET_OPTIONS.map((opt) => {
@@ -443,14 +454,14 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                       saveHijriOffset(opt.value);
                       onChangeHijriOffset(opt.value);
                     }}
-                    className={`min-h-[38px] px-2.5 sm:px-3 py-1 rounded-xl text-xs font-extrabold transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                    className={`min-h-[34px] px-2.5 py-1 rounded-[4px] border text-xs font-bold transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
                       active
                         ? darkTheme
-                          ? 'bg-amber-400 text-[#061816]'
-                          : 'bg-emerald-600 text-white'
+                          ? 'bg-[#D9B96A] text-[#081A14] border-[#D9B96A]'
+                          : 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
                         : darkTheme
-                        ? 'bg-[#061816] text-amber-100/80 border border-amber-400/15 hover:bg-[#0F2F2A]'
-                        : 'bg-slate-100 text-slate-700 hover:bg-emerald-50'
+                        ? 'bg-[#081A14] text-[#F3EBD6]/80 border-[#B8924A]/30 hover:border-[#D9B96A]'
+                        : 'bg-[#FAF6EC] text-[#425B51] border-[#B8924A]/35 hover:border-[#B8924A]'
                     }`}
                   >
                     {opt.label}
@@ -460,12 +471,11 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
             </div>
           </div>
 
-          {/* Quick Jump to Today or Specific Gregorian Date */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <label
               htmlFor="calendar-greg-jump"
               className={`text-xs font-bold w-full sm:w-auto ${
-                darkTheme ? 'text-emerald-200/80' : 'text-slate-600'
+                darkTheme ? 'text-[#C8D8CE]' : 'text-[#425B51]'
               }`}
             >
               انتقال لتاريخ ميلادي:
@@ -475,47 +485,41 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
               type="date"
               value={selectedDay.gregorian.isoDate}
               onChange={(e) => handleJumpToGregorianInput(e.target.value)}
-              className={`min-h-[42px] flex-1 sm:flex-none px-3 rounded-xl border text-xs sm:text-sm font-bold tabular-nums focus:outline-none ${
+              className={`min-h-[40px] flex-1 sm:flex-none px-3 rounded-[5px] border text-xs sm:text-sm font-bold tabular-nums focus:outline-none ${
                 darkTheme
-                  ? 'bg-[#061816] border-amber-400/30 text-amber-100'
-                  : 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                  ? 'bg-[#081A14] border-[#B8924A]/45 text-[#F3EBD6]'
+                  : 'bg-[#F3ECDA]/60 border-[#B8924A]/45 text-[#11271F]'
               }`}
             />
             <button
               type="button"
               onClick={handleJumpToday}
-              className={`min-h-[42px] px-4 py-1.5 rounded-xl font-display font-extrabold text-xs sm:text-sm cursor-pointer transition-colors whitespace-nowrap ${
-                darkTheme
-                  ? 'bg-teal-400 hover:bg-teal-300 text-[#061816]'
-                  : 'bg-amber-400 hover:bg-amber-300 text-amber-950'
-              }`}
+              className="min-h-[40px] px-4 py-1.5 btn-gilded text-xs sm:text-sm cursor-pointer whitespace-nowrap"
             >
               تاريخ اليوم
             </button>
           </div>
         </div>
 
-        {/* Main Workspace Grid: Month Grid + Selected Day Occasion Card */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
-          {/* Calendar Grid Column */}
+        {/* Main Asymmetric Calendar Ledger */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Wall Almanac Grid Column */}
           <div
-            className={`lg:col-span-8 rounded-3xl border p-3 sm:p-6 shadow-lg ${
-              darkTheme
-                ? 'bg-[#0A221E] border-amber-400/25 shadow-black/40'
-                : 'bg-white/95 border-emerald-200 shadow-emerald-950/5'
+            className={`lg:col-span-8 rounded-[6px] p-4 sm:p-6 ${
+              darkTheme ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
             }`}
           >
             {/* Month Navigator Header */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 pb-4 sm:pb-5 border-b border-current/10">
-              <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-4 border-b border-[#B8924A]/35">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={handlePrevMonth}
                   aria-label="الشهر السابق"
-                  className={`min-h-[42px] min-w-[42px] sm:min-h-[44px] sm:min-w-[44px] rounded-xl border flex items-center justify-center cursor-pointer transition-colors ${
+                  className={`min-h-[40px] min-w-[40px] rounded-[5px] border flex items-center justify-center cursor-pointer transition-colors ${
                     darkTheme
-                      ? 'bg-[#061816] hover:bg-[#113530] border-amber-400/25 text-amber-200'
-                      : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-900'
+                      ? 'bg-[#081A14] hover:bg-[#143B2E] border-[#B8924A]/45 text-[#D9B96A]'
+                      : 'btn-manuscript'
                   }`}
                 >
                   <ChevronRight className="w-5 h-5" aria-hidden="true" />
@@ -525,28 +529,27 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                   type="button"
                   onClick={handleNextMonth}
                   aria-label="الشهر التالي"
-                  className={`min-h-[42px] min-w-[42px] sm:min-h-[44px] sm:min-w-[44px] rounded-xl border flex items-center justify-center cursor-pointer transition-colors ${
+                  className={`min-h-[40px] min-w-[40px] rounded-[5px] border flex items-center justify-center cursor-pointer transition-colors ${
                     darkTheme
-                      ? 'bg-[#061816] hover:bg-[#113530] border-amber-400/25 text-amber-200'
-                      : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-900'
+                      ? 'bg-[#081A14] hover:bg-[#143B2E] border-[#B8924A]/45 text-[#D9B96A]'
+                      : 'btn-manuscript'
                   }`}
                 >
                   <ChevronLeft className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
 
-              {/* Active Month & Year Dropdown Selectors */}
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-end sm:justify-start min-w-0">
+              <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end sm:justify-start min-w-0">
                 {mode === 'hijri' ? (
                   <>
                     <select
                       aria-label="اختر الشهر الهجري"
                       value={viewHMonth}
                       onChange={(e) => setViewHMonth(Number(e.target.value))}
-                      className={`min-h-[42px] min-w-0 flex-1 sm:flex-none px-2.5 sm:px-3 rounded-xl border font-display font-black text-sm sm:text-lg cursor-pointer focus:outline-none ${
+                      className={`min-h-[40px] min-w-0 flex-1 sm:flex-none px-3 rounded-[5px] border font-display font-bold text-sm sm:text-base cursor-pointer focus:outline-none ${
                         darkTheme
-                          ? 'bg-[#061816] border-amber-400/30 text-amber-100'
-                          : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                          ? 'bg-[#081A14] border-[#B8924A]/45 text-[#F3EBD6]'
+                          : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#0F3D2E]'
                       }`}
                     >
                       {Object.entries(HIJRI_MONTH_NAMES).map(([m, name]) => (
@@ -559,10 +562,10 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                       aria-label="اختر السنة الهجرية"
                       value={viewHYear}
                       onChange={(e) => setViewHYear(Number(e.target.value))}
-                      className={`min-h-[42px] px-2.5 sm:px-3 rounded-xl border font-display font-black text-sm sm:text-lg tabular-nums cursor-pointer focus:outline-none shrink-0 ${
+                      className={`min-h-[40px] px-3 rounded-[5px] border font-display font-bold text-sm sm:text-base tabular-nums cursor-pointer focus:outline-none shrink-0 ${
                         darkTheme
-                          ? 'bg-[#061816] border-amber-400/30 text-amber-300'
-                          : 'bg-amber-50 border-amber-200 text-amber-900'
+                          ? 'bg-[#081A14] border-[#B8924A]/45 text-[#D9B96A]'
+                          : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#7A5420]'
                       }`}
                     >
                       {Array.from(
@@ -581,10 +584,10 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                       aria-label="اختر الشهر الميلادي"
                       value={viewGMonth}
                       onChange={(e) => setViewGMonth(Number(e.target.value))}
-                      className={`min-h-[42px] min-w-0 flex-1 sm:flex-none px-2.5 sm:px-3 rounded-xl border font-display font-black text-sm sm:text-lg cursor-pointer focus:outline-none ${
+                      className={`min-h-[40px] min-w-0 flex-1 sm:flex-none px-3 rounded-[5px] border font-display font-bold text-sm sm:text-base cursor-pointer focus:outline-none ${
                         darkTheme
-                          ? 'bg-[#061816] border-teal-400/30 text-teal-100'
-                          : 'bg-sky-50 border-sky-200 text-sky-950'
+                          ? 'bg-[#081A14] border-[#B8924A]/45 text-[#F3EBD6]'
+                          : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#0F3D2E]'
                       }`}
                     >
                       {Object.entries(GREGORIAN_MONTH_NAMES).map(([m, name]) => (
@@ -597,10 +600,10 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                       aria-label="اختر السنة الميلادية"
                       value={viewGYear}
                       onChange={(e) => setViewGYear(Number(e.target.value))}
-                      className={`min-h-[42px] px-2.5 sm:px-3 rounded-xl border font-display font-black text-sm sm:text-lg tabular-nums cursor-pointer focus:outline-none shrink-0 ${
+                      className={`min-h-[40px] px-3 rounded-[5px] border font-display font-bold text-sm sm:text-base tabular-nums cursor-pointer focus:outline-none shrink-0 ${
                         darkTheme
-                          ? 'bg-[#061816] border-teal-400/30 text-teal-300'
-                          : 'bg-amber-50 border-amber-200 text-amber-900'
+                          ? 'bg-[#081A14] border-[#B8924A]/45 text-[#D9B96A]'
+                          : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#7A5420]'
                       }`}
                     >
                       {Array.from(
@@ -617,27 +620,27 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
               </div>
 
               <div
-                className={`w-full sm:w-auto text-xs sm:text-sm font-bold tabular-nums ${
-                  darkTheme ? 'text-amber-200/80' : 'text-slate-600'
+                className={`w-full sm:w-auto text-xs sm:text-sm font-medium tabular-nums ${
+                  darkTheme ? 'text-[#C8B88A]' : 'text-[#425B51]'
                 }`}
               >
                 المقابل: {secondaryHeaderSpan}
               </div>
             </div>
 
-            {/* Weekday Columns Header */}
-            <div className="grid grid-cols-7 gap-1 sm:gap-2 mt-3 sm:mt-4 mb-1.5 sm:mb-2 text-center">
+            {/* Weekday Columns */}
+            <div className="grid grid-cols-7 mt-4 mb-1.5 text-center border-b border-[#B8924A]/25 pb-2">
               {ARABIC_WEEKDAYS.map((dayName, idx) => (
                 <div
                   key={dayName}
-                  className={`py-1.5 sm:py-2 text-[10px] sm:text-sm font-black truncate ${
+                  className={`text-[10px] sm:text-xs font-display font-bold truncate ${
                     idx === 5
                       ? darkTheme
-                        ? 'text-amber-300'
-                        : 'text-emerald-700'
+                        ? 'text-[#D9B96A]'
+                        : 'text-[#0F3D2E]'
                       : darkTheme
-                      ? 'text-emerald-200/75'
-                      : 'text-slate-600'
+                      ? 'text-[#C8D8CE]/75'
+                      : 'text-[#425B51]'
                   }`}
                 >
                   {dayName}
@@ -645,26 +648,30 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
               ))}
             </div>
 
-            {/* Smooth Animated Month Grid */}
+            {/* Crisp 1px Brass Wall-Calendar Grid */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${mode}-${viewHYear}-${viewHMonth}-${viewGYear}-${viewGMonth}-${hijriOffset}`}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                className="grid grid-cols-7 gap-1 sm:gap-2"
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                className={`grid grid-cols-7 gap-px border ${
+                  darkTheme
+                    ? 'bg-[#B8924A]/25 border-[#B8924A]/35'
+                    : 'bg-[#B8924A]/30 border-[#B8924A]/45'
+                }`}
               >
-                {/* Leading Empty Cells */}
                 {Array.from({ length: firstWeekdayOffset }).map((_, idx) => (
                   <div
                     key={`empty-${idx}`}
                     aria-hidden="true"
-                    className="min-h-[54px] sm:min-h-[78px]"
+                    className={`min-h-[58px] sm:min-h-[82px] ${
+                      darkTheme ? 'bg-[#081A14]/65' : 'bg-[#F3ECDA]/45'
+                    }`}
                   />
                 ))}
 
-                {/* Day Cells */}
                 {monthDays.map((cell) => {
                   const isSelected = cell.gregorian.isoDate === selectedIso;
                   const hasOccasions = cell.occasions.length > 0;
@@ -687,76 +694,67 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                       type="button"
                       onClick={() => setSelectedIso(cell.gregorian.isoDate)}
                       aria-label={`${cell.hijri.formattedArabic} الموافق ${cell.gregorian.formattedArabic}`}
-                      className={`min-h-[54px] sm:min-h-[78px] p-1 sm:p-2 rounded-xl sm:rounded-2xl border text-right flex flex-col justify-between transition-all cursor-pointer relative ${
+                      className={`min-h-[58px] sm:min-h-[82px] p-1.5 sm:p-2 text-right flex flex-col justify-between transition-colors cursor-pointer relative ${
                         isSelected
                           ? darkTheme
-                            ? 'bg-amber-400 text-[#061816] border-amber-300 shadow-lg shadow-amber-500/20'
-                            : 'bg-emerald-600 text-white border-emerald-700 shadow-md'
+                            ? 'bg-[#D9B96A] text-[#081A14]'
+                            : 'bg-[#0F3D2E] text-[#FAF6EC]'
                           : cell.isToday
                           ? darkTheme
-                            ? 'bg-[#123B34] border-amber-400 text-amber-100'
-                            : 'bg-amber-50 border-amber-400 text-emerald-950'
+                            ? 'bg-[#143B2E] text-[#FAF6EC] ring-2 ring-inset ring-[#D9B96A]'
+                            : 'bg-[#F3ECDA] text-[#0F3D2E] ring-2 ring-inset ring-[#B8924A]'
                           : hasOccasions
                           ? darkTheme
-                            ? 'bg-[#0D2B26] hover:bg-[#133832] border-amber-400/35 text-amber-50'
-                            : occCat === 'eid' || occCat === 'birth'
-                            ? 'bg-emerald-50/75 hover:bg-emerald-50 border-emerald-200 text-slate-900'
-                            : 'bg-sky-50/75 hover:bg-sky-50 border-sky-200 text-slate-900'
+                            ? 'bg-[#0E2920] hover:bg-[#133529] text-[#F3EBD6]'
+                            : 'bg-[#FAF6EC] hover:bg-[#F3ECDA]/80 text-[#11271F]'
                           : darkTheme
-                          ? 'bg-[#071B18] hover:bg-[#0D2823] border-amber-400/10 text-emerald-50/90'
-                          : 'bg-white hover:bg-emerald-50/40 border-slate-200/80 text-slate-900'
+                          ? 'bg-[#081A14] hover:bg-[#0E2920] text-[#F3EBD6]/90'
+                          : 'bg-[#FAF6EC] hover:bg-[#F3ECDA]/50 text-[#11271F]'
                       }`}
                     >
+                      {/* Inner hairline highlight when Today */}
+                      {cell.isToday && !isSelected && (
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-[3px] border border-[#B8924A]/50"
+                        />
+                      )}
+
                       <div className="flex items-start justify-between gap-1 w-full">
-                        <span className="font-display font-black text-base sm:text-xl leading-none tabular-nums">
+                        <span className="font-display font-bold text-base sm:text-xl leading-none tabular-nums">
                           {primaryNum}
                         </span>
 
-                        {hasOccasions && (
-                          <span
-                            className={`w-2 h-2 rounded-full shrink-0 mt-0.5 ${
-                              isSelected
-                                ? darkTheme
-                                  ? 'bg-[#061816]'
-                                  : 'bg-amber-300'
-                                : occCat === 'eid'
-                                ? 'bg-amber-400'
-                                : occCat === 'birth'
-                                ? 'bg-emerald-500'
-                                : 'bg-sky-500'
-                            }`}
-                            aria-hidden="true"
-                          />
-                        )}
+                        {hasOccasions && renderOccasionIcon(occCat, isSelected)}
                       </div>
 
                       <div className="w-full">
                         {hasOccasions && (
                           <p
-                            className={`hidden sm:block text-[10px] font-extrabold truncate leading-tight mb-0.5 ${
+                            className={`hidden sm:block text-[10px] font-bold truncate leading-tight mb-0.5 ${
                               isSelected
                                 ? darkTheme
-                                  ? 'text-[#061816]/85'
-                                  : 'text-amber-100'
+                                  ? 'text-[#081A14]/85'
+                                  : 'text-[#D9B96A]'
                                 : darkTheme
-                                ? 'text-amber-300'
+                                ? 'text-[#D9B96A]'
                                 : occCat === 'martyrdom'
-                                ? 'text-sky-800'
-                                : 'text-emerald-800'
+                                ? 'text-[#425B51]'
+                                : 'text-[#0F3D2E]'
                             }`}
                           >
                             {primaryOcc.title}
                           </p>
                         )}
                         <div
-                          className={`text-[10px] sm:text-[11px] font-bold tabular-nums truncate ${
+                          className={`text-[10px] sm:text-[11px] font-medium tabular-nums truncate ${
                             isSelected
                               ? darkTheme
-                                ? 'text-[#061816]/80'
-                                : 'text-emerald-100'
+                                ? 'text-[#081A14]/75'
+                                : 'text-[#FAF6EC]/80'
                               : darkTheme
-                              ? 'text-emerald-200/65'
-                              : 'text-slate-500'
+                              ? 'text-[#C8D8CE]/60'
+                              : 'text-[#425B51]/85'
                           }`}
                         >
                           {secondaryLabel}
@@ -768,44 +766,46 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
               </motion.div>
             </AnimatePresence>
 
-            {/* Color Legend */}
+            {/* Geometric Occasion Marks Legend */}
             <div
-              className={`mt-5 pt-4 border-t border-current/10 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-bold ${
-                darkTheme ? 'text-emerald-200/80' : 'text-slate-600'
+              className={`mt-4 pt-3.5 border-t border-[#B8924A]/25 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-medium ${
+                darkTheme ? 'text-[#C8D8CE]' : 'text-[#425B51]'
               }`}
             >
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true" />
+                <EidRosetteMark className="w-3.5 h-3.5 text-[#B8924A]" />
                 <span>أعياد مباركة</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <BirthStarMark className="w-3.5 h-3.5 text-[#1F6B50]" />
                 <span>مواليد المعصومين (ع)</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-sky-500" aria-hidden="true" />
+                <MartyrdomCrescentMark
+                  className={`w-3.5 h-3.5 ${
+                    darkTheme ? 'text-[#C8D8CE]' : 'text-[#425B51]'
+                  }`}
+                />
                 <span>وفيات وذكرى عاشوراء</span>
               </span>
             </div>
           </div>
 
-          {/* Right Column: Selected Day Card + Occasions */}
-          <div className="lg:col-span-4 space-y-4 sm:space-y-5">
+          {/* Selected Day Folio & Monthly Occasions Ledger */}
+          <div className="lg:col-span-4 space-y-5">
             <motion.div
               key={selectedDay.gregorian.isoDate}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18 }}
-              className={`rounded-3xl border p-4 sm:p-6 shadow-lg ${
-                darkTheme
-                  ? 'bg-[#0A221E] border-amber-400/30 shadow-black/40'
-                  : 'bg-white/95 border-amber-200 shadow-emerald-950/5'
+              className={`rounded-[6px] p-5 sm:p-6 ${
+                darkTheme ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
               }`}
             >
-              <div className="pb-4 border-b border-current/10">
+              <div className="pb-4 border-b border-[#B8924A]/35">
                 <span
-                  className={`text-xs font-extrabold ${
-                    darkTheme ? 'text-amber-300' : 'text-emerald-700'
+                  className={`text-xs font-bold ${
+                    darkTheme ? 'text-[#D9B96A]' : 'text-[#7A5420]'
                   }`}
                 >
                   {selectedDay.isToday ? 'تاريخ اليوم · ' : ''}
@@ -813,16 +813,16 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                 </span>
 
                 <h2
-                  className={`font-display font-black text-2xl sm:text-3xl mt-1 tabular-nums ${
-                    darkTheme ? 'text-amber-100' : 'text-emerald-950'
+                  className={`font-calligraphy font-bold text-2xl sm:text-3xl mt-1 tabular-nums ${
+                    darkTheme ? 'text-[#FAF6EC]' : 'text-[#0F3D2E]'
                   }`}
                 >
                   {selectedDay.hijri.day} {selectedDay.hijri.monthName}{' '}
                   {selectedDay.hijri.year} هـ
                 </h2>
                 <p
-                  className={`text-sm font-bold mt-1 tabular-nums ${
-                    darkTheme ? 'text-teal-200' : 'text-sky-800'
+                  className={`text-sm font-medium mt-1 tabular-nums ${
+                    darkTheme ? 'text-[#C8D8CE]' : 'text-[#425B51]'
                   }`}
                 >
                   الموافق: {selectedDay.gregorian.day}{' '}
@@ -831,14 +831,13 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                 </p>
               </div>
 
-              {/* Occasions for Selected Day */}
               <div className="mt-5 space-y-4">
                 {selectedDay.occasions.length === 0 ? (
                   <div
-                    className={`rounded-2xl p-4 border text-center ${
+                    className={`rounded-[5px] p-4 border text-center ${
                       darkTheme
-                        ? 'bg-[#061816] border-amber-400/15 text-emerald-100/80'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                        ? 'bg-[#081A14]/70 border-[#B8924A]/25 text-[#C8D8CE]'
+                        : 'bg-[#F3ECDA]/55 border-[#B8924A]/35 text-[#425B51]'
                     }`}
                   >
                     <p className="font-display font-bold text-sm">
@@ -847,13 +846,9 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenLibraryEntry('adiyat')}
-                      className={`mt-3 min-h-[40px] px-4 py-2 rounded-xl font-display font-extrabold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
-                        darkTheme
-                          ? 'bg-[#123730] hover:bg-[#17443C] text-amber-200'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      }`}
+                      className="mt-3 min-h-[40px] px-4 py-1.5 btn-emerald text-xs inline-flex items-center gap-1.5 cursor-pointer"
                     >
-                      <BookOpen className="w-4 h-4" aria-hidden="true" />
+                      <QuranBookIcon className="w-4 h-4 text-[#D9B96A]" />
                       <span>افتح أدعية الأيام السبعة</span>
                     </button>
                   </div>
@@ -865,25 +860,22 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                     return (
                       <div
                         key={occ.id}
-                        className={`rounded-2xl border p-4 space-y-3 ${
-                          darkTheme ? meta.borderDark : meta.borderLight
+                        className={`rounded-[5px] border p-4 space-y-3 ${
+                          darkTheme ? meta.boxDark : meta.boxLight
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
-                            className={`text-xs font-black flex items-center gap-1.5 ${
+                            className={`text-xs font-bold flex items-center gap-1.5 ${
                               darkTheme ? meta.textDark : meta.textLight
                             }`}
                           >
-                            <span
-                              className={`w-2 h-2 rounded-full ${meta.dotClass}`}
-                              aria-hidden="true"
-                            />
+                            {renderOccasionIcon(meta.cat, false)}
                             <span>{meta.label}</span>
                           </span>
                           <span
-                            className={`text-xs font-bold ${
-                              darkTheme ? 'text-amber-200/80' : 'text-slate-600'
+                            className={`text-xs font-medium ${
+                              darkTheme ? 'text-[#C8B88A]' : 'text-[#425B51]'
                             }`}
                           >
                             {occ.figureName}
@@ -891,8 +883,8 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                         </div>
 
                         <h3
-                          className={`font-display font-black text-lg leading-snug ${
-                            darkTheme ? 'text-white' : 'text-slate-900'
+                          className={`font-display font-bold text-lg leading-snug ${
+                            darkTheme ? 'text-[#FAF6EC]' : 'text-[#0F3D2E]'
                           }`}
                         >
                           {occ.title}
@@ -900,24 +892,24 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
 
                         <p
                           className={`text-sm leading-relaxed ${
-                            darkTheme ? 'text-emerald-100/85' : 'text-slate-700'
+                            darkTheme ? 'text-[#C8D8CE]' : 'text-[#425B51]'
                           }`}
                         >
                           {occ.shortStory}
                         </p>
 
                         <div
-                          className={`pt-2.5 border-t border-current/10 font-arabic font-bold text-base sm:text-lg leading-loose ${
-                            darkTheme ? 'text-amber-200' : 'text-amber-950'
+                          className={`pt-2.5 border-t border-[#B8924A]/25 font-arabic font-bold text-base sm:text-lg leading-loose ${
+                            darkTheme ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
                           }`}
                         >
                           «{occ.shortDua}»
                         </div>
 
                         {justAwardedId === occ.id && (
-                          <div className="rounded-xl bg-emerald-600 text-white px-3 py-2 text-xs font-extrabold flex items-center gap-1.5">
-                            <CheckCircle2 className="w-4 h-4 text-amber-200" aria-hidden="true" />
-                            <span>بارك الله فيك! تم تسجيل قراءة المناسبة</span>
+                          <div className="rounded-[4px] bg-[#0F3D2E] border border-[#D9B96A]/50 text-[#FAF6EC] px-3 py-2 text-xs font-bold flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
+                            <span>بارك الله فيك! سُجلت قراءة المناسبة</span>
                           </div>
                         )}
 
@@ -931,23 +923,16 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                                   occ.linkedEntryId
                                 )
                               }
-                              className={`min-h-[40px] px-3.5 py-2 rounded-xl font-display font-extrabold text-xs flex items-center gap-1.5 cursor-pointer transition-colors ${
-                                darkTheme
-                                  ? 'bg-amber-400 hover:bg-amber-300 text-[#061816]'
-                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              }`}
+                              className="min-h-[38px] px-3.5 py-1.5 btn-gilded text-xs flex items-center gap-1.5 cursor-pointer"
                             >
-                              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
                               <span>{occ.linkedLabel || 'افتح العمل المناسب'}</span>
                             </button>
                           )}
 
                           {isDone ? (
                             <span
-                              className={`inline-flex items-center gap-1 text-xs font-extrabold ${
-                                darkTheme
-                                  ? 'text-emerald-300'
-                                  : 'text-emerald-700'
+                              className={`inline-flex items-center gap-1 text-xs font-bold ${
+                                darkTheme ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
                               }`}
                             >
                               <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
@@ -957,10 +942,10 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                             <button
                               type="button"
                               onClick={() => handleMarkRead(occ.id)}
-                              className={`min-h-[40px] px-3.5 py-2 rounded-xl font-display font-extrabold text-xs flex items-center gap-1.5 border cursor-pointer transition-colors ${
+                              className={`min-h-[38px] px-3.5 py-1.5 rounded-[5px] border font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors ${
                                 darkTheme
-                                  ? 'bg-[#061816] hover:bg-[#0D2C27] text-emerald-200 border-emerald-400/35'
-                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                                  ? 'bg-[#081A14] hover:bg-[#143B2E] text-[#D9B96A] border-[#D9B96A]/45'
+                                  : 'btn-manuscript'
                               }`}
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -975,57 +960,53 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
               </div>
             </motion.div>
 
-            {/* Occasions Summary for the Currently Viewed Month */}
+            {/* Current Month Occasions Summary */}
             <div
-              className={`rounded-3xl border p-5 ${
-                darkTheme
-                  ? 'bg-[#0A221E] border-amber-400/20'
-                  : 'bg-white/95 border-emerald-200 shadow-sm'
+              className={`rounded-[6px] p-5 ${
+                darkTheme ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
               }`}
             >
               <h3
-                className={`font-display font-black text-base mb-3 ${
-                  darkTheme ? 'text-amber-200' : 'text-emerald-950'
+                className={`font-display font-bold text-base mb-3 ${
+                  darkTheme ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
                 }`}
               >
                 مناسبات هذا الشهر ({monthOccasionDays.length})
               </h3>
               {monthOccasionDays.length === 0 ? (
                 <p
-                  className={`text-xs font-bold ${
-                    darkTheme ? 'text-emerald-200/70' : 'text-slate-500'
+                  className={`text-xs font-medium ${
+                    darkTheme ? 'text-[#C8D8CE]/75' : 'text-[#425B51]'
                   }`}
                 >
                   لا توجد مناسبات مسجلة في هذا الشهر.
                 </p>
               ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto pl-1">
+                <div className="divide-y divide-[#B8924A]/20 border-t border-[#B8924A]/25 max-h-64 overflow-y-auto pl-1">
                   {monthOccasionDays.map((dayCell) =>
                     dayCell.occasions.map((occ) => (
                       <button
                         key={occ.id}
                         type="button"
                         onClick={() => setSelectedIso(dayCell.gregorian.isoDate)}
-                        className={`w-full text-right p-2.5 rounded-2xl border transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                        className={`w-full text-right py-2.5 px-2 transition-colors cursor-pointer flex items-center justify-between gap-2 border-r-[3px] ${
                           selectedIso === dayCell.gregorian.isoDate
                             ? darkTheme
-                              ? 'bg-[#123A33] border-amber-400'
-                              : 'bg-emerald-50 border-emerald-400'
-                            : darkTheme
-                            ? 'bg-[#061816] hover:bg-[#0D2B26] border-amber-400/15'
-                            : 'bg-slate-50/70 hover:bg-emerald-50/50 border-slate-200'
+                              ? 'bg-[#143B2E] border-r-[#D9B96A]'
+                              : 'bg-[#F3ECDA]/85 border-r-[#B8924A]'
+                            : 'border-r-transparent hover:bg-[#B8924A]/10'
                         }`}
                       >
                         <div className="min-w-0">
                           <div
                             className={`text-[11px] font-bold tabular-nums ${
-                              darkTheme ? 'text-amber-300' : 'text-emerald-700'
+                              darkTheme ? 'text-[#D9B96A]' : 'text-[#7A5420]'
                             }`}
                           >
                             {dayCell.hijri.day} {dayCell.hijri.monthName} ·{' '}
                             {dayCell.gregorian.day}/{dayCell.gregorian.month} م
                           </div>
-                          <div className="font-display font-extrabold text-xs sm:text-sm truncate mt-0.5">
+                          <div className="font-display font-bold text-xs sm:text-sm truncate mt-0.5">
                             {occ.title}
                           </div>
                         </div>
@@ -1041,27 +1022,25 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
         {/* Full Twelver Year Agenda Directory */}
         <section
           aria-label="دليل المناسبات الاثني عشرية على مدار العام"
-          className={`rounded-3xl border p-5 sm:p-7 ${
-            darkTheme
-              ? 'bg-[#0A221E] border-amber-400/20'
-              : 'bg-white/95 border-emerald-200 shadow-sm'
+          className={`rounded-[6px] p-5 sm:p-7 ${
+            darkTheme ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
           }`}
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-current/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#B8924A]/35">
             <div>
               <h2
-                className={`font-display font-black text-xl sm:text-2xl ${
-                  darkTheme ? 'text-amber-100' : 'text-emerald-950'
+                className={`font-calligraphy font-bold text-xl sm:text-2xl ${
+                  darkTheme ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
                 }`}
               >
-                دليل المناسبات الجعفرية على مدار السنة الهجرية ({HIJRI_OCCASIONS.length} مناسبة)
+                فهرس المناسبات الإسلامية على مدار السنة ({HIJRI_OCCASIONS.length} مناسبة)
               </h2>
               <p
-                className={`text-xs sm:text-sm font-bold mt-0.5 ${
-                  darkTheme ? 'text-emerald-200/75' : 'text-slate-600'
+                className={`text-xs sm:text-sm font-medium mt-0.5 ${
+                  darkTheme ? 'text-[#C8D8CE]/80' : 'text-[#425B51]'
                 }`}
               >
-                اضغط على أي مناسبة للانتقال الفوري إلى يومها وتاريخها الميلادي المقابل في التقويم
+                اضغط على أي مناسبة للانتقال المباشر إلى يومها وتاريخها الميلادي المقابل
               </p>
             </div>
 
@@ -1078,14 +1057,14 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setOccasionFilter(tab.id)}
-                  className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-colors whitespace-nowrap ${
+                  className={`min-h-[36px] px-3 py-1.5 rounded-[5px] border text-xs font-bold cursor-pointer transition-colors whitespace-nowrap ${
                     occasionFilter === tab.id
                       ? darkTheme
-                        ? 'bg-amber-400 text-[#061816]'
-                        : 'bg-emerald-600 text-white'
+                        ? 'bg-[#D9B96A] text-[#081A14] border-[#D9B96A]'
+                        : 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
                       : darkTheme
-                      ? 'bg-[#061816] text-amber-100/80 border border-amber-400/15'
-                      : 'bg-slate-100 text-slate-700 hover:bg-emerald-50'
+                      ? 'bg-[#081A14] text-[#F3EBD6]/80 border-[#B8924A]/30'
+                      : 'btn-manuscript'
                   }`}
                 >
                   {tab.label}
@@ -1094,7 +1073,9 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pl-1">
+          <ManuscriptDivider variant="rosette" dark={darkTheme} />
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pl-1">
             {filteredYearlyOccasions.map((occ) => {
               const meta = getCategoryMeta(occ);
               const done = completedReadingIds.includes(occ.id);
@@ -1103,39 +1084,44 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                   key={occ.id}
                   type="button"
                   onClick={() => handleJumpToOccasion(occ)}
-                  className={`text-right p-4 rounded-2xl border transition-colors cursor-pointer flex flex-col justify-between gap-2 ${
+                  className={`text-right p-4 rounded-[5px] border transition-colors cursor-pointer flex flex-col justify-between gap-2 ${
                     darkTheme
-                      ? 'bg-[#061816] hover:bg-[#0E2E29] border-amber-400/15'
-                      : 'bg-slate-50/60 hover:bg-emerald-50/50 border-slate-200'
+                      ? 'bg-[#081A14]/75 hover:bg-[#123328] border-[#B8924A]/30'
+                      : 'bg-[#F3ECDA]/45 hover:bg-[#F3ECDA] border-[#B8924A]/35'
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2">
                       <span
-                        className={`text-xs font-black tabular-nums ${
+                        className={`text-xs font-bold flex items-center gap-1.5 tabular-nums ${
                           darkTheme ? meta.textDark : meta.textLight
                         }`}
                       >
-                        {occ.day} {HIJRI_MONTH_NAMES[occ.month]}
+                        {renderOccasionIcon(meta.cat, false)}
+                        <span>
+                          {occ.day} {HIJRI_MONTH_NAMES[occ.month]}
+                        </span>
                       </span>
                       {done && (
                         <CheckCircle2
-                          className="w-4 h-4 text-emerald-500 shrink-0"
+                          className={`w-4 h-4 shrink-0 ${
+                            darkTheme ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
+                          }`}
                           aria-label="مقروءة"
                         />
                       )}
                     </div>
                     <h3
-                      className={`font-display font-extrabold text-sm sm:text-base mt-1 leading-snug ${
-                        darkTheme ? 'text-amber-50' : 'text-slate-900'
+                      className={`font-display font-bold text-sm sm:text-base mt-1.5 leading-snug ${
+                        darkTheme ? 'text-[#FAF6EC]' : 'text-[#0F3D2E]'
                       }`}
                     >
                       {occ.title}
                     </h3>
                   </div>
                   <p
-                    className={`text-xs line-clamp-2 ${
-                      darkTheme ? 'text-emerald-100/70' : 'text-slate-600'
+                    className={`text-xs line-clamp-2 leading-relaxed ${
+                      darkTheme ? 'text-[#C8D8CE]/75' : 'text-[#425B51]'
                     }`}
                   >
                     {occ.shortStory}

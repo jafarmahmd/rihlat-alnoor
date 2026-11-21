@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TopBar } from './components/TopBar';
+import { BottomNav } from './components/BottomNav';
 import { HomeScreen } from './components/HomeScreen';
 import { MapScreen } from './components/MapScreen';
 import { StationView } from './components/StationView';
@@ -10,7 +11,15 @@ import { LibraryScreen } from './components/LibraryScreen';
 import { DigitalLibraryScreen } from './components/DigitalLibraryScreen';
 import { TasbihScreen } from './components/TasbihScreen';
 import { CalendarScreen } from './components/CalendarScreen';
+import { AdhanSettingsScreen } from './components/AdhanSettingsScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { Square, Volume2 } from 'lucide-react';
+import {
+  AdhanPlaybackState,
+  getAdhanPlaybackState,
+  stopAnyAdhanPlayback,
+  subscribeAdhanPlaybackState,
+} from './utils/adhanAudioPlayer';
 import {
   ReadingFocusSettings,
   ReadingSettingsModal,
@@ -32,9 +41,13 @@ import {
   AppUpdateInfo,
   checkForAppUpdate,
   dismissUpdateTag,
-  isAndroidNativeApp,
 } from './utils/appUpdateChecker';
 import { loadHijriOffset } from './data/hijriCalendar';
+import {
+  exitAndroidAppIfNative,
+  initAndroidBackButton,
+  registerHardwareBackHandler,
+} from './utils/hardwareBack';
 import { MASOOMEEN_LIBRARY } from './data/library';
 import { STATIONS } from './data/stations';
 import { STORE_ITEMS } from './data/storeItems';
@@ -226,6 +239,7 @@ export default function App() {
   const [activeLibraryEntryId, setActiveLibraryEntryId] = useState<
     string | null
   >(null);
+  const [libraryNavigationNonce, setLibraryNavigationNonce] = useState<number>(0);
   const [hijriOffset, setHijriOffset] = useState<number>(() =>
     loadHijriOffset()
   );
@@ -240,10 +254,17 @@ export default function App() {
   const [activeToast, setActiveToast] = useState<DispatchedNotificationPayload | null>(null);
   const [toastNotificationsOpen, setToastNotificationsOpen] = useState<boolean>(false);
   const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
+  const [adhanPlayback, setAdhanPlayback] = useState<AdhanPlaybackState>(
+    getAdhanPlaybackState
+  );
 
   useEffect(() => {
     saveReadingFocusSettings(readingFocusSettings);
   }, [readingFocusSettings]);
+
+  useEffect(() => {
+    return subscribeAdhanPlaybackState(setAdhanPlayback);
+  }, []);
 
   useEffect(() => {
     try {
@@ -269,16 +290,19 @@ export default function App() {
       } else if (section === 'duas') {
         setActiveLibrarySection('adiyat');
         setActiveLibraryEntryId(entryId ?? null);
+        setLibraryNavigationNonce((n) => n + 1);
         setScreen('digital-library');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (section === 'munajat') {
         setActiveLibrarySection('munajat');
         setActiveLibraryEntryId(entryId ?? null);
+        setLibraryNavigationNonce((n) => n + 1);
         setScreen('digital-library');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setActiveLibrarySection(section);
         setActiveLibraryEntryId(entryId ?? null);
+        setLibraryNavigationNonce((n) => n + 1);
         setScreen('digital-library');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -292,25 +316,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isAndroidNativeApp()) return;
-
     let cancelled = false;
-    const runCheck = async (force = false) => {
-      const res = await checkForAppUpdate({ force, respectDismissed: true });
+    const runCheck = async () => {
+      const res = await checkForAppUpdate({
+        force: false,
+        respectDismissed: true,
+      });
       if (!cancelled && res.status === 'update-available' && res.update) {
         setAvailableUpdate(res.update);
       }
     };
 
-    void runCheck(true);
+    void runCheck();
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
-        void runCheck(false);
+        void runCheck();
       }
     };
     const onOnline = () => {
-      void runCheck(false);
+      void runCheck();
     };
 
     document.addEventListener('visibilitychange', onVisibility);
@@ -355,9 +380,54 @@ export default function App() {
     playClickSound(muted);
     setActiveLibrarySection(section);
     setActiveLibraryEntryId(entryId ?? null);
+    setLibraryNavigationNonce((n) => n + 1);
     setScreen('digital-library');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Android hardware back button handling via @capacitor/app
+  useEffect(() => {
+    return initAndroidBackButton(() => {
+      if (settingsOpen) {
+        setSettingsOpen(false);
+        return;
+      }
+      if (toastNotificationsOpen) {
+        setToastNotificationsOpen(false);
+        return;
+      }
+      if (showWelcome) {
+        exitAndroidAppIfNative();
+        return;
+      }
+      if (screen === 'station') {
+        setScreen('map');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      if (screen !== 'home') {
+        setScreen('home');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      exitAndroidAppIfNative();
+    });
+  }, [screen, settingsOpen, toastNotificationsOpen, showWelcome]);
+
+  useEffect(() => {
+    if (!settingsOpen && !toastNotificationsOpen) return;
+    return registerHardwareBackHandler(() => {
+      if (settingsOpen) {
+        setSettingsOpen(false);
+        return true;
+      }
+      if (toastNotificationsOpen) {
+        setToastNotificationsOpen(false);
+        return true;
+      }
+      return false;
+    });
+  }, [settingsOpen, toastNotificationsOpen]);
 
   const handleSelectStation = (stationId: number) => {
     playClickSound(muted);
@@ -533,7 +603,7 @@ export default function App() {
   return (
     <div
       dir="rtl"
-      className={`min-h-screen flex flex-col relative text-slate-900 transition-colors duration-500 ${activeBackgroundClass}`}
+      className={`min-h-screen flex flex-col relative text-[#11271F] transition-colors duration-500 ${activeBackgroundClass}`}
     >
       {/* Subtle Pattern Background Layer */}
       <div
@@ -543,7 +613,7 @@ export default function App() {
         aria-hidden="true"
       />
 
-      <div className="relative z-10 flex-1 flex flex-col">
+      <div className="relative z-10 flex-1 flex flex-col pb-[68px] md:pb-0">
         <TopBar
           currentScreen={screen}
           activeLibrarySection={activeLibrarySection}
@@ -581,6 +651,7 @@ export default function App() {
               }}
               onOpenTasbih={() => navigateTo('tasbih')}
               onOpenCalendar={() => navigateTo('calendar')}
+              onOpenAdhanSettings={() => navigateTo('adhan-settings')}
               onOpenLibrarySection={openLibrarySection}
               onCompleteReading={handleCompleteReading}
               onResumeLastRead={() => {
@@ -589,6 +660,7 @@ export default function App() {
                 if (
                   section === 'quran' ||
                   section === 'adiyat' ||
+                  section === 'sahifa' ||
                   section === 'ziyarat' ||
                   section === 'munajat'
                 ) {
@@ -631,12 +703,14 @@ export default function App() {
           {screen === 'duas' && (
             <DuasScreen
               completedReadingIds={progress.completedReadingIds}
+              bookmarkedIds={progress.bookmarkedIds}
               focusSettings={readingFocusSettings}
               onOpenSettings={() => {
                 playClickSound(muted);
                 setSettingsOpen(true);
               }}
               onCompleteReading={handleCompleteReading}
+              onToggleBookmark={handleToggleBookmark}
               onBackHome={() => navigateTo('home')}
               onSetLastRead={handleSetLastRead}
             />
@@ -645,12 +719,14 @@ export default function App() {
           {screen === 'munajat' && (
             <MunajatScreen
               completedReadingIds={progress.completedReadingIds}
+              bookmarkedIds={progress.bookmarkedIds}
               focusSettings={readingFocusSettings}
               onOpenSettings={() => {
                 playClickSound(muted);
                 setSettingsOpen(true);
               }}
               onCompleteReading={handleCompleteReading}
+              onToggleBookmark={handleToggleBookmark}
               onBackHome={() => navigateTo('home')}
               onSetLastRead={handleSetLastRead}
             />
@@ -672,6 +748,7 @@ export default function App() {
             <DigitalLibraryScreen
               initialSection={activeLibrarySection}
               initialEntryId={activeLibraryEntryId}
+              navigationNonce={libraryNavigationNonce}
               completedReadingIds={progress.completedReadingIds}
               bookmarkedIds={progress.bookmarkedIds}
               focusSettings={readingFocusSettings}
@@ -708,6 +785,10 @@ export default function App() {
             />
           )}
 
+          {screen === 'adhan-settings' && (
+            <AdhanSettingsScreen onBackHome={() => navigateTo('home')} />
+          )}
+
           {screen === 'station' && (
             <StationView
               station={activeStation}
@@ -723,11 +804,39 @@ export default function App() {
         </div>
       </div>
 
+      {adhanPlayback.isPlaying && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-[76px] md:bottom-4 inset-x-3 sm:inset-x-auto sm:left-4 z-40 max-w-md mx-auto sm:mx-0 rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] shadow-xl px-4 py-2.5 flex items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Volume2 className="w-4 h-4 text-[#D9B96A] shrink-0" aria-hidden="true" />
+            <span className="text-xs sm:text-sm font-bold truncate">
+              {adhanPlayback.label || 'الأذان قيد التشغيل'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void stopAnyAdhanPlayback()}
+            className="btn-gilded min-h-[38px] px-3.5 py-1 text-xs inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <Square className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>إيقاف الأذان</span>
+          </button>
+        </div>
+      )}
+
       <ReadingSettingsModal
         isOpen={settingsOpen}
         settings={readingFocusSettings}
         onChange={setReadingFocusSettings}
         onClose={() => setSettingsOpen(false)}
+        onOpenAdhanSettings={() => {
+          playClickSound(muted);
+          setSettingsOpen(false);
+          navigateTo('adhan-settings');
+        }}
         onOpenWelcome={() => {
           playClickSound(muted);
           setSettingsOpen(false);
@@ -759,6 +868,10 @@ export default function App() {
       <SpiritualNotificationsModal
         isOpen={toastNotificationsOpen}
         onClose={() => setToastNotificationsOpen(false)}
+        onOpenAdhanSettings={() => {
+          setToastNotificationsOpen(false);
+          navigateTo('adhan-settings');
+        }}
         onOpenSection={(sec, entryId) => {
           if (sec === 'library' || sec === 'tasbih') {
             if (sec === 'library') setActiveStoryId(entryId ?? null);
@@ -774,6 +887,13 @@ export default function App() {
       />
 
       <OfflineIndicator />
+
+      <BottomNav
+        currentScreen={screen}
+        activeLibrarySection={activeLibrarySection}
+        onNavigateScreen={navigateTo}
+        onOpenLibrarySection={openLibrarySection}
+      />
     </div>
   );
 }

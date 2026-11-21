@@ -56,12 +56,9 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pendingAutoPlayRef = useRef<boolean>(false);
 
-  // Quran reciter selection (persisted across surahs)
   const [quranReciterId, setQuranReciterId] = useState<QuranReciterId>(() =>
     loadSavedQuranReciter()
   );
-
-  // Entry track selection (starts silent on each entry)
   const [selectedTrackId, setSelectedTrackId] = useState<string>('silent');
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -69,21 +66,19 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
   const [hasError, setHasError] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [playbackRateIndex, setPlaybackRateIndex] = useState<number>(1); // 1x
+  const [playbackRateIndex, setPlaybackRateIndex] = useState<number>(1);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [reloadNonce, setReloadNonce] = useState<number>(0);
 
   const entryKey =
     props.mode === 'quran' ? `quran-${props.surahNumber}` : `entry-${props.entryId}`;
 
-  // Reset entry track selection when switching Dua/Ziyarat/Munajat
   useEffect(() => {
     if (props.mode === 'entry') {
       setSelectedTrackId('silent');
     }
   }, [props.mode, props.mode === 'entry' ? props.entryId : null]);
 
-  // Reset audio playback state cleanly whenever the active reading item changes
   useEffect(() => {
     pendingAutoPlayRef.current = false;
     setIsPlaying(false);
@@ -152,7 +147,6 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
   const activeUrl = resolvedTrack.url;
   const playbackRate = PLAYBACK_RATES[playbackRateIndex];
 
-  // Sync playbackRate and mute state to <audio>
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
@@ -160,7 +154,6 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
     el.muted = isMuted;
   }, [playbackRate, isMuted, activeUrl]);
 
-  // Trigger loading when URL or retry changes
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
@@ -257,13 +250,12 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
 
   return (
     <div
-      className={`mt-5 rounded-2xl p-3.5 sm:p-4 border transition-colors ${
+      className={`my-4 rounded-[5px] p-3 sm:p-3.5 border transition-colors ${
         nightMode
-          ? 'bg-slate-800/85 border-amber-500/30 text-amber-50'
-          : 'bg-gradient-to-l from-emerald-50/90 via-white to-amber-50/70 border-emerald-200 text-slate-900'
+          ? 'bg-[#0D2920] border-[#D9B96A]/35 text-[#F3EBD6]'
+          : 'bg-[#F3ECDA]/75 border-[#B8924A]/45 text-[#11271F]'
       }`}
     >
-      {/* Hidden native audio element */}
       <audio
         ref={audioRef}
         preload="metadata"
@@ -303,50 +295,47 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
         }}
       />
 
-      {/* Top Row: Label + Reciter Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+      {/* Compact Top Bar: Label + Reciter Select */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              nightMode
-                ? 'bg-amber-500/20 text-amber-300'
-                : 'bg-emerald-100 text-emerald-700'
+          <Headphones
+            className={`w-4 h-4 shrink-0 ${
+              nightMode ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
             }`}
-          >
-            <Headphones className="w-5 h-5" aria-hidden="true" />
-          </div>
+            aria-hidden="true"
+          />
           <div className="min-w-0">
             <p
-              className={`font-display font-extrabold text-sm ${
-                nightMode ? 'text-amber-200' : 'text-emerald-950'
+              className={`font-display font-bold text-xs sm:text-sm ${
+                nightMode ? 'text-[#E8CE88]' : 'text-[#0F3D2E]'
               }`}
             >
-              الاستماع بصوت القراء الأفاضل
+              التلاوة الصوتية
             </p>
             <p
-              className={`text-xs leading-snug ${
-                nightMode ? 'text-slate-300' : 'text-slate-600'
+              className={`text-[11px] leading-snug ${
+                nightMode ? 'text-[#C8B88A]' : 'text-[#425B51]'
               }`}
             >
               {hasAvailableTracks
                 ? props.mode === 'quran'
-                  ? 'اختر القارئ لتلاوة السورة كاملة أو واصل القراءة الصامتة'
-                  : 'اختر القارئ للاستماع أثناء القراءة أو واصل القراءة الصامتة'
-                : 'وضع القراءة الشخصية الصامتة — لا يتوفر تسجيل صوتي لهذا النص حالياً'}
+                  ? 'اختر القارئ لتلاوة السورة أو واصل القراءة الصامتة'
+                  : 'اختر القارئ للاستماع أو واصل القراءة الصامتة'
+                : 'وضع القراءة الصامتة — لا يتوفر تسجيل صوتي لهذا النص حالياً'}
             </p>
           </div>
         </div>
 
         {hasAvailableTracks && (
-          <div className="w-full sm:w-72 shrink-0">
+          <div className="w-full sm:w-64 shrink-0">
             <select
               aria-label="اختيار القارئ"
               value={currentSelectValue}
               onChange={(e) => handleSelectChange(e.target.value)}
-              className={`w-full min-h-[44px] px-3 py-2 rounded-xl border text-xs sm:text-sm font-display font-bold focus:outline-none focus:ring-2 cursor-pointer transition-colors ${
+              className={`w-full min-h-[40px] px-3 py-1.5 rounded-[4px] border text-xs sm:text-sm font-display font-semibold focus:outline-none cursor-pointer transition-colors ${
                 nightMode
-                  ? 'bg-slate-900 border-amber-500/40 text-amber-100 focus:ring-amber-400'
-                  : 'bg-white border-emerald-300 text-emerald-950 focus:ring-emerald-500'
+                  ? 'bg-[#081A14] border-[#D9B96A]/45 text-[#F3EBD6] focus:border-[#D9B96A]'
+                  : 'bg-[#FAF6EC] border-[#B8924A]/55 text-[#0F3D2E] focus:border-[#0F3D2E]'
               }`}
             >
               {props.mode === 'quran' ? (
@@ -357,7 +346,7 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                 ))
               ) : (
                 <>
-                  <option value="silent">وضع القراءة الشخصية الصامتة</option>
+                  <option value="silent">القراءة الشخصية الصامتة</option>
                   {props.tracks.map((track) => (
                     <option key={track.id} value={track.id}>
                       {track.reciterName}
@@ -370,19 +359,19 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
         )}
       </div>
 
-      {/* Audio Player Bar (Shown whenever a non-silent reciter is chosen) */}
+      {/* Audio Bar */}
       {activeUrl && (
         <div
-          className={`mt-3.5 pt-3.5 border-t space-y-2.5 ${
-            nightMode ? 'border-slate-700' : 'border-emerald-200/80'
+          className={`mt-3 pt-3 border-t space-y-2.5 ${
+            nightMode ? 'border-[#D9B96A]/20' : 'border-[#B8924A]/25'
           }`}
         >
           {resolvedTrack.note && (
             <p
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${
+              className={`text-xs font-medium px-3 py-1.5 rounded-[4px] border ${
                 nightMode
-                  ? 'bg-amber-950/50 border-amber-500/30 text-amber-200'
-                  : 'bg-amber-50 border-amber-200 text-amber-900'
+                  ? 'bg-[#081A14]/70 border-[#D9B96A]/30 text-[#E8CE88]'
+                  : 'bg-[#FAF6EC] border-[#B8924A]/35 text-[#7A5E2A]'
               }`}
             >
               {resolvedTrack.note}
@@ -391,40 +380,35 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
 
           {hasError ? (
             <div
-              className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border text-xs sm:text-sm font-bold ${
+              className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-[4px] border text-xs font-semibold ${
                 nightMode
-                  ? 'bg-rose-950/40 border-rose-500/40 text-rose-200'
-                  : 'bg-rose-50 border-rose-200 text-rose-900'
+                  ? 'bg-[#2A1215] border-[#B85454]/45 text-[#F4D0D0]'
+                  : 'bg-[#FDF2F2] border-[#D48C8C] text-[#7A2020]'
               }`}
             >
-              <span>
-                تعذر تشغيل التلاوة الآن. تأكد من الاتصال بالإنترنت أو اختر قارئاً آخر.
-              </span>
+              <span>تعذر تشغيل التلاوة الآن. تأكد من الاتصال أو اختر قارئاً آخر.</span>
               <button
                 type="button"
                 onClick={() => {
                   pendingAutoPlayRef.current = true;
                   setReloadNonce((n) => n + 1);
                 }}
-                className="min-h-[36px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-extrabold text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[36px] px-3 py-1 btn-emerald text-xs inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>إعادة المحاولة</span>
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5">
-              {/* Controls Row */}
+            <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={handleTogglePlay}
                     aria-label={isPlaying ? 'إيقاف مؤقت' : 'تشغيل التلاوة'}
-                    className={`min-h-[42px] px-4 rounded-xl font-display font-extrabold text-xs sm:text-sm inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs ${
-                      nightMode
-                        ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    className={`min-h-[38px] px-3.5 rounded-[4px] font-display font-bold text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      nightMode ? 'btn-gilded' : 'btn-emerald'
                     }`}
                   >
                     {isBuffering ? (
@@ -439,7 +423,7 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                         ? 'جارٍ التحميل...'
                         : isPlaying
                         ? 'إيقاف مؤقت'
-                        : 'استماع الآن'}
+                        : 'استماع'}
                     </span>
                   </button>
 
@@ -447,11 +431,10 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                     type="button"
                     onClick={() => handleSkip(-10)}
                     aria-label="رجوع 10 ثوانٍ"
-                    title="رجوع 10 ثوانٍ"
-                    className={`min-h-[40px] px-2.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                    className={`min-h-[38px] px-2.5 rounded-[4px] border text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
                       nightMode
-                        ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-700'
-                        : 'bg-white border-emerald-200 text-slate-700 hover:bg-emerald-50'
+                        ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#F3EBD6] hover:bg-[#13382C]'
+                        : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#11271F] hover:bg-[#EDE4CC]'
                     }`}
                   >
                     <RotateCw className="w-3.5 h-3.5" aria-hidden="true" />
@@ -462,11 +445,10 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                     type="button"
                     onClick={() => handleSkip(10)}
                     aria-label="تقديم 10 ثوانٍ"
-                    title="تقديم 10 ثوانٍ"
-                    className={`min-h-[40px] px-2.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                    className={`min-h-[38px] px-2.5 rounded-[4px] border text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
                       nightMode
-                        ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-700'
-                        : 'bg-white border-emerald-200 text-slate-700 hover:bg-emerald-50'
+                        ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#F3EBD6] hover:bg-[#13382C]'
+                        : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#11271F] hover:bg-[#EDE4CC]'
                     }`}
                   >
                     <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
@@ -479,10 +461,10 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                     type="button"
                     onClick={handleCycleRate}
                     aria-label="تغيير سرعة التلاوة"
-                    className={`min-h-[40px] px-2.5 rounded-xl border text-xs font-extrabold tabular-nums cursor-pointer transition-colors ${
+                    className={`min-h-[38px] px-2.5 rounded-[4px] border text-xs font-bold tabular-nums cursor-pointer transition-colors ${
                       nightMode
-                        ? 'bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-700'
-                        : 'bg-white border-emerald-200 text-emerald-800 hover:bg-emerald-50'
+                        ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#D9B96A]'
+                        : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E]'
                     }`}
                     dir="ltr"
                   >
@@ -493,10 +475,10 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                     type="button"
                     onClick={() => setIsMuted((m) => !m)}
                     aria-label={isMuted ? 'إلغاء الكتم' : 'كتم الصوت'}
-                    className={`min-h-[40px] min-w-[40px] rounded-xl border flex items-center justify-center cursor-pointer transition-colors ${
+                    className={`min-h-[38px] min-w-[38px] rounded-[4px] border flex items-center justify-center cursor-pointer transition-colors ${
                       nightMode
-                        ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-700'
-                        : 'bg-white border-emerald-200 text-slate-700 hover:bg-emerald-50'
+                        ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#F3EBD6]'
+                        : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E]'
                     }`}
                   >
                     {isMuted ? (
@@ -508,11 +490,10 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                 </div>
               </div>
 
-              {/* Progress Slider & Time */}
               <div className="flex items-center gap-3" dir="ltr">
                 <span
-                  className={`text-xs font-bold tabular-nums w-12 text-right ${
-                    nightMode ? 'text-slate-300' : 'text-slate-600'
+                  className={`text-xs font-semibold tabular-nums w-12 text-right ${
+                    nightMode ? 'text-[#C8B88A]' : 'text-[#425B51]'
                   }`}
                 >
                   {formatDuration(currentTime)}
@@ -526,13 +507,15 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
                   onChange={handleSeek}
                   disabled={!duration}
                   aria-label="شريط التقدم الصوتي"
-                  className={`flex-1 h-2 rounded-lg appearance-none cursor-pointer accent-emerald-600 ${
-                    nightMode ? 'bg-slate-700 accent-amber-400' : 'bg-emerald-100'
+                  className={`flex-1 h-1.5 rounded-none appearance-none cursor-pointer ${
+                    nightMode
+                      ? 'bg-[#081A14] accent-[#D9B96A]'
+                      : 'bg-[#DED3B7] accent-[#0F3D2E]'
                   }`}
                 />
                 <span
-                  className={`text-xs font-bold tabular-nums w-12 text-left ${
-                    nightMode ? 'text-slate-300' : 'text-slate-600'
+                  className={`text-xs font-semibold tabular-nums w-12 text-left ${
+                    nightMode ? 'text-[#C8B88A]' : 'text-[#425B51]'
                   }`}
                 >
                   {formatDuration(duration)}
