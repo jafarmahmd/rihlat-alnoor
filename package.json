@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "cap:sync": "npm run build && npx cap sync && node scripts/setup-android-adhan.mjs",
+    "cap:sync": "npm run build && npx cap sync",
+    "capacitor:sync:after": "node scripts/setup-android-adhan.mjs",
     "cap:android": "npx cap open android",
     "cap:ios": "npx cap open ios"
   },

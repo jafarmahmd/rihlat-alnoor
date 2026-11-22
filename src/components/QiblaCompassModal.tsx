@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Compass, LocateFixed, X } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { CheckCircle2, Compass, LocateFixed, Search, Settings, X } from 'lucide-react';
 import {
   PRESET_CITIES,
   PrayerLocationPreference,
@@ -8,7 +9,12 @@ import {
   savePrayerLocationPreference,
   toArabicNums,
 } from '../utils/prayerTimes';
-import { detectAndSaveGpsLocation } from '../utils/gpsLocation';
+import {
+  GpsDetectionResult,
+  detectAndSaveGpsLocation,
+  openAppLocationPermissionSettings,
+  openDeviceLocationSettings,
+} from '../utils/gpsLocation';
 import { CornerOrnaments, ManuscriptDivider } from './IslamicOrnaments';
 
 interface QiblaCompassModalProps {
@@ -102,6 +108,23 @@ export const QiblaCompassModal: React.FC<QiblaCompassModalProps> = ({
     'idle'
   );
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsReason, setGpsReason] = useState<GpsDetectionResult['reason'] | null>(
+    null
+  );
+  const [citySearch, setCitySearch] = useState('');
+
+  const filteredCities = useMemo(() => {
+    const q = citySearch.trim().toLowerCase();
+    if (!q) return PRESET_CITIES;
+    return PRESET_CITIES.filter(
+      (c) =>
+        c.nameAr.toLowerCase().includes(q) ||
+        c.countryAr.toLowerCase().includes(q)
+    );
+  }, [citySearch]);
+
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
   const unwrappedHeadingRef = useRef<number | null>(null);
   const hasAbsoluteEventRef = useRef<boolean>(false);
@@ -223,6 +246,7 @@ export const QiblaCompassModal: React.FC<QiblaCompassModalProps> = ({
   const handleUseGps = async () => {
     setGpsStatus('loading');
     setGpsError(null);
+    setGpsReason(null);
     const res = await detectAndSaveGpsLocation();
     if (res.ok && res.preference) {
       setLocPref(res.preference);
@@ -230,6 +254,7 @@ export const QiblaCompassModal: React.FC<QiblaCompassModalProps> = ({
     } else {
       setGpsStatus('error');
       setGpsError(res.message);
+      setGpsReason(res.reason || 'error');
     }
   };
 
@@ -244,10 +269,12 @@ export const QiblaCompassModal: React.FC<QiblaCompassModalProps> = ({
       cityLabel: city.nameAr,
       city: city.nameAr,
       country: city.countryAr,
+      updatedAt: Date.now(),
     };
     setLocPref(nextPref);
     savePrayerLocationPreference(nextPref);
     setGpsError(null);
+    setGpsReason(null);
   };
 
   const qibla = useMemo(
@@ -305,38 +332,76 @@ export const QiblaCompassModal: React.FC<QiblaCompassModalProps> = ({
         </div>
 
         {/* Location Controls inside Compass */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 bg-[#F3ECDA]/75 border border-[#B8924A]/30 rounded-[6px] p-2">
-          <select
-            value={locPref.mode === 'city' ? locPref.cityId : ''}
-            onChange={(e) => handleSelectCity(e.target.value)}
-            aria-label="اختر المدينة لحساب القبلة"
-            className="flex-1 min-w-[140px] min-h-[36px] px-2.5 rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/45 text-xs font-bold text-[#0F3D2E] focus:outline-none"
-          >
-            {locPref.mode === 'gps' && (
-              <option value="">{locPref.cityLabel} (GPS)</option>
-            )}
-            {PRESET_CITIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nameAr} — {c.countryAr}
-              </option>
-            ))}
-          </select>
+        <div className="mt-3 space-y-2 bg-[#F3ECDA]/75 border border-[#B8924A]/30 rounded-[6px] p-2.5 text-right">
+          <div className="relative">
+            <Search
+              className="w-3.5 h-3.5 text-[#7A5E2A] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={citySearch}
+              onChange={(e) => setCitySearch(e.target.value)}
+              placeholder="ابحث عن المدينة يدوياً..."
+              aria-label="ابحث عن المدينة"
+              className="w-full min-h-[34px] pr-8 pl-2.5 rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 text-xs text-[#0F3D2E] focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <select
+              value={locPref.mode === 'city' && !citySearch.trim() ? locPref.cityId : ''}
+              onChange={(e) => handleSelectCity(e.target.value)}
+              aria-label="اختر المدينة لحساب القبلة"
+              className="flex-1 min-w-[140px] min-h-[36px] px-2.5 rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/45 text-xs font-bold text-[#0F3D2E] focus:outline-none"
+            >
+              {locPref.mode === 'gps' && (
+                <option value="">{locPref.cityLabel} (GPS)</option>
+              )}
+              {filteredCities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nameAr} — {c.countryAr}
+                </option>
+              ))}
+            </select>
 
-          <button
-            type="button"
-            onClick={() => void handleUseGps()}
-            disabled={gpsStatus === 'loading'}
-            className="min-h-[36px] px-3 py-1 rounded-[5px] bg-[#0F3D2E] hover:bg-[#17513E] text-[#FAF6EC] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-65 shrink-0"
-          >
-            <LocateFixed className="w-3.5 h-3.5 text-[#D9B96A]" aria-hidden="true" />
-            <span>{gpsStatus === 'loading' ? 'جارٍ التحديد...' : 'موقعي GPS'}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => void handleUseGps()}
+              disabled={gpsStatus === 'loading'}
+              className="min-h-[36px] px-3 py-1 rounded-[5px] bg-[#0F3D2E] hover:bg-[#17513E] text-[#FAF6EC] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-65 shrink-0"
+            >
+              <LocateFixed className="w-3.5 h-3.5 text-[#D9B96A]" aria-hidden="true" />
+              <span>{gpsStatus === 'loading' ? 'جارٍ التحديد...' : 'موقعي GPS'}</span>
+            </button>
+          </div>
         </div>
 
         {gpsError && (
-          <p className="mt-1.5 text-[11px] font-medium text-[#9C7835]">
-            {gpsError}
-          </p>
+          <div className="mt-2 rounded-[5px] bg-[#F3ECDA] border border-[#B8924A]/50 p-2 text-center space-y-1.5">
+            <p className="text-[11px] font-medium text-[#7A5E2A] leading-relaxed">
+              {gpsError}
+            </p>
+            {isAndroid && gpsReason === 'denied' && (
+              <button
+                type="button"
+                onClick={() => void openAppLocationPermissionSettings()}
+                className="min-h-[32px] px-3 py-1 btn-manuscript text-[11px] inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Settings className="w-3 h-3" aria-hidden="true" />
+                <span>فتح إعدادات التطبيق</span>
+              </button>
+            )}
+            {isAndroid && gpsReason === 'location-disabled' && (
+              <button
+                type="button"
+                onClick={() => void openDeviceLocationSettings()}
+                className="min-h-[32px] px-3 py-1 btn-manuscript text-[11px] inline-flex items-center gap-1 cursor-pointer"
+              >
+                <LocateFixed className="w-3 h-3" aria-hidden="true" />
+                <span>فتح إعدادات الموقع</span>
+              </button>
+            )}
+          </div>
         )}
 
         <div className="my-4 flex flex-col items-center">

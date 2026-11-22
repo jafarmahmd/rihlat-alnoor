@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BellRing, Compass, LocateFixed, MapPin } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { BellRing, Compass, LocateFixed, MapPin, Settings } from 'lucide-react';
 import { loadAdhanSettings } from '../data/adhanSettings';
 import {
   ensureNotificationPermissionIfMissing,
@@ -17,7 +18,12 @@ import {
   savePrayerLocationPreference,
   toArabicNums,
 } from '../utils/prayerTimes';
-import { detectAndSaveGpsLocation } from '../utils/gpsLocation';
+import {
+  GpsDetectionResult,
+  detectAndSaveGpsLocation,
+  openAppLocationPermissionSettings,
+  openDeviceLocationSettings,
+} from '../utils/gpsLocation';
 import {
   MinaretAdhanIcon,
 } from './IslamicOrnaments';
@@ -39,7 +45,12 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
   const [adhanSettings, setAdhanSettings] = useState(() => loadAdhanSettings());
   const [loadingGps, setLoadingGps] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsReason, setGpsReason] = useState<GpsDetectionResult['reason'] | null>(
+    null
+  );
   const [now, setNow] = useState<Date>(() => new Date());
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   const [qiblaModalOpen, setQiblaModalOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<
     NotificationPermission | 'unsupported'
@@ -94,6 +105,7 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
     const found = PRESET_CITIES.find((c) => c.id === cityId);
     if (!found) return;
     setGpsError(null);
+    setGpsReason(null);
     const next: PrayerLocationPreference = {
       mode: 'city',
       cityId: found.id,
@@ -102,6 +114,7 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
       cityLabel: found.nameAr,
       city: found.nameAr,
       country: found.countryAr,
+      updatedAt: Date.now(),
     };
     setLocPref(next);
     savePrayerLocationPreference(next);
@@ -110,12 +123,14 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
   const handleUseGps = async () => {
     setLoadingGps(true);
     setGpsError(null);
+    setGpsReason(null);
     const res = await detectAndSaveGpsLocation();
     setLoadingGps(false);
     if (res.ok && res.preference) {
       setLocPref(res.preference);
     } else {
       setGpsError(res.message);
+      setGpsReason(res.reason || 'error');
     }
   };
 
@@ -238,7 +253,29 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
         </div>
 
         {gpsError && (
-          <p className="text-xs font-medium text-[#7A5E2A]">{gpsError}</p>
+          <div className="rounded-[5px] bg-[#F3ECDA] border border-[#B8924A]/50 p-2.5 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium text-[#7A5E2A]">{gpsError}</p>
+            {isAndroid && gpsReason === 'denied' && (
+              <button
+                type="button"
+                onClick={() => void openAppLocationPermissionSettings()}
+                className="min-h-[34px] px-3 py-1 btn-manuscript text-xs inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Settings className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>فتح إعدادات التطبيق</span>
+              </button>
+            )}
+            {isAndroid && gpsReason === 'location-disabled' && (
+              <button
+                type="button"
+                onClick={() => void openDeviceLocationSettings()}
+                className="min-h-[34px] px-3 py-1 btn-manuscript text-xs inline-flex items-center gap-1 cursor-pointer"
+              >
+                <LocateFixed className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>فتح إعدادات الموقع</span>
+              </button>
+            )}
+          </div>
         )}
 
         {/* 6-Column Prayer Ledger */}

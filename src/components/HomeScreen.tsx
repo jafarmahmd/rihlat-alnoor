@@ -62,10 +62,14 @@ import {
   loadPrayerLocationPreference,
   toArabicNums,
 } from '../utils/prayerTimes';
+import { Capacitor } from '@capacitor/core';
 import {
+  GpsDetectionResult,
   LocationPermissionStatus,
   detectAndSaveGpsLocation,
   getGpsDetecting,
+  openAppLocationPermissionSettings,
+  openDeviceLocationSettings,
   subscribeGpsStatus,
 } from '../utils/gpsLocation';
 
@@ -157,7 +161,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   );
   const [gpsDetecting, setGpsDetecting] = useState<boolean>(getGpsDetecting);
   const [gpsNotice, setGpsNotice] = useState<string | null>(null);
+  const [gpsReason, setGpsReason] = useState<GpsDetectionResult['reason'] | null>(
+    null
+  );
   const [adhanSettings, setAdhanSettings] = useState(() => loadAdhanSettings());
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
   useEffect(() => {
     if (currentLocation) {
@@ -821,10 +830,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   type="button"
                   onClick={async () => {
                     setGpsNotice(null);
+                    setGpsReason(null);
                     const res = await detectAndSaveGpsLocation();
                     if (!res.ok) {
                       setGpsNotice(res.message);
-                      window.setTimeout(() => setGpsNotice(null), 5000);
+                      setGpsReason(res.reason || 'error');
                     }
                   }}
                   disabled={gpsDetecting || locationStatus === 'requesting'}
@@ -862,9 +872,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
 
             {gpsNotice && (
-              <p className="mt-1.5 text-[11px] font-medium text-[#E8CE88]">
-                {gpsNotice}
-              </p>
+              <div className="mt-2 rounded-[6px] bg-[#FAF6EC]/10 border border-[#D9B96A]/45 p-2 space-y-1.5">
+                <p className="text-[11px] font-medium text-[#E8CE88] leading-relaxed">
+                  {gpsNotice}
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {isAndroid && gpsReason === 'denied' && (
+                    <button
+                      type="button"
+                      onClick={() => void openAppLocationPermissionSettings()}
+                      className="min-h-[30px] px-2.5 py-0.5 rounded-[4px] bg-[#D9B96A] text-[#081A14] text-[11px] font-bold cursor-pointer"
+                    >
+                      فتح إعدادات التطبيق
+                    </button>
+                  )}
+                  {isAndroid && gpsReason === 'location-disabled' && (
+                    <button
+                      type="button"
+                      onClick={() => void openDeviceLocationSettings()}
+                      className="min-h-[30px] px-2.5 py-0.5 rounded-[4px] bg-[#D9B96A] text-[#081A14] text-[11px] font-bold cursor-pointer"
+                    >
+                      فتح إعدادات الموقع
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onOpenAdhanSettings?.()}
+                    className="min-h-[30px] px-2.5 py-0.5 rounded-[4px] border border-[#D9B96A]/55 text-[#FAF6EC] text-[11px] font-bold cursor-pointer"
+                  >
+                    اختيار المدينة يدوياً
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGpsNotice(null)}
+                    className="min-h-[30px] px-2 text-[11px] text-[#E7D8B0]/75 hover:underline cursor-pointer"
+                  >
+                    إخفاء
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* 4 cols x 2 rows Grid (8 Times) */}
@@ -1006,10 +1052,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 type="button"
                 onClick={chip.action}
                 style={{ borderRadius: 'var(--radius-chip)' }}
-                className={`shrink-0 min-h-[36px] px-4 py-1.5 border text-xs font-display font-bold whitespace-nowrap shadow-xs transition-colors cursor-pointer ${
+                className={`shrink-0 min-h-[36px] px-4 py-1.5 border text-xs font-display font-bold whitespace-nowrap shadow-md transition-colors cursor-pointer ${
                   isNight
-                    ? 'bg-[#352915] hover:bg-[#47371D] border-[#D9B96A]/75 text-[#FAF0CF]'
-                    : 'bg-[#FAF1DA] hover:bg-[#F3E2B5] border-[#D9B96A] text-[#0F3D2E]'
+                    ? 'bg-[#2A1E0E] hover:bg-[#392914] border-[#D9B96A] text-[#FCEFA3]'
+                    : 'bg-[#FFF9E6] hover:bg-[#F3E2B5] border-[#B8924A] text-[#08241A]'
                 }`}
               >
                 {chip.label}
@@ -1201,7 +1247,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
             <div
               style={{ borderRadius: 'var(--radius-tile)' }}
-              className="p-3 sm:p-4 bg-[#F3ECDA]/75 border border-[#B8924A]/32 shadow-[0_6px_18px_-6px_rgba(15,61,46,0.1)]"
+              className="p-3 sm:p-4 bg-[#FAF6EC] border border-[#B8924A]/60 shadow-[0_6px_18px_-6px_rgba(15,61,46,0.18)]"
             >
               <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 {otherTopicTiles.map((tile) => (
@@ -1211,12 +1257,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onClick={tile.onClick}
                     style={{
                       borderRadius: 'var(--radius-tile)',
-                      backgroundColor: isNight ? tile.nightTint : tile.dayTint,
+                      backgroundColor: '#FFF9E6',
                     }}
-                    className="px-3 py-4 border border-[#B8924A]/25 hover:border-[#B8924A]/65 flex flex-col items-center justify-center text-center gap-2 shadow-[0_3px_10px_-3px_rgba(15,61,46,0.08)] transition-transform duration-200 active:scale-[0.97] cursor-pointer"
+                    className="px-3 py-4 border border-[#B8924A]/60 hover:border-[#B8924A] flex flex-col items-center justify-center text-center gap-2 shadow-[0_3px_12px_-3px_rgba(15,61,46,0.15)] transition-transform duration-200 active:scale-[0.97] cursor-pointer"
                   >
-                    <span className="text-[#0F3D2E]">{tile.icon}</span>
-                    <span className="text-xs sm:text-sm font-display font-bold text-[#11271F] leading-snug">
+                    <span className="text-[#0F3D2E] scale-110">{tile.icon}</span>
+                    <span className="text-xs sm:text-sm font-display font-bold text-[#0F3D2E] leading-snug">
                       {tile.label}
                     </span>
                   </button>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { TopBar } from './components/TopBar';
 import { HomeScreen } from './components/HomeScreen';
 import { MapScreen } from './components/MapScreen';
@@ -12,6 +13,14 @@ import { TasbihScreen } from './components/TasbihScreen';
 import { CalendarScreen } from './components/CalendarScreen';
 import { AdhanSettingsScreen } from './components/AdhanSettingsScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import {
+  OemBatteryAutostartModal,
+  hasSeenOemBatteryModal,
+} from './components/OemBatteryAutostartModal';
+import {
+  PermissionManager,
+  hasSeenPermissionManager,
+} from './components/PermissionManager';
 import { Square, Volume2 } from 'lucide-react';
 import {
   AdhanPlaybackState,
@@ -270,6 +279,10 @@ export default function App() {
     useState<PrayerLocationPreference>(() => loadPrayerLocationPreference());
   const [locationStatus, setLocationStatus] =
     useState<LocationPermissionStatus>(getLocationPermissionStatus);
+  const [oemBatteryModalOpen, setOemBatteryModalOpen] =
+    useState<boolean>(false);
+  const [permissionManagerOpen, setPermissionManagerOpen] =
+    useState<boolean>(() => !hasSeenPermissionManager());
 
   useEffect(() => {
     saveReadingFocusSettings(readingFocusSettings);
@@ -383,6 +396,22 @@ export default function App() {
   useEffect(() => {
     if (!showWelcome) {
       void requestNativeNotificationPermissionOnce();
+      if (!hasSeenPermissionManager()) {
+        const timer = window.setTimeout(() => {
+          setPermissionManagerOpen(true);
+        }, 500);
+        return () => window.clearTimeout(timer);
+      }
+      if (
+        Capacitor.isNativePlatform() &&
+        Capacitor.getPlatform() === 'android' &&
+        !hasSeenOemBatteryModal()
+      ) {
+        const timer = window.setTimeout(() => {
+          setOemBatteryModalOpen(true);
+        }, 1200);
+        return () => window.clearTimeout(timer);
+      }
     }
   }, [showWelcome]);
 
@@ -930,6 +959,16 @@ export default function App() {
             openLibrarySection(sec as DigitalLibrarySection, entryId);
           }
         }}
+      />
+
+      <PermissionManager
+        isOpen={permissionManagerOpen}
+        onClose={() => setPermissionManagerOpen(false)}
+      />
+
+      <OemBatteryAutostartModal
+        isOpen={oemBatteryModalOpen}
+        onClose={() => setOemBatteryModalOpen(false)}
       />
 
       <OfflineIndicator />

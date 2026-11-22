@@ -20,12 +20,23 @@ export interface AdhanDiagnosticsResult {
   exactAlarmsGranted: boolean;
   batteryOptimizationIgnored: boolean;
   dndPolicyAccessGranted?: boolean;
+  locationPermissionGranted?: boolean;
+  locationServicesEnabled?: boolean;
+  selectedAudioRawName?: string;
+  selectedAudioSource?: 'res/raw' | 'assets/public/assets/aistudio' | 'missing';
+  selectedAudioExists?: boolean;
+  nextAlarmAtMs?: number;
   isPlaying: boolean;
   activeLabel: string;
   scheduledCount: number;
   lastScheduledAt: number;
   missingRawFiles: string[];
   androidSdkInt: number;
+}
+
+export interface LocationDiagnosticsResult {
+  locationPermissionGranted: boolean;
+  locationServicesEnabled: boolean;
 }
 
 export interface AdhanStateChangedEvent {
@@ -64,12 +75,17 @@ export interface AdhanSchedulerPluginInterface {
   stopAdhan(): Promise<void>;
   getDiagnostics(options: {
     expectedRawNames: string[];
+    selectedRawName?: string;
   }): Promise<AdhanDiagnosticsResult>;
+  getLocationDiagnostics?(): Promise<LocationDiagnosticsResult>;
   requestNotificationPermission(): Promise<{ granted: boolean }>;
   openExactAlarmSettings(): Promise<{ opened: boolean }>;
   requestBatteryOptimizationExemption(): Promise<{ opened: boolean }>;
   openAppNotificationSettings(): Promise<{ opened: boolean }>;
   openNotificationPolicySettings?: () => Promise<{ opened: boolean }>;
+  openAppSettings?: () => Promise<{ opened: boolean }>;
+  openLocationSettings?: () => Promise<{ opened: boolean }>;
+  openAutostartSettings?: () => Promise<{ opened: boolean }>;
   addListener(
     eventName: 'adhanStateChanged',
     listenerFunc: (event: AdhanStateChangedEvent) => void

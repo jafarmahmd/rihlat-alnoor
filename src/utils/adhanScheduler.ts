@@ -37,6 +37,7 @@ import {
   loadPrayerLocationPreference,
   toArabicNums,
 } from './prayerTimes';
+import { getComprehensiveLocationDiagnostics } from './gpsLocation';
 
 const ADHAN_LOCAL_NOTIF_BASE_ID = 5000;
 const ADHAN_LOCAL_NOTIF_MAX_ID = 5999;
@@ -62,9 +63,16 @@ export interface CombinedAdhanDiagnostics {
   exactAlarmsGranted: boolean;
   batteryOptimizationIgnored: boolean;
   dndPolicyAccessGranted: boolean;
+  locationPermissionGranted: boolean;
+  locationServicesEnabled: boolean;
+  lastCoords: { lat: number; lng: number };
   locationMode: 'gps' | 'city';
   locationLabel: string;
+  selectedAudioRawName: string;
+  selectedAudioSource: 'res/raw' | 'assets/public/assets/aistudio' | 'missing' | 'web';
+  selectedAudioExists: boolean;
   lastScheduledAt: number | null;
+  nextAlarmAtMs: number | null;
   scheduledCount: number;
   engine: AdhanScheduleMeta['engine'];
   missingRawFiles: string[];
@@ -697,6 +705,23 @@ export async function scheduleAdhanTestIn10Seconds(options?: {
 export async function getCombinedAdhanDiagnostics(): Promise<CombinedAdhanDiagnostics> {
   const meta = loadAdhanScheduleMeta();
   const loc = loadPrayerLocationPreference();
+  const settings = loadAdhanSettings();
+  const locDiag = await getComprehensiveLocationDiagnostics();
+
+  const firstActiveAdhanKey =
+    PRAYER_ALERT_KEYS.find(
+      (k) => settings.prayers[k].enabled && settings.prayers[k].alertMode === 'adhan'
+    ) || 'fajr';
+  const selectedRawName = getMuezzinByRawName(
+    settings.prayers[firstActiveAdhanKey].muezzinRawName
+  ).rawName;
+
+  const plan = build14DayAdhanAlarmPlan();
+  const earliestPlanAlarmMs =
+    plan.alarms.length > 0
+      ? Math.min(...plan.alarms.map((a) => a.triggerAtMs))
+      : null;
+
   const isNativeAndroid =
     Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
@@ -712,10 +737,17 @@ export async function getCombinedAdhanDiagnostics(): Promise<CombinedAdhanDiagno
       exactAlarmsGranted: false,
       batteryOptimizationIgnored: false,
       dndPolicyAccessGranted: false,
+      locationPermissionGranted: locDiag.permissionGranted,
+      locationServicesEnabled: locDiag.locationServicesEnabled,
+      lastCoords: locDiag.lastCoords,
       locationMode: loc.mode,
       locationLabel: loc.cityLabel,
+      selectedAudioRawName: selectedRawName,
+      selectedAudioSource: 'web',
+      selectedAudioExists: true,
       lastScheduledAt: meta.lastScheduledAt,
-      scheduledCount: meta.scheduledCount,
+      nextAlarmAtMs: earliestPlanAlarmMs,
+      scheduledCount: meta.scheduledCount || plan.alarms.length,
       engine: 'web',
       missingRawFiles: [],
       androidSdkInt: 0,
@@ -727,7 +759,14 @@ export async function getCombinedAdhanDiagnostics(): Promise<CombinedAdhanDiagno
       const nativeDiag: AdhanDiagnosticsResult =
         await AdhanSchedulerPlugin.getDiagnostics({
           expectedRawNames: MUEZZIN_ENTRIES.map((m) => m.rawName),
+          selectedRawName,
         });
+      const nativeNextMs =
+        typeof nativeDiag.nextAlarmAtMs === 'number' &&
+        nativeDiag.nextAlarmAtMs > 0
+          ? nativeDiag.nextAlarmAtMs
+          : earliestPlanAlarmMs;
+
       return {
         isNativeAndroid: true,
         nativePluginAvailable: true,
@@ -735,12 +774,29 @@ export async function getCombinedAdhanDiagnostics(): Promise<CombinedAdhanDiagno
         exactAlarmsGranted: nativeDiag.exactAlarmsGranted,
         batteryOptimizationIgnored: nativeDiag.batteryOptimizationIgnored,
         dndPolicyAccessGranted: Boolean(nativeDiag.dndPolicyAccessGranted),
+        locationPermissionGranted:
+          typeof nativeDiag.locationPermissionGranted === 'boolean'
+            ? nativeDiag.locationPermissionGranted
+            : locDiag.permissionGranted,
+        locationServicesEnabled:
+          typeof nativeDiag.locationServicesEnabled === 'boolean'
+            ? nativeDiag.locationServicesEnabled
+            : locDiag.locationServicesEnabled,
+        lastCoords: locDiag.lastCoords,
         locationMode: loc.mode,
         locationLabel: loc.cityLabel,
+        selectedAudioRawName:
+          nativeDiag.selectedAudioRawName || selectedRawName,
+        selectedAudioSource: nativeDiag.selectedAudioSource || 'missing',
+        selectedAudioExists:
+          typeof nativeDiag.selectedAudioExists === 'boolean'
+            ? nativeDiag.selectedAudioExists
+            : false,
         lastScheduledAt:
           nativeDiag.lastScheduledAt > 0
             ? nativeDiag.lastScheduledAt
             : meta.lastScheduledAt,
+        nextAlarmAtMs: nativeNextMs,
         scheduledCount:
           nativeDiag.scheduledCount > 0
             ? nativeDiag.scheduledCount
@@ -769,9 +825,16 @@ export async function getCombinedAdhanDiagnostics(): Promise<CombinedAdhanDiagno
     exactAlarmsGranted: true,
     batteryOptimizationIgnored: false,
     dndPolicyAccessGranted: false,
+    locationPermissionGranted: locDiag.permissionGranted,
+    locationServicesEnabled: locDiag.locationServicesEnabled,
+    lastCoords: locDiag.lastCoords,
     locationMode: loc.mode,
     locationLabel: loc.cityLabel,
+    selectedAudioRawName: selectedRawName,
+    selectedAudioSource: 'assets/public/assets/aistudio',
+    selectedAudioExists: true,
     lastScheduledAt: meta.lastScheduledAt,
+    nextAlarmAtMs: earliestPlanAlarmMs,
     scheduledCount: meta.scheduledCount,
     engine: meta.engine,
     missingRawFiles: meta.missingRawFiles,

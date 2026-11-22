@@ -12,7 +12,10 @@ import {
   Play,
   Plus,
   RefreshCw,
+  Search,
+  Settings,
   ShieldAlert,
+  ShieldCheck,
   Square,
   Volume2,
   VolumeX,
@@ -67,7 +70,13 @@ import {
   savePrayerLocationPreference,
   toArabicNums,
 } from '../utils/prayerTimes';
-import { detectAndSaveGpsLocation } from '../utils/gpsLocation';
+import {
+  GpsDetectionResult,
+  detectAndSaveGpsLocation,
+  openAppLocationPermissionSettings,
+  openDeviceAutostartSettings,
+  openDeviceLocationSettings,
+} from '../utils/gpsLocation';
 import {
   CornerOrnaments,
   CrescentBellIcon,
@@ -75,6 +84,7 @@ import {
   MinaretAdhanIcon,
   NightPrayerLampIcon,
 } from './IslamicOrnaments';
+import { OemBatteryAutostartModal } from './OemBatteryAutostartModal';
 
 interface AdhanSettingsScreenProps {
   onBackHome: () => void;
@@ -110,6 +120,10 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
   );
   const [loadingGps, setLoadingGps] = useState(false);
   const [gpsNotice, setGpsNotice] = useState<string | null>(null);
+  const [gpsReason, setGpsReason] = useState<GpsDetectionResult['reason'] | null>(
+    null
+  );
+  const [citySearchQuery, setCitySearchQuery] = useState('');
   const [playback, setPlayback] = useState<AdhanPlaybackState>(() =>
     getAdhanPlaybackState()
   );
@@ -120,6 +134,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showVerifyGuide, setShowVerifyGuide] = useState(false);
   const [showOemGuide, setShowOemGuide] = useState(false);
+  const [oemModalOpen, setOemModalOpen] = useState(false);
   const [channelList, setChannelList] = useState<NotificationChannelStatus[] | null>(
     null
   );
@@ -130,6 +145,16 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
 
   const isNative = Capacitor.isNativePlatform();
   const isAndroid = isNative && Capacitor.getPlatform() === 'android';
+
+  const filteredPresetCities = useMemo(() => {
+    const q = citySearchQuery.trim().toLowerCase();
+    if (!q) return PRESET_CITIES;
+    return PRESET_CITIES.filter(
+      (c) =>
+        c.nameAr.toLowerCase().includes(q) ||
+        c.countryAr.toLowerCase().includes(q)
+    );
+  }, [citySearchQuery]);
 
   const refreshDiagnostics = useCallback(async () => {
     const diag = await getCombinedAdhanDiagnostics();
@@ -258,6 +283,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
     const found = PRESET_CITIES.find((c) => c.id === cityId);
     if (!found) return;
     setGpsNotice(null);
+    setGpsReason(null);
     const next: PrayerLocationPreference = {
       mode: 'city',
       cityId: found.id,
@@ -266,16 +292,20 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
       cityLabel: found.nameAr,
       city: found.nameAr,
       country: found.countryAr,
+      updatedAt: Date.now(),
     };
     setLocPref(next);
     savePrayerLocationPreference(next);
+    setStatusMessage(`تم اختيار مدينة «${found.nameAr}» يدوياً وإعادة جدولة التنبيهات.`);
   };
 
   const handleUseGps = async () => {
     setLoadingGps(true);
     setGpsNotice(null);
+    setGpsReason(null);
     const res = await detectAndSaveGpsLocation();
     setLoadingGps(false);
+    await refreshDiagnostics();
     if (res.ok && res.preference) {
       setLocPref(res.preference);
       setStatusMessage(
@@ -283,6 +313,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
       );
     } else {
       setGpsNotice(res.message);
+      setGpsReason(res.reason || 'error');
     }
   };
 
@@ -587,15 +618,29 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
           </span>
         </div>
 
-        {/* GPS & City Selector */}
+        {/* GPS & Searchable Manual City Selector */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label
-              htmlFor="adhan-city-select"
+              htmlFor="adhan-city-search"
               className="block text-xs font-bold text-[#0F3D2E]"
             >
-              اختيار المدينة (كبديل أو يدوي)
+              اختيار المدينة (تلقائي بـ GPS أو بحث يدوي دائم)
             </label>
+            <div className="relative">
+              <Search
+                className="w-4 h-4 text-[#7A5E2A] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden="true"
+              />
+              <input
+                id="adhan-city-search"
+                type="search"
+                value={citySearchQuery}
+                onChange={(e) => setCitySearchQuery(e.target.value)}
+                placeholder="ابحث عن مدينتك أو محافظتك (مثلاً: النجف، البصرة، بيروت)..."
+                className="w-full min-h-[40px] pr-9 pl-3 rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/45 text-xs text-[#0F3D2E] placeholder:text-[#425B51]/70 focus:outline-none focus:border-[#0F3D2E]"
+              />
+            </div>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <MapPin
@@ -604,7 +649,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                 />
                 <select
                   id="adhan-city-select"
-                  value={locPref.mode === 'gps' ? 'gps' : locPref.cityId}
+                  value={locPref.mode === 'gps' && !citySearchQuery.trim() ? 'gps' : locPref.cityId}
                   onChange={(e) => {
                     if (e.target.value !== 'gps') handleCitySelect(e.target.value);
                   }}
@@ -613,11 +658,17 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                   {locPref.mode === 'gps' && (
                     <option value="gps">{locPref.cityLabel} (GPS)</option>
                   )}
-                  {PRESET_CITIES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nameAr} — {c.countryAr}
+                  {filteredPresetCities.length === 0 ? (
+                    <option value="" disabled>
+                      لا توجد مدينة مطابقة للبحث
                     </option>
-                  ))}
+                  ) : (
+                    filteredPresetCities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nameAr} — {c.countryAr}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -628,11 +679,37 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                 className="min-h-[44px] px-3.5 btn-emerald text-xs inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
               >
                 <LocateFixed className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
-                <span>{loadingGps ? 'جارٍ التحديد...' : 'تحديد GPS'}</span>
+                <span>{loadingGps ? 'جارٍ التحديد...' : 'تحديد الموقع من GPS'}</span>
               </button>
             </div>
             {gpsNotice && (
-              <p className="text-xs font-medium text-[#7A5E2A]">{gpsNotice}</p>
+              <div className="rounded-[5px] bg-[#F3ECDA] border border-[#B8924A]/60 p-2.5 space-y-2">
+                <p className="text-xs font-medium text-[#7A5E2A] leading-relaxed">
+                  {gpsNotice}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {gpsReason === 'denied' && isAndroid && (
+                    <button
+                      type="button"
+                      onClick={() => void openAppLocationPermissionSettings()}
+                      className="min-h-[36px] px-3 py-1 btn-manuscript text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-[#0F3D2E]" aria-hidden="true" />
+                      <span>فتح إعدادات التطبيق</span>
+                    </button>
+                  )}
+                  {gpsReason === 'location-disabled' && isAndroid && (
+                    <button
+                      type="button"
+                      onClick={() => void openDeviceLocationSettings()}
+                      className="min-h-[36px] px-3 py-1 btn-manuscript text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <LocateFixed className="w-3.5 h-3.5 text-[#0F3D2E]" aria-hidden="true" />
+                      <span>فتح إعدادات الموقع</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
@@ -1413,6 +1490,94 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
         {/* Status Grid */}
         {diagnostics && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 1. Location Permission Status */}
+            <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
+              <span className="text-[11px] text-[#425B51] block">إذن الموقع (GPS)</span>
+              <div className="flex items-center gap-1.5 font-display font-bold text-sm text-[#0F3D2E]">
+                {diagnostics.locationPermissionGranted ? (
+                  <CheckCircle2 className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+                ) : (
+                  <ShieldAlert className="w-4 h-4 text-[#7A5E2A]" aria-hidden="true" />
+                )}
+                <span>
+                  {diagnostics.locationPermissionGranted ? 'ممنوح ✓' : 'غير ممنوح'}
+                </span>
+              </div>
+              {isAndroid && !diagnostics.locationPermissionGranted && (
+                <button
+                  type="button"
+                  onClick={() => void openAppLocationPermissionSettings()}
+                  className="btn-text-ornate text-xs cursor-pointer"
+                >
+                  فتح إعدادات التطبيق
+                </button>
+              )}
+            </div>
+
+            {/* 2. Device GPS / Location Service Enabled */}
+            <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
+              <span className="text-[11px] text-[#425B51] block">خدمة الموقع بالهاتف</span>
+              <div className="flex items-center gap-1.5 font-display font-bold text-sm text-[#0F3D2E]">
+                {diagnostics.locationServicesEnabled ? (
+                  <CheckCircle2 className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+                ) : (
+                  <ShieldAlert className="w-4 h-4 text-[#7A5E2A]" aria-hidden="true" />
+                )}
+                <span>
+                  {diagnostics.locationServicesEnabled ? 'مفعّلة ✓' : 'مطفأة بالهاتف'}
+                </span>
+              </div>
+              {isAndroid && !diagnostics.locationServicesEnabled && (
+                <button
+                  type="button"
+                  onClick={() => void openDeviceLocationSettings()}
+                  className="btn-text-ornate text-xs cursor-pointer"
+                >
+                  فتح إعدادات الموقع
+                </button>
+              )}
+            </div>
+
+            {/* 3. Last Saved Coords & Source */}
+            <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
+              <span className="text-[11px] text-[#425B51] block">
+                آخر إحداثيات ومصدرها
+              </span>
+              <div className="font-display font-bold text-xs sm:text-sm text-[#0F3D2E]">
+                المصدر: {diagnostics.locationMode === 'gps' ? 'GPS تلقائي' : 'اختيار يدوي'}
+              </div>
+              <span className="text-[11px] text-[#1F6B50] font-bold block truncate">
+                {diagnostics.locationLabel}
+              </span>
+              <span dir="ltr" className="font-mono text-[10px] text-[#425B51] block tabular-nums">
+                {diagnostics.lastCoords.lat.toFixed(4)}, {diagnostics.lastCoords.lng.toFixed(4)}
+              </span>
+            </div>
+
+            {/* 4. Selected Muezzin Audio File & Folder */}
+            <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
+              <span className="text-[11px] text-[#425B51] block">
+                ملف صوت المؤذن المختار
+              </span>
+              <div className="flex items-center gap-1.5 font-display font-bold text-sm text-[#0F3D2E]">
+                {diagnostics.selectedAudioExists ? (
+                  <CheckCircle2 className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+                ) : (
+                  <ShieldAlert className="w-4 h-4 text-[#7A5E2A]" aria-hidden="true" />
+                )}
+                <span>
+                  {diagnostics.selectedAudioExists ? 'موجود ✓' : 'مفقود'}
+                </span>
+              </div>
+              <span dir="ltr" className="font-mono text-[10px] text-[#425B51] block truncate">
+                {diagnostics.selectedAudioRawName}.mp3
+              </span>
+              <span dir="ltr" className="font-mono text-[10px] text-[#1F6B50] block truncate">
+                المجلد: {diagnostics.selectedAudioSource}
+              </span>
+            </div>
+
+            {/* 5. Notifications Permission */}
             <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
               <span className="text-[11px] text-[#425B51] block">إذن الإشعارات</span>
               <div className="flex items-center gap-1.5 font-display font-bold text-sm text-[#0F3D2E]">
@@ -1436,6 +1601,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
               )}
             </div>
 
+            {/* 6. Exact Alarm Permission */}
             <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
               <span className="text-[11px] text-[#425B51] block">
                 المنبهات الدقيقة (Exact Alarm)
@@ -1465,6 +1631,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
               )}
             </div>
 
+            {/* 7. Battery Optimization */}
             <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
               <span className="text-[11px] text-[#425B51] block">
                 استثناء توفير البطارية
@@ -1494,6 +1661,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
               )}
             </div>
 
+            {/* 8. Scheduled Alarms Count & Next Alarm Timestamp */}
             <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/40 p-3 space-y-1">
               <span className="text-[11px] text-[#425B51] block">
                 التنبيهات المجدولة (١٤ يوماً)
@@ -1501,7 +1669,18 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
               <div className="font-display font-bold text-lg text-[#0F3D2E] tabular-nums">
                 {toArabicNums(diagnostics.scheduledCount)} تنبيه
               </div>
-              <span className="text-[11px] text-[#425B51] block tabular-nums">
+              <span className="text-[11px] text-[#1F6B50] font-bold block tabular-nums">
+                المنبه القادم:{' '}
+                {diagnostics.nextAlarmAtMs
+                  ? new Date(diagnostics.nextAlarmAtMs).toLocaleString('ar-EG', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'لا يوجد'}
+              </span>
+              <span className="text-[10px] text-[#425B51] block tabular-nums">
                 آخر جدولة:{' '}
                 {diagnostics.lastScheduledAt
                   ? new Date(diagnostics.lastScheduledAt).toLocaleTimeString('ar-EG', {
@@ -1518,10 +1697,10 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
         {diagnostics && diagnostics.missingRawFiles.length > 0 && (
           <div className="rounded-[5px] bg-[#F3ECDA] border border-[#B8924A]/65 p-3.5 text-xs text-[#11271F] space-y-1">
             <strong className="text-[#0F3D2E] block">
-              تنبيه بخصوص ملفات res/raw المفقودة داخل حزمة الأندرويد:
+              تنبيه بخصوص ملفات res/raw داخل حزمة الأندرويد:
             </strong>
             <p className="text-[#425B51]">
-              لم يُعثر على الملفات التالية في مجلد res/raw؛ تم استخدام صوت التنبيه الافتراضي تلقائياً دون تعطيل الجدولة:
+              لم يُعثر على الملفات التالية في مجلد res/raw (وسيقرأها المحرك من assets/public/assets/aistudio كبديل تلقائي، مع ضرورة تشغيل npx cap sync android لتضمينها في res/raw):
             </p>
             <p dir="ltr" className="font-mono text-[11px] text-[#7A5E2A]">
               {diagnostics.missingRawFiles.join(', ')}
@@ -1558,6 +1737,14 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => void openDeviceAutostartSettings()}
+                    className="min-h-[38px] px-3 py-1 btn-manuscript text-xs inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#1F6B50]" aria-hidden="true" />
+                    <span>التشغيل التلقائي (HiOS)</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void handleOpenDndSettings()}
                     className="min-h-[38px] px-3 py-1 btn-manuscript text-xs cursor-pointer"
                   >
@@ -1575,6 +1762,13 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
               >
                 {loadingChannels ? 'جارٍ الفحص...' : 'عرض حالة القنوات'}
               </button>
+              <button
+                type="button"
+                onClick={() => setOemModalOpen(true)}
+                className="min-h-[38px] px-3 py-1 btn-manuscript text-xs cursor-pointer"
+              >
+                نافذة إعدادات البطارية والتشغيل التلقائي
+              </button>
             </div>
 
             <button
@@ -1584,7 +1778,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
             >
               {showOemGuide
                 ? 'إخفاء إرشادات الأجهزة'
-                : 'إرشادات هواتف Xiaomi و Huawei و Samsung'}
+                : 'إرشادات هواتف HiOS و Xiaomi و Huawei'}
             </button>
           </div>
 
@@ -1645,6 +1839,10 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
           {showOemGuide && (
             <div className="rounded-[5px] bg-[#F3ECDA]/70 border border-[#B8924A]/40 p-4 text-xs text-[#11271F] space-y-2 leading-relaxed">
               <p>
+                <strong className="text-[#0F3D2E]">• هواتف HiOS / Tecno / Infinix:</strong>{' '}
+                مدير الهاتف (Phone Master) ← إدارة التشغيل التلقائي ← فعّل «رحلة النور»، وفي البطارية اختر «عدم التقييد» واقفل التطبيق في شاشة التطبيقات المفتوحة إن أمكن.
+              </p>
+              <p>
                 <strong className="text-[#0F3D2E]">• هواتف Xiaomi / Redmi / POCO (MIUI / HyperOS):</strong>{' '}
                 افتح معلومات التطبيق ← فعّل «التشغيل التلقائي (Autostart)» ← وفي «موفر البطارية» اختر «لا توجد قيود (No restrictions)».
               </p>
@@ -1662,6 +1860,11 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
       </section>
 
       <ManuscriptDivider variant="rosette" />
+
+      <OemBatteryAutostartModal
+        isOpen={oemModalOpen}
+        onClose={() => setOemModalOpen(false)}
+      />
     </main>
   );
 };

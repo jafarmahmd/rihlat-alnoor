@@ -95,16 +95,18 @@ const audioAssetMappings = [
   ['qng16n_ff7ee017.mp3', 'shubbar_almualla.mp3'],
 ];
 
+let copiedAudioCount = 0;
 for (const [srcName, destName] of audioAssetMappings) {
   const srcPath = path.join(rootDir, 'public', 'assets', 'aistudio', srcName);
   const destPath = path.join(rawDestDir, destName);
   if (fs.existsSync(srcPath)) {
     fs.copyFileSync(srcPath, destPath);
+    copiedAudioCount++;
   }
 }
-console.log('✓ تم تجهيز ملفات صوت المؤذنين في android/app/src/main/res/raw/.');
+console.log(`✓ تم تجهيز ${copiedAudioCount}/${audioAssetMappings.length} ملف صوت مؤذن في android/app/src/main/res/raw/.`);
 
-// 4. حقن الصلاحيات والخدمات والمستقبلات في AndroidManifest.xml
+// 4. حقن الصلاحيات والخدمات والمستقبلات وخصائص الموقع في AndroidManifest.xml
 const manifestPath = path.join(androidMainDir, 'AndroidManifest.xml');
 let manifest = fs.readFileSync(manifestPath, 'utf8');
 
@@ -130,6 +132,13 @@ for (const perm of requiredPermissions) {
       `    <uses-permission android:name="${perm}" />\n</manifest>`
     );
   }
+}
+
+if (!manifest.includes('android.hardware.location.gps')) {
+  manifest = manifest.replace(
+    '</manifest>',
+    `    <uses-feature android:name="android.hardware.location.gps" android:required="false" />\n</manifest>`
+  );
 }
 
 if (!manifest.includes('AdhanForegroundService')) {
@@ -158,6 +167,8 @@ if (!manifest.includes('AdhanForegroundService')) {
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
@@ -165,7 +176,12 @@ if (!manifest.includes('AdhanForegroundService')) {
         </receiver>
     </application>`;
   manifest = manifest.replace('</application>', componentsXml);
+} else if (!manifest.includes('android.intent.action.QUICKBOOT_POWERON')) {
+  manifest = manifest.replace(
+    '<action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />',
+    `<action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />\n                <action android:name="android.intent.action.QUICKBOOT_POWERON" />\n                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />`
+  );
 }
 
 fs.writeFileSync(manifestPath, manifest, 'utf8');
-console.log('✓ تم تحديث AndroidManifest.xml بصلاحيات وخدمات الأذان وإعادة الإقلاع.');
+console.log('✓ تم تحديث AndroidManifest.xml بصلاحيات الموقع (GPS) وخدمات الأذان وإعادة الإقلاع.');

@@ -1,6 +1,10 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import {
+  AdhanSchedulerPlugin,
+  isCustomAdhanPluginAvailable,
+} from '../plugins/adhanNativePlugin';
+import {
   PrayerLocationPreference,
   hasSavedPrayerLocationPreference,
   loadPrayerLocationPreference,
@@ -21,18 +25,36 @@ export type LocationPermissionStatus =
   | 'requesting'
   | 'granted'
   | 'denied'
+  | 'location-disabled'
   | 'unsupported'
   | 'timeout'
   | 'error';
 
 export interface GpsDetectionResult {
   ok: boolean;
-  reason?: 'granted' | 'denied' | 'unsupported' | 'timeout' | 'error';
+  reason?:
+    | 'granted'
+    | 'denied'
+    | 'location-disabled'
+    | 'unsupported'
+    | 'timeout'
+    | 'error';
   preference?: PrayerLocationPreference;
   message: string;
 }
 
+export interface ComprehensiveLocationDiagnostics {
+  permissionStatus: LocationPermissionStatus;
+  permissionGranted: boolean;
+  locationServicesEnabled: boolean;
+  lastCoords: { lat: number; lng: number };
+  locationMode: 'gps' | 'city';
+  locationLabel: string;
+  updatedAt: number | null;
+}
+
 const FIRST_OPEN_GPS_PROMPTED_KEY = 'rihlat_alnoor_first_open_gps_v1';
+const LAST_GOOD_GPS_KEY = 'rihlat_alnoor_last_good_gps_v1';
 
 interface OfflineGazetteerEntry {
   city: string;
@@ -171,6 +193,145 @@ function markFirstOpenGpsPrompted(): void {
   }
 }
 
+function saveLastGoodGpsBackup(pref: PrayerLocationPreference): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LAST_GOOD_GPS_KEY, JSON.stringify(pref));
+  } catch {
+    // Ignore quota errors
+  }
+}
+
+export function loadLastGoodGpsBackup(): PrayerLocationPreference | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LAST_GOOD_GPS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PrayerLocationPreference>;
+    if (typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+      return parsed as PrayerLocationPreference;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function openAppLocationPermissionSettings(): Promise<boolean> {
+  if (isCustomAdhanPluginAvailable() && AdhanSchedulerPlugin.openAppSettings) {
+    try {
+      const res = await AdhanSchedulerPlugin.openAppSettings();
+      return Boolean(res.opened);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export async function openDeviceLocationSettings(): Promise<boolean> {
+  if (isCustomAdhanPluginAvailable() && AdhanSchedulerPlugin.openLocationSettings) {
+    try {
+      const res = await AdhanSchedulerPlugin.openLocationSettings();
+      return Boolean(res.opened);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export async function openDeviceAutostartSettings(): Promise<boolean> {
+  if (isCustomAdhanPluginAvailable() && AdhanSchedulerPlugin.openAutostartSettings) {
+    try {
+      const res = await AdhanSchedulerPlugin.openAutostartSettings();
+      return Boolean(res.opened);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+async function checkNativeLocationServicesEnabled(): Promise<boolean> {
+  if (
+    isCustomAdhanPluginAvailable() &&
+    AdhanSchedulerPlugin.getLocationDiagnostics
+  ) {
+    try {
+      const diag = await AdhanSchedulerPlugin.getLocationDiagnostics();
+      return Boolean(diag.locationServicesEnabled);
+    } catch {
+      return true;
+    }
+  }
+  return true;
+}
+
+export async function getComprehensiveLocationDiagnostics(): Promise<ComprehensiveLocationDiagnostics> {
+  const pref = loadPrayerLocationPreference();
+  let permissionGranted = false;
+  let locationServicesEnabled = true;
+  let status: LocationPermissionStatus = locationPermissionStatusState;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const perm = await Geolocation.checkPermissions();
+      permissionGranted =
+        perm.location === 'granted' || perm.coarseLocation === 'granted';
+      if (permissionGranted) {
+        status = 'granted';
+      } else if (perm.location === 'denied') {
+        status = 'denied';
+      }
+    } catch {
+      // Fallback to native plugin diagnostics below
+    }
+
+    if (
+      isCustomAdhanPluginAvailable() &&
+      AdhanSchedulerPlugin.getLocationDiagnostics
+    ) {
+      try {
+        const nativeDiag = await AdhanSchedulerPlugin.getLocationDiagnostics();
+        permissionGranted =
+          permissionGranted || Boolean(nativeDiag.locationPermissionGranted);
+        locationServicesEnabled = Boolean(nativeDiag.locationServicesEnabled);
+        if (!locationServicesEnabled) {
+          status = 'location-disabled';
+        } else if (permissionGranted) {
+          status = 'granted';
+        }
+      } catch {
+        // Ignore error
+      }
+    }
+  } else {
+    try {
+      const perm = await Geolocation.checkPermissions();
+      permissionGranted =
+        perm.location === 'granted' || perm.coarseLocation === 'granted';
+      status = permissionGranted
+        ? 'granted'
+        : perm.location === 'denied'
+        ? 'denied'
+        : 'idle';
+    } catch {
+      permissionGranted = pref.mode === 'gps';
+    }
+  }
+
+  return {
+    permissionStatus: status,
+    permissionGranted,
+    locationServicesEnabled,
+    lastCoords: { lat: pref.lat, lng: pref.lng },
+    locationMode: pref.mode,
+    locationLabel: pref.cityLabel,
+    updatedAt: pref.updatedAt ?? null,
+  };
+}
+
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const rad = Math.PI / 180;
   const dLat = (lat2 - lat1) * rad;
@@ -192,15 +353,6 @@ function cleanPlacePart(raw: string | undefined | null): string {
     .trim();
 }
 
-function stripGovPrefix(name: string): string {
-  return name
-    .replace(/^محافظة\s+/i, '')
-    .replace(/^منطقة\s+/i, '')
-    .replace(/^ولاية\s+/i, '')
-    .replace(/^إمارة\s+/i, '')
-    .trim();
-}
-
 export function formatGovernorateAndCityLabel(
   governorate?: string,
   city?: string,
@@ -211,13 +363,6 @@ export function formatGovernorateAndCityLabel(
   const cty = cleanPlacePart(city);
 
   if (gov && cty) {
-    const govCore = stripGovPrefix(gov);
-    const cityCore = stripGovPrefix(cty);
-    if (govCore === cityCore) {
-      return gov.startsWith('محافظة') || gov.startsWith('منطقة') || gov.startsWith('إمارة')
-        ? `${gov} — ${cty}`
-        : `${gov} — ${cty}`;
-    }
     return `${gov} — ${cty}`;
   }
   if (gov) return gov;
@@ -306,7 +451,7 @@ export async function resolveGovernorateAndCity(
   lat: number,
   lng: number
 ): Promise<ResolvedPlaceInfo> {
-  // ١) BigDataCloud Arabic Client Reverse Geocoder (سريع ومفتوح CORS بدون مفتاح)
+  // ١) BigDataCloud Arabic Client Reverse Geocoder
   const bdc = await fetchJsonWithTimeout<BigDataCloudResponse>(
     `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(
       lat
@@ -342,7 +487,7 @@ export async function resolveGovernorateAndCity(
     }
   }
 
-  // ٢) OpenStreetMap Nominatim (بديل احتياطي باللغة العربية)
+  // ٢) OpenStreetMap Nominatim
   const nom = await fetchJsonWithTimeout<NominatimReverseResponse>(
     `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
       lat
@@ -377,7 +522,7 @@ export async function resolveGovernorateAndCity(
     }
   }
 
-  // ٣) المطابقة المحلية دون إنترنت (أقرب مدينة ومحافظة مسجلة)
+  // ٣) المطابقة المحلية دون إنترنت
   const offline = matchOfflineGazetteer(lat, lng);
   if (offline) {
     return {
@@ -406,105 +551,123 @@ async function acquireRawCoordinates(): Promise<{
   lng: number;
 } | {
   ok: false;
-  reason: 'denied' | 'unsupported' | 'timeout' | 'error';
+  reason: 'denied' | 'location-disabled' | 'unsupported' | 'timeout' | 'error';
 }> {
   if (typeof window === 'undefined') {
     return { ok: false, reason: 'unsupported' };
   }
 
-  // أ) تطبيق الأندرويد / iOS عبر Capacitor Geolocation
-  if (Capacitor.isNativePlatform()) {
-    try {
+  // ١) استخدام @capacitor/geolocation موحّداً: checkPermissions ثم requestPermissions
+  try {
+    if (Capacitor.isNativePlatform()) {
       let perm = await Geolocation.checkPermissions();
-      if (
-        perm.location !== 'granted' &&
-        perm.coarseLocation !== 'granted'
-      ) {
+      if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
         perm = await Geolocation.requestPermissions();
       }
+      if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
+        return { ok: false, reason: 'denied' };
+      }
+
+      // ٢) فحص هل خدمة الموقع (GPS) مفعّلة في الهاتف أصلاً
+      const servicesEnabled = await checkNativeLocationServicesEnabled();
+      if (!servicesEnabled) {
+        return { ok: false, reason: 'location-disabled' };
+      }
+    } else {
+      // على المتصفح: نفحص عبر إضافة Geolocation دون التعطل إن لم يدعم المتصفح requestPermissions
+      try {
+        const perm = await Geolocation.checkPermissions();
+        if (perm.location === 'denied') {
+          return { ok: false, reason: 'denied' };
+        }
+        if (perm.location !== 'granted') {
+          await Geolocation.requestPermissions().catch(() => undefined);
+        }
+      } catch {
+        // بعض المتصفحات تستدعي الإذن مباشرة عند getCurrentPosition
+      }
+    }
+
+    // ٣) طلب الموقع الحالي بمهلة 15 ثانية عبر @capacitor/geolocation
+    try {
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000,
+      });
+      return {
+        ok: true,
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      };
+    } catch (primaryErr: unknown) {
+      if (Capacitor.isNativePlatform()) {
+        const stillEnabled = await checkNativeLocationServicesEnabled();
+        if (!stillEnabled) {
+          return { ok: false, reason: 'location-disabled' };
+        }
+      }
+      const primaryCode = (primaryErr as { code?: number })?.code;
+      const primaryMsg = String(
+        (primaryErr as { message?: string })?.message || ''
+      ).toLowerCase();
       if (
-        perm.location !== 'granted' &&
-        perm.coarseLocation !== 'granted'
+        primaryCode === 1 ||
+        primaryMsg.includes('denied') ||
+        primaryMsg.includes('permission')
       ) {
         return { ok: false, reason: 'denied' };
       }
-
-      try {
-        const pos = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 12000,
-          maximumAge: 60000,
-        });
-        return {
-          ok: true,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
-      } catch {
-        // محاولة ثانية بدقة متوسطة (Wi-Fi / الشبكة) إن كان الهاتف داخل مبنى
-        const fallbackPos = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: false,
-          timeout: 9000,
-          maximumAge: 300000,
-        });
-        return {
-          ok: true,
-          lat: fallbackPos.coords.latitude,
-          lng: fallbackPos.coords.longitude,
-        };
+      if (
+        primaryMsg.includes('location services are not enabled') ||
+        primaryMsg.includes('disabled')
+      ) {
+        return { ok: false, reason: 'location-disabled' };
       }
-    } catch (err: unknown) {
-      const msg = String((err as { message?: string })?.message || '').toLowerCase();
-      if (msg.includes('denied') || msg.includes('permission')) {
-        return { ok: false, reason: 'denied' };
-      }
-      if (msg.includes('timeout')) {
-        return { ok: false, reason: 'timeout' };
-      }
-      return { ok: false, reason: 'error' };
-    }
-  }
 
-  // ب) المتصفح / PWA عبر Web Geolocation API
-  if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    return { ok: false, reason: 'unsupported' };
-  }
-
-  const getWebPos = (highAccuracy: boolean, timeoutMs: number) =>
-    new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: highAccuracy,
-        timeout: timeoutMs,
-        maximumAge: highAccuracy ? 60000 : 300000,
+      // محاولة ثانية بدقة متوسطة (الشبكة / Wi-Fi) للمباني المغلقة
+      const fallbackPos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 300000,
       });
-    });
-
-  try {
-    const pos = await getWebPos(true, 10000);
-    return { ok: true, lat: pos.coords.latitude, lng: pos.coords.longitude };
-  } catch (err: unknown) {
-    const geoErr = err as { code?: number };
-    if (geoErr?.code === 1) {
-      return { ok: false, reason: 'denied' };
-    }
-    try {
-      const posFallback = await getWebPos(false, 8500);
       return {
         ok: true,
-        lat: posFallback.coords.latitude,
-        lng: posFallback.coords.longitude,
+        lat: fallbackPos.coords.latitude,
+        lng: fallbackPos.coords.longitude,
       };
-    } catch (err2: unknown) {
-      const geoErr2 = err2 as { code?: number };
-      if (geoErr2?.code === 1) return { ok: false, reason: 'denied' };
-      if (geoErr2?.code === 3) return { ok: false, reason: 'timeout' };
-      return { ok: false, reason: 'error' };
     }
+  } catch (err: unknown) {
+    if (Capacitor.isNativePlatform()) {
+      const stillEnabled = await checkNativeLocationServicesEnabled();
+      if (!stillEnabled) {
+        return { ok: false, reason: 'location-disabled' };
+      }
+    }
+    const code = (err as { code?: number })?.code;
+    const msg = String((err as { message?: string })?.message || '').toLowerCase();
+    if (code === 1 || msg.includes('denied') || msg.includes('permission')) {
+      return { ok: false, reason: 'denied' };
+    }
+    if (
+      msg.includes('location services are not enabled') ||
+      msg.includes('disabled')
+    ) {
+      return { ok: false, reason: 'location-disabled' };
+    }
+    if (code === 3 || msg.includes('timeout')) {
+      return { ok: false, reason: 'timeout' };
+    }
+    if (msg.includes('not supported') || msg.includes('unimplemented')) {
+      return { ok: false, reason: 'unsupported' };
+    }
+    return { ok: false, reason: 'error' };
   }
 }
 
 /**
- * يطلب إذن الموقع، يحصل على إحداثيات GPS، ويستخرج اسم المحافظة والمدينة تلقائياً ثم يحفظها للتطبيق كله.
+ * يطلب إذن الموقع عبر @capacitor/geolocation، يلتقط الإحداثيات بمهلة 15 ثانية،
+ * ويستخرج المحافظة والمدينة ويحفظ آخر موقع ناجح محلياً للعمل بدون إنترنت.
  */
 export async function detectAndSaveGpsLocation(): Promise<GpsDetectionResult> {
   if (inFlightGpsPromise) {
@@ -521,12 +684,14 @@ export async function detectAndSaveGpsLocation(): Promise<GpsDetectionResult> {
         markFirstOpenGpsPrompted();
         const message =
           coords.reason === 'denied'
-            ? 'لم يُمنح إذن الموقع؛ يرجى السماح بالوصول إلى الموقع (GPS) أو اختيار مدينتك من القائمة.'
+            ? 'نحتاج إذن الموقع الجغرافي لحساب أوقات الصلاة واتجاه القبلة بدقة في مدينتك. يمكنك تفعيل الإذن من «فتح إعدادات التطبيق» أو اختيار مدينتك يدوياً من القائمة.'
+            : coords.reason === 'location-disabled'
+            ? 'خدمة الموقع (GPS) في الهاتف مطفأة حالياً. شغّل خدمة الموقع من «فتح إعدادات الموقع» أو اختر مدينتك يدوياً.'
             : coords.reason === 'unsupported'
-            ? 'الجهاز أو المتصفح لا يدعم تحديد الموقع التلقائي، يمكنك اختيار مدينتك من القائمة.'
+            ? 'الجهاز لا يدعم تحديد الموقع التلقائي، يمكنك اختيار مدينتك من القائمة اليدوية.'
             : coords.reason === 'timeout'
-            ? 'استغرق تحديد إشارة GPS وقتاً أطول؛ تأكد من تفعيل خدمة الموقع وحاول مجدداً.'
-            : 'تعذّر تحديد الموقع الحالي؛ تأكد من تفعيل خدمة الموقع أو اختر مدينتك يدوياً.';
+            ? 'استغرق التقاط إشارة GPS وقتاً أطول (١٥ ثانية)؛ تأكد من تفعيل الموقع أو اختر مدينتك يدوياً.'
+            : 'تعذّر تحديد الموقع الحالي؛ تأكد من تفعيل خدمة الموقع في الهاتف أو اختر مدينتك يدوياً.';
         return { ok: false, reason: coords.reason, message };
       }
 
@@ -544,6 +709,7 @@ export async function detectAndSaveGpsLocation(): Promise<GpsDetectionResult> {
         updatedAt: Date.now(),
       };
       savePrayerLocationPreference(nextPref);
+      saveLastGoodGpsBackup(nextPref);
       setLocationPermissionStatus('granted');
 
       return {
@@ -562,9 +728,7 @@ export async function detectAndSaveGpsLocation(): Promise<GpsDetectionResult> {
 }
 
 /**
- * يُستدعى تلقائياً عند فتح التطبيق لأول مرة (أو عند تفعيل وضع GPS مسبقاً):
- * - في المتصفح يستخدم Geolocation API (`navigator.geolocation`) لطلب إذن الموقع وتحديث الحالة البرمجية.
- * - على أندرويد/iOS يستخدم إضافة Geolocation الأصلية.
+ * يُستدعى تلقائياً عند فتح التطبيق لأول مرة أو عند اعتماد GPS مسبقاً.
  */
 export async function autoDetectGpsOnAppEnter(): Promise<GpsDetectionResult | null> {
   if (autoLaunchRan) return null;
@@ -574,39 +738,19 @@ export async function autoDetectGpsOnAppEnter(): Promise<GpsDetectionResult | nu
   const hasSaved = hasSavedPrayerLocationPreference();
   const current = loadPrayerLocationPreference();
 
-  // إن لم يكن هذا أول فتح للتطبيق واختار المستخدم مدينة ثابتة يدوياً، نحترم اختياره
+  // إن اختار المستخدم مدينة ثابتة يدوياً بعد الفتح الأول نحترم اختياره
   if (!isFirstOpen && hasSaved && current.mode === 'city') {
     return null;
   }
 
-  // التحقق من حالة الإذن حتى لا نُكرر الطلب إن حُظر الإذن سابقاً
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const perm = await Geolocation.checkPermissions();
-      if (perm.location === 'denied' && !isFirstOpen) {
-        setLocationPermissionStatus('denied');
-        return null;
-      }
-    } catch {
-      // متابعة المحاولة أدناه
+  try {
+    const perm = await Geolocation.checkPermissions();
+    if (perm.location === 'denied' && !isFirstOpen) {
+      setLocationPermissionStatus('denied');
+      return null;
     }
-  } else if (
-    typeof navigator !== 'undefined' &&
-    'permissions' in navigator &&
-    typeof navigator.permissions.query === 'function'
-  ) {
-    try {
-      const permStatus = await navigator.permissions.query({
-        name: 'geolocation' as PermissionName,
-      });
-      if (permStatus.state === 'denied') {
-        setLocationPermissionStatus('denied');
-        markFirstOpenGpsPrompted();
-        return null;
-      }
-    } catch {
-      // بعض المتصفحات لا تدعم query لـ geolocation
-    }
+  } catch {
+    // متابعة المحاولة أدناه
   }
 
   return detectAndSaveGpsLocation();

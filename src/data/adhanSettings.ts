@@ -198,7 +198,7 @@ export const DEFAULT_ADHAN_SETTINGS: AdhanSettings = {
     muezzinRawName: DEFAULT_MUEZZIN_RAW_NAME,
   },
   allowNotificationsDuringAdhan: true,
-  playAdhanInSilentMode: false,
+  playAdhanInSilentMode: true,
   adhanAudioUsage: 'alarm',
 };
 
