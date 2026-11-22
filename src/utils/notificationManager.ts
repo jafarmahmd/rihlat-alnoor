@@ -27,7 +27,10 @@ import {
   clampSalatAlLaylTime,
   loadAdhanSettings,
 } from '../data/adhanSettings';
-import { syncAdhanAndPrayerAlarms } from './adhanScheduler';
+import {
+  syncAdhanAndPrayerAlarms,
+  syncAndroidAdhanNotificationChannels,
+} from './adhanScheduler';
 import {
   AdhanSchedulerPlugin,
   isCustomAdhanPluginAvailable,
@@ -148,6 +151,7 @@ export async function syncNativeDailyNotifications(): Promise<number> {
   let dailyScheduled = 0;
 
   try {
+    await syncAndroidAdhanNotificationChannels(loadAdhanSettings());
     const settings = loadNotificationSettings();
     const pending = await LocalNotifications.getPending();
     const existingIds = pending.notifications

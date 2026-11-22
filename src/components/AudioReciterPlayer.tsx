@@ -20,12 +20,20 @@ import {
   saveQuranReciter,
 } from '../data/reciterAudio';
 
+export interface AudioPlaybackProgress {
+  currentTime: number;
+  duration: number;
+  isPlaying: boolean;
+  hasActiveAudio: boolean;
+}
+
 type AudioReciterPlayerProps =
   | {
       mode: 'quran';
       surahNumber: number;
       surahName: string;
       nightMode: boolean;
+      onPlaybackProgress?: (progress: AudioPlaybackProgress) => void;
     }
   | {
       mode: 'entry';
@@ -33,6 +41,7 @@ type AudioReciterPlayerProps =
       entryTitle: string;
       tracks: AudioTrackOption[];
       nightMode: boolean;
+      onPlaybackProgress?: (progress: AudioPlaybackProgress) => void;
     };
 
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5] as const;
@@ -52,7 +61,7 @@ function formatDuration(seconds: number): string {
 }
 
 export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => {
-  const { nightMode } = props;
+  const { nightMode, onPlaybackProgress } = props;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pendingAutoPlayRef = useRef<boolean>(false);
 
@@ -186,6 +195,15 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
     }
   }, [activeUrl, reloadNonce]);
 
+  useEffect(() => {
+    onPlaybackProgress?.({
+      currentTime,
+      duration,
+      isPlaying,
+      hasActiveAudio: Boolean(activeUrl),
+    });
+  }, [currentTime, duration, isPlaying, activeUrl, onPlaybackProgress]);
+
   const handleSelectChange = (value: string) => {
     if (props.mode === 'quran') {
       const nextId = value as QuranReciterId;
@@ -250,7 +268,7 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
 
   return (
     <div
-      className={`my-4 rounded-[5px] p-3 sm:p-3.5 border transition-colors ${
+      className={`my-4 min-h-[164px] flex flex-col justify-between rounded-[5px] p-3 sm:p-3.5 border transition-colors ${
         nightMode
           ? 'bg-[#0D2920] border-[#D9B96A]/35 text-[#F3EBD6]'
           : 'bg-[#F3ECDA]/75 border-[#B8924A]/45 text-[#11271F]'
@@ -359,24 +377,33 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
         )}
       </div>
 
-      {/* Audio Bar */}
-      {activeUrl && (
-        <div
-          className={`mt-3 pt-3 border-t space-y-2.5 ${
-            nightMode ? 'border-[#D9B96A]/20' : 'border-[#B8924A]/25'
-          }`}
-        >
-          {resolvedTrack.note && (
-            <p
-              className={`text-xs font-medium px-3 py-1.5 rounded-[4px] border ${
-                nightMode
-                  ? 'bg-[#081A14]/70 border-[#D9B96A]/30 text-[#E8CE88]'
-                  : 'bg-[#FAF6EC] border-[#B8924A]/35 text-[#7A5E2A]'
-              }`}
-            >
-              {resolvedTrack.note}
-            </p>
-          )}
+      {/* Fixed-Height Audio Bar Slot (Zero vertical layout shift) */}
+      <div
+        className={`mt-3 pt-3 border-t min-h-[82px] flex flex-col justify-center ${
+          nightMode ? 'border-[#D9B96A]/20' : 'border-[#B8924A]/25'
+        }`}
+      >
+        {!activeUrl ? (
+          <div className="flex items-center justify-between gap-2 text-xs leading-relaxed">
+            <span className={nightMode ? 'text-[#C8B88A]' : 'text-[#425B51]'}>
+              {hasAvailableTracks
+                ? 'القراءة الصامتة مفعّلة — اختر قارئاً من القائمة أعلاه عند الرغبة دون أي اهتزاز للنص.'
+                : 'وضع القراءة الصامتة الخالصة لهذا النص المبارك.'}
+            </span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {resolvedTrack.note && (
+              <p
+                className={`text-[11px] font-medium truncate px-2.5 py-1 rounded-[4px] border ${
+                  nightMode
+                    ? 'bg-[#081A14]/70 border-[#D9B96A]/30 text-[#E8CE88]'
+                    : 'bg-[#FAF6EC] border-[#B8924A]/35 text-[#7A5E2A]'
+                }`}
+              >
+                {resolvedTrack.note}
+              </p>
+            )}
 
           {hasError ? (
             <div
@@ -523,8 +550,9 @@ export const AudioReciterPlayer: React.FC<AudioReciterPlayerProps> = (props) => 
               </div>
             </div>
           )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

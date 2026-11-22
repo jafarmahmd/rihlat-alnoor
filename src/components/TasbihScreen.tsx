@@ -15,7 +15,7 @@ import {
   playVictorySound,
 } from '../utils/sound';
 import {
-  ManuscriptCornerBracket,
+  CornerOrnaments,
   ManuscriptDivider,
   TasbihBeadsIcon,
 } from './IslamicOrnaments';
@@ -632,11 +632,8 @@ export const TasbihScreen: React.FC<TasbihScreenProps> = ({
             )}
 
             {/* Illuminated Nocturnal Mihrab Plaque + Sliding Misbaha Cord SVG */}
-            <div className="relative w-full max-w-[390px] mx-auto manuscript-folio-dark rounded-[8px] pt-6 pb-7 px-5 select-none">
-              <ManuscriptCornerBracket position="top-right" color="#D9B96A" className="absolute top-2.5 right-2.5" />
-              <ManuscriptCornerBracket position="top-left" color="#D9B96A" className="absolute top-2.5 left-2.5" />
-              <ManuscriptCornerBracket position="bottom-right" color="#D9B96A" className="absolute bottom-2.5 right-2.5" />
-              <ManuscriptCornerBracket position="bottom-left" color="#D9B96A" className="absolute bottom-2.5 left-2.5" />
+            <div className="relative w-full max-w-[390px] mx-auto manuscript-folio-dark rounded-[6px] pt-7 pb-8 px-7 select-none">
+              <CornerOrnaments tone="dark" />
 
               {/* Arched Sliding Misbaha SVG */}
               <div className="relative w-full aspect-[360/250] -mb-6">

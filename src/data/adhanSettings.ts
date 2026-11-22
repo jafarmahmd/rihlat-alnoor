@@ -120,6 +120,8 @@ export interface CustomCalculationAngles {
   ishaAngle: number;
 }
 
+export type AdhanAudioUsage = 'alarm' | 'notification';
+
 export interface AdhanSettings {
   methodId: CalculationMethodId;
   customAngles: CustomCalculationAngles;
@@ -127,6 +129,10 @@ export interface AdhanSettings {
   salatAlLayl: SalatAlLaylConfig;
   /** السماح باستمرار ظهور الإشعارات والتنبيهات حتى في وقت الأذان */
   allowNotificationsDuringAdhan: boolean;
+  /** تشغيل الأذان حتى عندما يكون الهاتف في الوضع الصامت أو الاهتزاز */
+  playAdhanInSilentMode: boolean;
+  /** نوع مسار الصوت في أندرويد: منبه (ALARM) أو تنبيه (NOTIFICATION_EVENT) */
+  adhanAudioUsage: AdhanAudioUsage;
 }
 
 export interface AdhanScheduleMeta {
@@ -192,6 +198,8 @@ export const DEFAULT_ADHAN_SETTINGS: AdhanSettings = {
     muezzinRawName: DEFAULT_MUEZZIN_RAW_NAME,
   },
   allowNotificationsDuringAdhan: true,
+  playAdhanInSilentMode: false,
+  adhanAudioUsage: 'alarm',
 };
 
 /**
@@ -297,6 +305,12 @@ export function loadAdhanSettings(): AdhanSettings {
         typeof parsed.allowNotificationsDuringAdhan === 'boolean'
           ? parsed.allowNotificationsDuringAdhan
           : DEFAULT_ADHAN_SETTINGS.allowNotificationsDuringAdhan,
+      playAdhanInSilentMode:
+        typeof parsed.playAdhanInSilentMode === 'boolean'
+          ? parsed.playAdhanInSilentMode
+          : DEFAULT_ADHAN_SETTINGS.playAdhanInSilentMode,
+      adhanAudioUsage:
+        parsed.adhanAudioUsage === 'notification' ? 'notification' : 'alarm',
     };
   } catch {
     return DEFAULT_ADHAN_SETTINGS;

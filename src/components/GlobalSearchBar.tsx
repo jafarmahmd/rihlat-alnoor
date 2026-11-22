@@ -6,7 +6,7 @@ import { MUNAJAT_LIST } from '../data/munajat';
 import { DIGITAL_LIBRARY_ENTRIES } from '../data/digitalLibrary';
 import { MASOOMEEN_LIBRARY } from '../data/library';
 import { DigitalLibrarySection } from '../types/game';
-import { toArabicDigits } from '../utils/bookPagination';
+import { toArabicDigits } from '../utils/arabicNumbers';
 
 interface SearchResultItem {
   id: string;

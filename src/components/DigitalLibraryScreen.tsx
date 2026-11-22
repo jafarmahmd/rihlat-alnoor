@@ -1,15 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   Bookmark,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Lightbulb,
-  Menu,
   Moon,
+  Radio,
   RefreshCw,
   ScrollText,
   Search,
@@ -29,22 +29,20 @@ import {
   ReadingFocusSettings,
   getReadingUnitClasses,
   getSavedReadingPosition,
-  saveReadingPositionForKey,
   splitIntoReadableLines,
   useReadingFocusTracker,
 } from './ReadingFocusControls';
-import { ManuscriptBookFlip, ManuscriptBookPage } from './ManuscriptBookFlip';
+import { toArabicDigits } from '../utils/arabicNumbers';
+import { useFontsReady } from '../utils/fontsReady';
 import {
-  ReaderViewMode,
-  loadReaderViewMode,
-  paginateProseBlocks,
-  paginateQuranAyat,
-  saveReaderViewMode,
-} from '../utils/bookPagination';
+  getSavedItemScrollY,
+  saveItemScrollY,
+  useItemScrollPersistence,
+} from '../utils/readingScrollStorage';
 import { DIGITAL_LIBRARY_ENTRIES } from '../data/digitalLibrary';
 import { DUAS_LIST } from '../data/duas';
 import { MUNAJAT_LIST } from '../data/munajat';
-import { AudioReciterPlayer } from './AudioReciterPlayer';
+import { AudioPlaybackProgress, AudioReciterPlayer } from './AudioReciterPlayer';
 import { ENTRY_AUDIO_TRACKS } from '../data/reciterAudio';
 import {
   LOCAL_QURAN_SURAHS,
@@ -63,15 +61,14 @@ import { registerHardwareBackHandler } from '../utils/hardwareBack';
 import {
   AstrolabeIcon,
   AyahRosetteMarker,
+  CornerOrnaments,
   DuaScrollIcon,
-  ManuscriptCornerBracket,
   ManuscriptDivider,
   ManuscriptSpinner,
   MunajatMoonIcon,
   QuranBookIcon,
   ShrineDomeIcon,
   SurahCartoucheHeader,
-  TasbihBeadsIcon,
 } from './IslamicOrnaments';
 
 interface DigitalLibraryScreenProps {
@@ -92,7 +89,6 @@ interface DigitalLibraryScreenProps {
 type DuaSubGroup = 'all' | 'days' | 'daily' | 'major' | 'favorites';
 type ZiyaratSubGroup = 'all' | 'prophet' | 'karbala' | 'imams' | 'favorites';
 type QuranSubFilter = 'all' | 'local' | 'meccan' | 'medinan' | 'favorites';
-type ListFirstSection = 'adiyat' | 'sahifa' | 'munajat';
 
 interface UnifiedDuaOrZiyaratItem {
   id: string;
@@ -105,22 +101,11 @@ interface UnifiedDuaOrZiyaratItem {
   segments: DigitalLibrarySegment[];
 }
 
-const SECTION_TABS: {
-  id: DigitalLibrarySection;
-  label: string;
-}[] = [
-  { id: 'adiyat', label: 'الأدعية' },
-  { id: 'sahifa', label: 'الصحيفة' },
-  { id: 'ziyarat', label: 'الزيارات' },
-  { id: 'munajat', label: 'المناجاة' },
-  { id: 'quran', label: 'القرآن' },
-];
-
 const DUA_SUBFILTERS: { id: DuaSubGroup; label: string }[] = [
   { id: 'all', label: 'الكل' },
+  { id: 'major', label: 'الأدعية الكبرى' },
   { id: 'days', label: 'الأيام السبعة' },
   { id: 'daily', label: 'يومية' },
-  { id: 'major', label: 'الأدعية الكبرى' },
   { id: 'favorites', label: 'المفضلة' },
 ];
 
@@ -141,18 +126,6 @@ const QURAN_SUBFILTERS: { id: QuranSubFilter; label: string }[] = [
 ];
 
 const DL_LAST_SELECTED_KEY = 'rihlat_alnoor_dl_last_selected_v1';
-
-const ARABIC_INDIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-
-function toArabicDigits(value: number | string): string {
-  return String(value).replace(/\d/g, (d) => ARABIC_INDIC_DIGITS[Number(d)] ?? d);
-}
-
-function isListFirstLibrarySection(
-  sec: DigitalLibrarySection
-): sec is ListFirstSection {
-  return sec === 'adiyat' || sec === 'sahifa' || sec === 'munajat';
-}
 
 function loadLastSelectedMap(): {
   adiyat?: string;
@@ -471,14 +444,21 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
         : 1
   );
 
-  // List-first sections open at the list (null) unless an explicit entry ID is requested
+  // All sections open at their flat list (null) unless an explicit entry ID is requested
   const [openedEntryId, setOpenedEntryId] = useState<string | null>(() => {
     if (!initialEntryId) return null;
     if (initialEntryId === 'dl-sahifa-m1') return 'munajat-1';
     if (initialEntryId === 'dl-sahifa-m2') return 'munajat-2';
+    if (initialEntryId.startsWith('dl-quran-')) {
+      const num = Number(initialEntryId.replace('dl-quran-', ''));
+      if (Number.isFinite(num) && num >= 1 && num <= 114) {
+        return `dl-quran-${num}`;
+      }
+    }
     if (
       allDuas.some((d) => d.id === initialEntryId) ||
       allSahifa.some((s) => s.id === initialEntryId) ||
+      allZiyarat.some((z) => z.id === initialEntryId) ||
       MUNAJAT_LIST.some((m) => m.id === initialEntryId)
     ) {
       return initialEntryId;
@@ -487,13 +467,17 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
   });
 
   const [titleSearchBySection, setTitleSearchBySection] = useState<
-    Record<ListFirstSection, string>
+    Record<DigitalLibrarySection, string>
   >({
     adiyat: '',
     sahifa: '',
+    ziyarat: '',
     munajat: '',
+    quran: '',
   });
   const listScrollYRef = useRef<Record<string, number>>({});
+  const pendingListRestoreRef = useRef<boolean>(false);
+  const fontsReady = useFontsReady();
 
   // Save per-section selection whenever it changes so returning preserves context
   useEffect(() => {
@@ -522,9 +506,7 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
   useEffect(() => {
     if (!initialEntryId) {
       setActiveSection(initialSection);
-      if (isListFirstLibrarySection(initialSection)) {
-        setOpenedEntryId(null);
-      }
+      setOpenedEntryId(null);
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, behavior: 'auto' });
       }
@@ -544,7 +526,7 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
         setActiveSection('quran');
         setSelectedSurahNumber(num);
         setQuranSubFilter('all');
-        setOpenedEntryId(null);
+        setOpenedEntryId(`dl-quran-${num}`);
         return;
       }
     }
@@ -562,7 +544,7 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
       setActiveSection('ziyarat');
       setSelectedZiyaratId(mappedId);
       setZiyaratSubFilter('all');
-      setOpenedEntryId(null);
+      setOpenedEntryId(mappedId);
     } else if (MUNAJAT_LIST.some((m) => m.id === mappedId)) {
       setActiveSection('munajat');
       setSelectedMunajatId(mappedId);
@@ -570,19 +552,19 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
     }
   }, [initialSection, initialEntryId, navigationNonce, allDuas, allSahifa, allZiyarat]);
 
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [fontSize, setFontSize] = useState<number>(22);
   const [nightMode, setNightMode] = useState<boolean>(isGlobalNightTheme);
   useEffect(() => {
     return subscribeAppAppearance((s) => setNightMode(s.colorTheme === 'night'));
   }, []);
-  const [viewMode, setViewMode] = useState<ReaderViewMode>(() =>
-    loadReaderViewMode()
-  );
-  const [bookPage, setBookPage] = useState<number>(0);
-  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [justAwardedId, setJustAwardedId] = useState<string | null>(null);
   const [sharePayload, setSharePayload] = useState<ShareCardPayload | null>(null);
+
+  // Quran synced recitation highlight + user-controlled auto-follow toggle
+  const [autoFollowRecitation, setAutoFollowRecitation] = useState<boolean>(false);
+  const [playingAyahIndex, setPlayingAyahIndex] = useState<number | null>(null);
+  const isQuranActivelyPlayingRef = useRef<boolean>(false);
+  const lastFollowedAyahRef = useRef<number | null>(null);
 
   const [offlineQuranCount, setOfflineQuranCount] = useState<number>(() =>
     getCachedOfflineSurahCount()
@@ -656,31 +638,77 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
     return () => controller.abort();
   }, [activeSection, selectedSurahNumber, retryToken]);
 
-  const normalizedQuery = useMemo(
-    () => normalizeArabicForSearch(searchQuery),
-    [searchQuery]
-  );
-
-  const isSearching = normalizedQuery.length > 0;
-
-  const isListFirstSection = isListFirstLibrarySection(activeSection);
-  const currentTitleSearch = isListFirstSection
-    ? titleSearchBySection[activeSection]
-    : '';
+  const currentTitleSearch = titleSearchBySection[activeSection] || '';
   const normalizedTitleSearch = useMemo(
     () => normalizeArabicForSearch(currentTitleSearch),
     [currentTitleSearch]
   );
 
   const visibleListEntries = useMemo(() => {
-    if (!isListFirstSection) return [];
-    if (activeSection === 'adiyat') {
-      return normalizedTitleSearch
-        ? allDuas.filter((d) =>
-            normalizeArabicForSearch(d.title).includes(normalizedTitleSearch)
-          )
-        : allDuas;
+    if (activeSection === 'quran') {
+      let base = QURAN_SURAHS_META;
+      if (quranSubFilter === 'local') {
+        base = base.filter((s) => isSurahAvailableOffline(s.number));
+      } else if (quranSubFilter === 'favorites') {
+        base = base.filter((s) => bookmarkedIds.includes(`dl-quran-${s.number}`));
+      } else if (quranSubFilter === 'meccan') {
+        base = base.filter((s) => s.type === 'مكية');
+      } else if (quranSubFilter === 'medinan') {
+        base = base.filter((s) => s.type === 'مدنية');
+      }
+      if (normalizedTitleSearch) {
+        base = base.filter((surah) => {
+          const arName = normalizeArabicForSearch(`سورة ${surah.name}`);
+          const numMatch = String(surah.number) === normalizedTitleSearch;
+          const typeMatch = normalizeArabicForSearch(surah.type).includes(
+            normalizedTitleSearch
+          );
+          return arName.includes(normalizedTitleSearch) || numMatch || typeMatch;
+        });
+      }
+      return base.map((s) => ({
+        id: `dl-quran-${s.number}`,
+        title: `${toArabicDigits(s.number)}. سورة ${s.name}`,
+        subtitle: `${s.type} · ${toArabicDigits(s.ayahCount)} آية${
+          isSurahAvailableOffline(s.number) ? ' · متاحة دون إنترنت' : ''
+        }`,
+      }));
     }
+
+    if (activeSection === 'ziyarat') {
+      let base = allZiyarat;
+      if (ziyaratSubFilter === 'favorites') {
+        base = base.filter((z) => bookmarkedIds.includes(z.id));
+      } else if (ziyaratSubFilter !== 'all') {
+        base = base.filter((z) => z.groupKey === ziyaratSubFilter);
+      }
+      if (normalizedTitleSearch) {
+        base = base.filter(
+          (z) =>
+            normalizeArabicForSearch(z.title).includes(normalizedTitleSearch) ||
+            normalizeArabicForSearch(z.subtitle).includes(normalizedTitleSearch)
+        );
+      }
+      return base;
+    }
+
+    if (activeSection === 'adiyat') {
+      let base = allDuas;
+      if (duaSubFilter === 'favorites') {
+        base = base.filter((d) => bookmarkedIds.includes(d.id));
+      } else if (duaSubFilter !== 'all') {
+        base = base.filter((d) => d.groupKey === duaSubFilter);
+      }
+      if (normalizedTitleSearch) {
+        base = base.filter(
+          (d) =>
+            normalizeArabicForSearch(d.title).includes(normalizedTitleSearch) ||
+            normalizeArabicForSearch(d.subtitle).includes(normalizedTitleSearch)
+        );
+      }
+      return base;
+    }
+
     if (activeSection === 'sahifa') {
       return normalizedTitleSearch
         ? allSahifa.filter((s) =>
@@ -688,123 +716,31 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
           )
         : allSahifa;
     }
+
     return normalizedTitleSearch
       ? MUNAJAT_LIST.filter((m) =>
           normalizeArabicForSearch(m.title).includes(normalizedTitleSearch)
-        )
-      : MUNAJAT_LIST;
+        ).map((m) => ({
+          id: m.id,
+          title: m.title,
+          subtitle: m.quickMeaning,
+        }))
+      : MUNAJAT_LIST.map((m) => ({
+          id: m.id,
+          title: m.title,
+          subtitle: m.quickMeaning,
+        }));
   }, [
-    isListFirstSection,
     activeSection,
-    normalizedTitleSearch,
-    allDuas,
-    allSahifa,
-  ]);
-
-  const filteredDuasAndZiyarat = useMemo(() => {
-    if (isSearching) {
-      return [...allDuas, ...allSahifa, ...allZiyarat].filter((item) => {
-        const titleMatch = normalizeArabicForSearch(item.title).includes(
-          normalizedQuery
-        );
-        const subMatch = normalizeArabicForSearch(item.subtitle).includes(
-          normalizedQuery
-        );
-        const groupMatch = normalizeArabicForSearch(item.groupLabel).includes(
-          normalizedQuery
-        );
-        const bodyMatch = item.segments.some((seg) =>
-          normalizeArabicForSearch(seg.content).includes(normalizedQuery)
-        );
-        return titleMatch || subMatch || groupMatch || bodyMatch;
-      });
-    }
-
-    if (activeSection === 'ziyarat') {
-      if (ziyaratSubFilter === 'all') return allZiyarat;
-      if (ziyaratSubFilter === 'favorites') {
-        return allZiyarat.filter((z) => bookmarkedIds.includes(z.id));
-      }
-      return allZiyarat.filter((z) => z.groupKey === ziyaratSubFilter);
-    }
-
-    return [];
-  }, [
-    isSearching,
-    normalizedQuery,
-    activeSection,
+    quranSubFilter,
     ziyaratSubFilter,
+    duaSubFilter,
+    normalizedTitleSearch,
     allDuas,
     allSahifa,
     allZiyarat,
     bookmarkedIds,
   ]);
-
-  const filteredMunajat = useMemo(() => {
-    if (isSearching) {
-      return MUNAJAT_LIST.filter((m) => {
-        const titleMatch = normalizeArabicForSearch(m.title).includes(
-          normalizedQuery
-        );
-        const meaningMatch = normalizeArabicForSearch(m.quickMeaning).includes(
-          normalizedQuery
-        );
-        const bodyMatch = m.verses.some((v) =>
-          normalizeArabicForSearch(v).includes(normalizedQuery)
-        );
-        return titleMatch || meaningMatch || bodyMatch;
-      });
-    }
-    return [];
-  }, [isSearching, normalizedQuery]);
-
-  const filteredSurahs = useMemo(() => {
-    if (isSearching) {
-      return QURAN_SURAHS_META.filter((surah) => {
-        const arName = normalizeArabicForSearch(`سورة ${surah.name}`);
-        const numMatch = String(surah.number) === normalizedQuery;
-        const typeMatch = normalizeArabicForSearch(surah.type).includes(
-          normalizedQuery
-        );
-        return arName.includes(normalizedQuery) || numMatch || typeMatch;
-      });
-    }
-
-    if (activeSection !== 'quran') return [];
-    if (quranSubFilter === 'local') {
-      return QURAN_SURAHS_META.filter((s) => isSurahAvailableOffline(s.number));
-    }
-    if (quranSubFilter === 'favorites') {
-      return QURAN_SURAHS_META.filter((s) =>
-        bookmarkedIds.includes(`dl-quran-${s.number}`)
-      );
-    }
-    if (quranSubFilter === 'meccan') {
-      return QURAN_SURAHS_META.filter((s) => s.type === 'مكية');
-    }
-    if (quranSubFilter === 'medinan') {
-      return QURAN_SURAHS_META.filter((s) => s.type === 'مدنية');
-    }
-    return QURAN_SURAHS_META;
-  }, [isSearching, normalizedQuery, activeSection, quranSubFilter, bookmarkedIds]);
-
-  const totalLibraryItems =
-    allDuas.length +
-    allSahifa.length +
-    allZiyarat.length +
-    MUNAJAT_LIST.length +
-    QURAN_SURAHS_META.length;
-
-  const totalCompletedDigital = useMemo(() => {
-    const allIds = new Set<string>([
-      ...allDuas.map((d) => d.id),
-      ...allSahifa.map((s) => s.id),
-      ...allZiyarat.map((z) => z.id),
-      ...MUNAJAT_LIST.map((m) => m.id),
-      ...QURAN_SURAHS_META.map((s) => `dl-quran-${s.number}`),
-    ]);
-    return completedReadingIds.filter((id) => allIds.has(id)).length;
-  }, [completedReadingIds, allDuas, allSahifa, allZiyarat]);
 
   const khatmahSummary = useMemo(
     () => getKhatmahSummary(completedReadingIds),
@@ -822,7 +758,7 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
       ? activeZiyarat.id
       : activeDua.id;
 
-  const isInActiveReader = !isListFirstSection || openedEntryId !== null;
+  const isInActiveReader = openedEntryId !== null;
 
   useEffect(() => {
     if (!isInActiveReader) return;
@@ -838,6 +774,187 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
         : activeDua.title;
     onSetLastRead?.(activeSection, activeReadingId, title);
   }, [activeSection, activeReadingId, isInActiveReader]);
+
+  const isQuranReady =
+    activeSection !== 'quran' || (!surahLoading && !surahError && surahAyat.length > 0);
+
+  // Save and restore exact vertical scroll position per Surah / Dua / Ziyarat / Sahifa / Munajat ID
+  useItemScrollPersistence({
+    itemId: isInActiveReader ? activeReadingId : null,
+    ready: isInActiveReader && fontsReady && isQuranReady,
+  });
+
+  // Restore exact list scroll position upon returning from reader
+  useLayoutEffect(() => {
+    if (openedEntryId !== null || !pendingListRestoreRef.current) {
+      return;
+    }
+    pendingListRestoreRef.current = false;
+    const restoreY = listScrollYRef.current[activeSection] ?? 0;
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: restoreY, behavior: 'auto' });
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: restoreY, behavior: 'auto' });
+      });
+    }
+  }, [openedEntryId, activeSection]);
+
+  // Reset recitation highlight when changing surah or leaving Quran
+  useEffect(() => {
+    setPlayingAyahIndex(null);
+    isQuranActivelyPlayingRef.current = false;
+    lastFollowedAyahRef.current = null;
+  }, [activeSection, selectedSurahNumber]);
+
+  const surahCharPrefixWeights = useMemo(() => {
+    const weights: number[] = [];
+    let running = 0;
+    for (const ayah of surahAyat) {
+      running += Math.max(10, ayah.length);
+      weights.push(running);
+    }
+    return weights;
+  }, [surahAyat]);
+
+  const handleQuranPlaybackProgress = useCallback(
+    (progress: AudioPlaybackProgress) => {
+      isQuranActivelyPlayingRef.current = progress.isPlaying;
+      if (
+        !progress.hasActiveAudio ||
+        progress.duration <= 0 ||
+        surahCharPrefixWeights.length === 0 ||
+        (!progress.isPlaying && progress.currentTime <= 0.1)
+      ) {
+        setPlayingAyahIndex(null);
+        return;
+      }
+
+      const totalWeight = surahCharPrefixWeights[surahCharPrefixWeights.length - 1];
+      const ratio = Math.min(0.999999, Math.max(0, progress.currentTime / progress.duration));
+      const targetWeight = ratio * totalWeight;
+      let idx = surahCharPrefixWeights.findIndex((w) => w >= targetWeight);
+      if (idx < 0) idx = surahCharPrefixWeights.length - 1;
+      setPlayingAyahIndex((prev) => (prev === idx ? prev : idx));
+    },
+    [surahCharPrefixWeights]
+  );
+
+  // Adjacent Previous / Next navigation metadata for current section
+  const adjacentNav = useMemo<{
+    prevLabel: string | null;
+    nextLabel: string | null;
+    goPrev: (() => void) | null;
+    goNext: (() => void) | null;
+  }>(() => {
+    const persistCurrent = () => {
+      if (typeof window !== 'undefined') {
+        saveItemScrollY(activeReadingId, window.scrollY);
+      }
+    };
+
+    if (activeSection === 'quran') {
+      const idx = QURAN_SURAHS_META.findIndex((s) => s.number === selectedSurahNumber);
+      const prev = idx > 0 ? QURAN_SURAHS_META[idx - 1] : null;
+      const next =
+        idx >= 0 && idx < QURAN_SURAHS_META.length - 1
+          ? QURAN_SURAHS_META[idx + 1]
+          : null;
+      return {
+        prevLabel: prev ? `سورة ${prev.name}` : null,
+        nextLabel: next ? `سورة ${next.name}` : null,
+        goPrev: prev
+          ? () => {
+              persistCurrent();
+              setSelectedSurahNumber(prev.number);
+              setOpenedEntryId(`dl-quran-${prev.number}`);
+              setJustAwardedId(null);
+            }
+          : null,
+        goNext: next
+          ? () => {
+              persistCurrent();
+              setSelectedSurahNumber(next.number);
+              setOpenedEntryId(`dl-quran-${next.number}`);
+              setJustAwardedId(null);
+            }
+          : null,
+      };
+    }
+
+    if (activeSection === 'munajat') {
+      const idx = MUNAJAT_LIST.findIndex((m) => m.id === activeMunajat.id);
+      const prev = idx > 0 ? MUNAJAT_LIST[idx - 1] : null;
+      const next =
+        idx >= 0 && idx < MUNAJAT_LIST.length - 1 ? MUNAJAT_LIST[idx + 1] : null;
+      return {
+        prevLabel: prev ? prev.title : null,
+        nextLabel: next ? next.title : null,
+        goPrev: prev
+          ? () => {
+              persistCurrent();
+              setSelectedMunajatId(prev.id);
+              setOpenedEntryId(prev.id);
+              setJustAwardedId(null);
+            }
+          : null,
+        goNext: next
+          ? () => {
+              persistCurrent();
+              setSelectedMunajatId(next.id);
+              setOpenedEntryId(next.id);
+              setJustAwardedId(null);
+            }
+          : null,
+      };
+    }
+
+    const list =
+      activeSection === 'sahifa'
+        ? allSahifa
+        : activeSection === 'ziyarat'
+        ? allZiyarat
+        : allDuas;
+    const currentId =
+      activeSection === 'sahifa'
+        ? activeSahifa.id
+        : activeSection === 'ziyarat'
+        ? activeZiyarat.id
+        : activeDua.id;
+    const idx = list.findIndex((item) => item.id === currentId);
+    const prev = idx > 0 ? list[idx - 1] : null;
+    const next = idx >= 0 && idx < list.length - 1 ? list[idx + 1] : null;
+
+    const selectEntry = (targetId: string) => {
+      persistCurrent();
+      if (activeSection === 'sahifa') {
+        setSelectedSahifaId(targetId);
+      } else if (activeSection === 'ziyarat') {
+        setSelectedZiyaratId(targetId);
+      } else {
+        setSelectedDuaId(targetId);
+      }
+      setOpenedEntryId(targetId);
+      setJustAwardedId(null);
+    };
+
+    return {
+      prevLabel: prev ? prev.title : null,
+      nextLabel: next ? next.title : null,
+      goPrev: prev ? () => selectEntry(prev.id) : null,
+      goNext: next ? () => selectEntry(next.id) : null,
+    };
+  }, [
+    activeReadingId,
+    activeSection,
+    selectedSurahNumber,
+    activeMunajat.id,
+    activeSahifa.id,
+    activeZiyarat.id,
+    activeDua.id,
+    allSahifa,
+    allZiyarat,
+    allDuas,
+  ]);
 
   const isCurrentCompleted = completedReadingIds.includes(activeReadingId);
   const isCurrentBookmarked = bookmarkedIds.includes(activeReadingId);
@@ -856,36 +973,33 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
   };
 
   const handleOpenEntryFromList = (id: string) => {
-    if (isListFirstSection) {
-      listScrollYRef.current[activeSection] =
-        typeof window !== 'undefined' ? window.scrollY : 0;
-    }
-    if (activeSection === 'adiyat') {
+    listScrollYRef.current[activeSection] =
+      typeof window !== 'undefined' ? window.scrollY : 0;
+    if (activeSection === 'quran') {
+      const num = Number(id.replace('dl-quran-', ''));
+      if (Number.isFinite(num) && num >= 1 && num <= 114) {
+        setSelectedSurahNumber(num);
+      }
+    } else if (activeSection === 'adiyat') {
       setSelectedDuaId(id);
     } else if (activeSection === 'sahifa') {
       setSelectedSahifaId(id);
+    } else if (activeSection === 'ziyarat') {
+      setSelectedZiyaratId(id);
     } else if (activeSection === 'munajat') {
       setSelectedMunajatId(id);
     }
     setOpenedEntryId(id);
     setJustAwardedId(null);
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    }
   };
 
   const handleBackToList = () => {
-    const restoreY = listScrollYRef.current[activeSection] ?? 0;
+    if (typeof window !== 'undefined') {
+      saveItemScrollY(activeReadingId, window.scrollY);
+    }
+    pendingListRestoreRef.current = true;
     setOpenedEntryId(null);
     setJustAwardedId(null);
-    if (typeof window !== 'undefined') {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: restoreY, behavior: 'auto' });
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: restoreY, behavior: 'auto' });
-        });
-      });
-    }
   };
 
   useEffect(() => {
@@ -894,58 +1008,13 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
         setSharePayload(null);
         return true;
       }
-      if (drawerOpen) {
-        setDrawerOpen(false);
-        return true;
-      }
-      if (isListFirstSection && openedEntryId !== null) {
+      if (openedEntryId !== null) {
         handleBackToList();
         return true;
       }
       return false;
     });
-  }, [sharePayload, drawerOpen, isListFirstSection, openedEntryId, activeSection]);
-
-  const handleSelectSection = (sec: DigitalLibrarySection) => {
-    setActiveSection(sec);
-    setJustAwardedId(null);
-    if (isListFirstLibrarySection(sec)) {
-      setOpenedEntryId(null);
-      setDrawerOpen(false);
-    }
-  };
-
-  const handleSelectDuaOrZiyarat = (item: UnifiedDuaOrZiyaratItem) => {
-    setActiveSection(item.section);
-    if (item.section === 'adiyat') {
-      setSelectedDuaId(item.id);
-      setOpenedEntryId(item.id);
-    } else if (item.section === 'sahifa') {
-      setSelectedSahifaId(item.id);
-      setOpenedEntryId(item.id);
-    } else {
-      setSelectedZiyaratId(item.id);
-      setOpenedEntryId(null);
-    }
-    setJustAwardedId(null);
-    setDrawerOpen(false);
-  };
-
-  const handleSelectMunajat = (id: string) => {
-    setActiveSection('munajat');
-    setSelectedMunajatId(id);
-    setOpenedEntryId(id);
-    setJustAwardedId(null);
-    setDrawerOpen(false);
-  };
-
-  const handleSelectSurah = (surahNumber: number) => {
-    setActiveSection('quran');
-    setSelectedSurahNumber(surahNumber);
-    setOpenedEntryId(null);
-    setJustAwardedId(null);
-    setDrawerOpen(false);
-  };
+  }, [sharePayload, openedEntryId, activeSection]);
 
   const handleFinishReading = () => {
     const awarded = onCompleteReading(activeReadingId);
@@ -1047,816 +1116,71 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
     enabled:
       isInActiveReader &&
       focusTrackerEnabled &&
-      viewMode === 'scroll' &&
       !surahLoading &&
       !surahError,
     contentRef: readerBodyRef,
   });
 
-  const handleChangeViewMode = (mode: ReaderViewMode) => {
-    setViewMode(mode);
-    saveReaderViewMode(mode);
-  };
+  // Smoothly auto-follow active ayah ONLY when user explicitly toggles "متابعة تلقائية" ON
+  useEffect(() => {
+    if (
+      activeSection !== 'quran' ||
+      !autoFollowRecitation ||
+      playingAyahIndex === null ||
+      !isQuranActivelyPlayingRef.current
+    ) {
+      return;
+    }
+    if (lastFollowedAyahRef.current === playingAyahIndex) return;
+    lastFollowedAyahRef.current = playingAyahIndex;
+
+    const container = readerBodyRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(
+      `[data-reading-unit-index="${playingAyahIndex}"]`
+    );
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [activeSection, autoFollowRecitation, playingAyahIndex]);
 
   const fontClass =
     FONT_SIZE_CLASS_MAP[fontSize] || FONT_SIZE_CLASS_MAP[22];
 
   const hasSurahBismillah = activeSurah.number !== 1 && activeSurah.number !== 9;
 
-  const quranSlices = useMemo(
-    () => paginateQuranAyat(surahAyat, fontSize, hasSurahBismillah),
-    [surahAyat, fontSize, hasSurahBismillah]
-  );
-
-  const munajatSlices = useMemo(() => {
-    const blocks = munajatSplitParagraphs.map((lines, idx) => ({
-      id: idx,
-      lines,
-      textLength: lines.reduce((sum, l) => sum + l.text.length, 0),
-      unitIndices: lines.map((l) => l.unitIdx),
-    }));
-    return paginateProseBlocks(blocks, fontSize, true);
-  }, [munajatSplitParagraphs, fontSize]);
-
-  const duaSlices = useMemo(() => {
-    const blocks = preparedSegments.map((seg, idx) => ({
-      id: idx,
-      seg,
-      isNote: seg.type === 'note',
-      textLength:
-        seg.type === 'note'
-          ? seg.content.length
-          : seg.lines.reduce((sum, l) => sum + l.text.length, 0),
-      unitIndices:
-        seg.type === 'note' ? [] : seg.lines.map((l) => l.unitIdx),
-    }));
-    return paginateProseBlocks(
-      blocks,
-      fontSize,
-      Boolean(currentDuaOrZiyaratItem.meaningSummary)
-    );
-  }, [preparedSegments, fontSize, currentDuaOrZiyaratItem.meaningSummary]);
-
-  const activeBookTitle =
-    activeSection === 'quran'
-      ? `سورة ${activeSurah.name}`
-      : activeSection === 'munajat'
-      ? activeMunajat.title
-      : currentDuaOrZiyaratItem.title;
-
-  const activeBookSliceCount =
-    activeSection === 'quran'
-      ? quranSlices.length
-      : activeSection === 'munajat'
-      ? munajatSlices.length
-      : duaSlices.length;
-
-  // Restore book page matching saved reading position when opening an entry or once a surah loads
-  const quranLoadedKey =
-    activeSection === 'quran'
-      ? `${activeReadingId}:${surahAyat.length}`
-      : `${activeReadingId}:${openedEntryId || 'list'}`;
-
-  useEffect(() => {
-    if (!isInActiveReader) return;
-    const savedUnit = getSavedReadingPosition(activeReadingId);
-    if (savedUnit <= 0) {
-      setBookPage(0);
-      return;
-    }
-
-    if (activeSection === 'quran') {
-      const idx = quranSlices.findIndex((slice) =>
-        slice.ayat.some((a) => a.unitIndex === savedUnit)
-      );
-      setBookPage(idx >= 0 ? idx : 0);
-    } else if (activeSection === 'munajat') {
-      const idx = munajatSlices.findIndex((slice) =>
-        slice.items.some((item) => item.unitIndices.includes(savedUnit))
-      );
-      setBookPage(idx >= 0 ? idx : 0);
-    } else {
-      const idx = duaSlices.findIndex((slice) =>
-        slice.items.some((item) => item.unitIndices.includes(savedUnit))
-      );
-      setBookPage(idx >= 0 ? idx : 0);
-    }
-  }, [quranLoadedKey, isInActiveReader]);
-
-  useEffect(() => {
-    if (activeBookSliceCount > 0 && bookPage >= activeBookSliceCount) {
-      setBookPage(Math.max(0, activeBookSliceCount - 1));
-    }
-  }, [activeBookSliceCount, bookPage]);
-
-  const handleBookPageChange = (nextPage: number) => {
-    setBookPage(nextPage);
-    if (!isInActiveReader) return;
-
-    if (activeSection === 'quran') {
-      const slice = quranSlices[nextPage];
-      const firstUnit = slice?.ayat[0]?.unitIndex;
-      if (typeof firstUnit === 'number') {
-        saveReadingPositionForKey(activeReadingId, firstUnit);
-      }
-      return;
-    }
-
-    if (activeSection === 'munajat') {
-      const slice = munajatSlices[nextPage];
-      const firstUnit = slice?.items.find((it) => it.unitIndices.length > 0)?.unitIndices[0];
-      if (typeof firstUnit === 'number') {
-        saveReadingPositionForKey(activeReadingId, firstUnit);
-      }
-      return;
-    }
-
-    const slice = duaSlices[nextPage];
-    const firstUnit = slice?.items.find((it) => it.unitIndices.length > 0)?.unitIndices[0];
-    if (typeof firstUnit === 'number') {
-      saveReadingPositionForKey(activeReadingId, firstUnit);
-    }
-  };
-
-  const activeBookPages: ManuscriptBookPage[] = useMemo(() => {
-    if (activeSection === 'quran') {
-      return quranSlices.map((slice, pageIdx) => ({
-        id: `${activeReadingId}-quran-p-${slice.pageNumber}`,
-        content: (
-          <div className="max-w-prose mx-auto">
-            {pageIdx === 0 && (
-              <>
-                <div className="mb-4">
-                  <SurahCartoucheHeader
-                    surahName={activeSurah.name}
-                    revelationType={activeSurah.type}
-                    ayahCountArabic={toArabicDigits(activeSurah.ayahCount)}
-                    dark={nightMode}
-                  />
-                </div>
-                {hasSurahBismillah && (
-                  <div className="mb-5 text-center">
-                    <p
-                      className={`font-quran text-2xl sm:text-3xl ${
-                        nightMode ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
-                      }`}
-                    >
-                      بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                    </p>
-                    <ManuscriptDivider
-                      variant="flourish"
-                      dark={nightMode}
-                      className="my-2"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            <p
-              className={`font-quran text-justify ${fontClass} ${
-                nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'
-              }`}
-            >
-              {slice.ayat.map((ayah) => {
-                const isActive =
-                  focusTrackerEnabled && activeUnitIndex === ayah.unitIndex;
-                return (
-                  <React.Fragment key={ayah.unitIndex}>
-                    <span
-                      data-reading-unit-index={ayah.unitIndex}
-                      onMouseEnter={() => {
-                        if (focusTrackerEnabled)
-                          setActiveUnitIndex(ayah.unitIndex);
-                      }}
-                      onClick={() => {
-                        if (!focusTrackerEnabled) return;
-                        const sel = window.getSelection()?.toString();
-                        if (sel && sel.trim().length > 0) return;
-                        setActiveUnitIndex(ayah.unitIndex);
-                      }}
-                      className={getReadingUnitClasses({
-                        isActive,
-                        enabled: focusTrackerEnabled,
-                        nightMode,
-                        theme: focusTheme,
-                      })}
-                    >
-                      {ayah.text}
-                      <AyahRosetteMarker
-                        numberArabic={toArabicDigits(ayah.ayahNumber)}
-                        dark={nightMode}
-                        highlighted={isActive}
-                      />
-                    </span>{' '}
-                  </React.Fragment>
-                );
-              })}
-            </p>
-          </div>
-        ),
-      }));
-    }
-
-    if (activeSection === 'munajat') {
-      return munajatSlices.map((slice, pageIdx) => ({
-        id: `${activeReadingId}-munajat-p-${slice.pageNumber}`,
-        content: (
-          <div className="max-w-prose mx-auto">
-            {pageIdx === 0 && (
-              <>
-                <div className="pb-4 border-b border-[#B8924A]/35">
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold ${
-                      nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                    }`}
-                  >
-                    <MunajatMoonIcon className="w-4 h-4" />
-                    <span>
-                      المناجاة رقم {toArabicDigits(activeMunajat.number)} من ١٥ · الإمام زين العابدين (عليه السلام)
-                    </span>
-                  </span>
-                  <h2
-                    className={`font-calligraphy font-bold text-2xl sm:text-4xl mt-1.5 ${
-                      nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
-                    }`}
-                  >
-                    {activeMunajat.title}
-                  </h2>
-                </div>
-
-                <div
-                  className={`mt-4 rounded-[5px] p-4 border-r-[3px] border border-[#B8924A]/35 space-y-2 ${
-                    nightMode
-                      ? 'bg-[#081A14]/75 border-r-[#D9B96A] text-[#F3EBD6]'
-                      : 'bg-[#F3ECDA]/65 border-r-[#B8924A] text-[#11271F]'
-                  }`}
-                >
-                  <p className="text-sm leading-relaxed">
-                    {activeMunajat.quickMeaning}
-                  </p>
-                  <div
-                    className={`pt-2 border-t flex items-start gap-2 text-xs font-medium ${
-                      nightMode
-                        ? 'border-[#D9B96A]/20 text-[#D9B96A]'
-                        : 'border-[#B8924A]/25 text-[#1F6B50]'
-                    }`}
-                  >
-                    <Lightbulb className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-                    <span>العبرة: {activeMunajat.lifeLesson}</span>
-                  </div>
-                </div>
-
-                <ManuscriptDivider variant="crescent" dark={nightMode} />
-              </>
-            )}
-
-            <div className="mt-4 space-y-6">
-              {slice.items.map((block) => (
-                <p
-                  key={block.id}
-                  className={`font-arabic whitespace-pre-line ${fontClass} ${
-                    nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'
-                  }`}
-                >
-                  {block.lines.map(({ text, unitIdx }) => {
-                    const trailingNewlinesMatch = text.match(/\n+$/);
-                    const visibleChunk = trailingNewlinesMatch
-                      ? text.slice(0, text.length - trailingNewlinesMatch[0].length)
-                      : text;
-                    const trailingBreaks = trailingNewlinesMatch
-                      ? trailingNewlinesMatch[0]
-                      : '';
-                    const isActive =
-                      focusTrackerEnabled && activeUnitIndex === unitIdx;
-
-                    return (
-                      <React.Fragment key={unitIdx}>
-                        <span
-                          data-reading-unit-index={unitIdx}
-                          onMouseEnter={() => {
-                            if (focusTrackerEnabled) setActiveUnitIndex(unitIdx);
-                          }}
-                          onClick={() => {
-                            if (!focusTrackerEnabled) return;
-                            const sel = window.getSelection()?.toString();
-                            if (sel && sel.trim().length > 0) return;
-                            setActiveUnitIndex(unitIdx);
-                          }}
-                          className={getReadingUnitClasses({
-                            isActive,
-                            enabled: focusTrackerEnabled,
-                            nightMode,
-                            theme: focusTheme,
-                          })}
-                        >
-                          {visibleChunk}
-                        </span>
-                        {trailingBreaks}
-                      </React.Fragment>
-                    );
-                  })}
-                </p>
-              ))}
-            </div>
-          </div>
-        ),
-      }));
-    }
-
-    return duaSlices.map((slice, pageIdx) => ({
-      id: `${activeReadingId}-dua-p-${slice.pageNumber}`,
-      content: (
-        <div className="max-w-prose mx-auto">
-          {pageIdx === 0 && (
-            <>
-              <div className="pb-4 border-b border-[#B8924A]/35">
-                <span
-                  className={`inline-flex items-center gap-1.5 text-xs font-bold ${
-                    nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                  }`}
-                >
-                  {activeSection === 'ziyarat' ? (
-                    <ShrineDomeIcon className="w-4 h-4" />
-                  ) : (
-                    <DuaScrollIcon className="w-4 h-4" />
-                  )}
-                  <span>
-                    {currentDuaOrZiyaratItem.groupLabel} ·{' '}
-                    {currentDuaOrZiyaratItem.subtitle}
-                  </span>
-                </span>
-                <h2
-                  className={`font-calligraphy font-bold text-2xl sm:text-4xl mt-1.5 ${
-                    nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
-                  }`}
-                >
-                  {currentDuaOrZiyaratItem.title}
-                </h2>
-              </div>
-
-              {currentDuaOrZiyaratItem.meaningSummary && (
-                <div
-                  className={`mt-4 rounded-[5px] p-4 border-r-[3px] border border-[#B8924A]/35 ${
-                    nightMode
-                      ? 'bg-[#081A14]/75 border-r-[#D9B96A] text-[#F3EBD6]'
-                      : 'bg-[#F3ECDA]/65 border-r-[#B8924A] text-[#11271F]'
-                  }`}
-                >
-                  <p
-                    className={`font-display font-bold text-xs mb-1 ${
-                      nightMode ? 'text-[#D9B96A]' : 'text-[#7A5420]'
-                    }`}
-                  >
-                    معنى الدعاء باختصار
-                  </p>
-                  <p className="text-sm leading-relaxed">
-                    {currentDuaOrZiyaratItem.meaningSummary}
-                  </p>
-                </div>
-              )}
-
-              <ManuscriptDivider variant="rosette" dark={nightMode} />
-            </>
-          )}
-
-          <div className="mt-4 space-y-6">
-            {slice.items.map(({ id, seg }) =>
-              seg.type === 'note' ? (
-                <div key={id}>
-                  <span
-                    className={
-                      nightMode ? 'editorial-note-dark' : 'editorial-note'
-                    }
-                  >
-                    {seg.content}
-                  </span>
-                </div>
-              ) : (
-                <p
-                  key={id}
-                  className={`font-arabic whitespace-pre-line ${fontClass} ${
-                    nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'
-                  }`}
-                >
-                  {seg.lines.map(({ text, unitIdx }) => {
-                    const trailingNewlinesMatch = text.match(/\n+$/);
-                    const visibleChunk = trailingNewlinesMatch
-                      ? text.slice(0, text.length - trailingNewlinesMatch[0].length)
-                      : text;
-                    const trailingBreaks = trailingNewlinesMatch
-                      ? trailingNewlinesMatch[0]
-                      : '';
-                    const isActive =
-                      focusTrackerEnabled && activeUnitIndex === unitIdx;
-
-                    return (
-                      <React.Fragment key={unitIdx}>
-                        <span
-                          data-reading-unit-index={unitIdx}
-                          onMouseEnter={() => {
-                            if (focusTrackerEnabled) setActiveUnitIndex(unitIdx);
-                          }}
-                          onClick={() => {
-                            if (!focusTrackerEnabled) return;
-                            const sel = window.getSelection()?.toString();
-                            if (sel && sel.trim().length > 0) return;
-                            setActiveUnitIndex(unitIdx);
-                          }}
-                          className={getReadingUnitClasses({
-                            isActive,
-                            enabled: focusTrackerEnabled,
-                            nightMode,
-                            theme: focusTheme,
-                          })}
-                        >
-                          {visibleChunk}
-                        </span>
-                        {trailingBreaks}
-                      </React.Fragment>
-                    );
-                  })}
-                </p>
-              )
-            )}
-          </div>
-        </div>
-      ),
-    }));
-  }, [
-    activeSection,
-    activeReadingId,
-    quranSlices,
-    munajatSlices,
-    duaSlices,
-    activeSurah,
-    hasSurahBismillah,
-    activeMunajat,
-    currentDuaOrZiyaratItem,
-    nightMode,
-    fontClass,
-    focusTrackerEnabled,
-    focusTheme,
-    activeUnitIndex,
-  ]);
-
-  const renderSidebarContent = () => {
-    let lastGroupRendered = '';
-
-    return (
-      <div className="flex flex-col h-full">
-        {/* Search Input */}
-        <div className="relative mb-3">
-          <Search
-            className="w-4 h-4 text-[#1F6B50] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث في السور والأدعية والمناجاة..."
-            aria-label="البحث في المكتبة الدينية"
-            className="w-full min-h-[42px] pr-9 pl-8 py-1.5 rounded-[5px] bg-[#F3ECDA]/65 focus:bg-[#FAF6EC] border border-[#B8924A]/45 focus:border-[#0F3D2E] text-sm font-medium text-[#11271F] placeholder:text-[#425B51]/75 focus:outline-none transition-colors"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              aria-label="مسح البحث"
-              className="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-[#425B51] hover:text-[#0F3D2E] cursor-pointer"
-            >
-              <X className="w-4 h-4" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-
-        {/* Section Ledger Tabs */}
-        <div
-          role="tablist"
-          aria-label="أقسام المكتبة المباركة"
-          className="grid grid-cols-5 border-y border-[#B8924A]/35 mb-3 bg-[#F3ECDA]/55"
-        >
-          {SECTION_TABS.map((tab) => {
-            const isActive = activeSection === tab.id && !isSearching;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={activeSection === tab.id}
-                onClick={() => {
-                  setSearchQuery('');
-                  handleSelectSection(tab.id);
-                }}
-                className={`min-h-[40px] px-1 py-2 font-display font-bold text-[11px] sm:text-xs transition-colors cursor-pointer whitespace-nowrap border-b-2 ${
-                  isActive
-                    ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#D9B96A]'
-                    : 'text-[#11271F] border-transparent hover:bg-[#FAF6EC]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Contextual Architectural Sub-Filters */}
-        {!isSearching && activeSection === 'adiyat' && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {DUA_SUBFILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setDuaSubFilter(f.id)}
-                className={`min-h-[32px] px-2.5 py-1 rounded-[4px] border text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                  duaSubFilter === f.id
-                    ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
-                    : 'bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#425B51] border-[#B8924A]/35'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!isSearching && activeSection === 'ziyarat' && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {ZIYARAT_SUBFILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setZiyaratSubFilter(f.id)}
-                className={`min-h-[32px] px-2.5 py-1 rounded-[4px] border text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                  ziyaratSubFilter === f.id
-                    ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
-                    : 'bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#425B51] border-[#B8924A]/35'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!isSearching && activeSection === 'quran' && (
-          <div className="space-y-2.5 mb-3">
-            <div className="flex flex-wrap gap-1.5">
-              {QURAN_SUBFILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setQuranSubFilter(f.id)}
-                  className={`min-h-[32px] px-2.5 py-1 rounded-[4px] border text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                    quranSubFilter === f.id
-                      ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
-                      : 'bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#425B51] border-[#B8924A]/35'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {offlineQuranCount < QURAN_SURAHS_META.length ? (
-              <button
-                type="button"
-                onClick={handleDownloadAllQuranOffline}
-                disabled={downloadingAllQuran}
-                className="w-full min-h-[40px] px-3 py-2 btn-manuscript text-xs flex items-center justify-between gap-2 cursor-pointer disabled:opacity-75"
-              >
-                <span className="flex items-center gap-1.5 truncate">
-                  <Download className="w-3.5 h-3.5 text-[#1F6B50] shrink-0" aria-hidden="true" />
-                  <span className="truncate font-bold text-[#0F3D2E]">
-                    {downloadingAllQuran
-                      ? 'جارٍ حفظ المصحف أوفلاين...'
-                      : 'حفظ المصحف كاملاً دون إنترنت'}
-                  </span>
-                </span>
-                <span className="text-[11px] font-bold text-[#9C7835] tabular-nums shrink-0">
-                  {toArabicDigits(offlineQuranCount)}/{toArabicDigits(QURAN_SURAHS_META.length)}
-                </span>
-              </button>
-            ) : (
-              <div className="px-3 py-2 rounded-[5px] bg-[#0F3D2E]/8 border border-[#1F6B50]/35 text-[#0F3D2E] text-xs font-bold flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-[#1F6B50] shrink-0" aria-hidden="true" />
-                <span>المصحف كاملاً (١١٤ سورة) محفوظ دون إنترنت</span>
-              </div>
-            )}
-
-            <div className="px-3 py-2 rounded-[5px] bg-[#F3ECDA]/70 border border-[#B8924A]/35 text-xs">
-              <div className="flex items-center justify-between gap-2 font-bold text-[#0F3D2E] tabular-nums">
-                <span>متابعة الختمة · {khatmahSummary.currentJuzInfo.name}</span>
-                <span className="text-[#7A5E2A]">{toArabicDigits(khatmahSummary.percent)}٪</span>
-              </div>
-              <div className="mt-1.5 h-1.5 w-full rounded-[2px] bg-[#B8924A]/20 overflow-hidden">
-                <div
-                  className="h-full bg-[#1F6B50] transition-all duration-300"
-                  style={{ width: `${Math.max(2, khatmahSummary.percent)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Search Notice */}
-        {isSearching && (
-          <div className="mb-2 px-1 flex items-center justify-between text-xs font-bold text-[#7A5420]">
-            <span className="tabular-nums">
-              نتائج البحث (
-              {toArabicDigits(
-                filteredDuasAndZiyarat.length +
-                  filteredMunajat.length +
-                  filteredSurahs.length
-              )}
-              )
-            </span>
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="btn-text-ornate text-xs cursor-pointer"
-            >
-              إظهار الكل
-            </button>
-          </div>
-        )}
-
-        {/* Manuscript Index List */}
-        <div className="min-h-0 flex-1 overflow-y-auto divide-y divide-[#B8924A]/20 border-t border-[#B8924A]/25 pr-0.5 lg:max-h-[60vh]">
-          {filteredDuasAndZiyarat.map((item) => {
-            const selected =
-              (activeSection === 'adiyat' &&
-                item.section === 'adiyat' &&
-                activeDua.id === item.id) ||
-              (activeSection === 'ziyarat' &&
-                item.section === 'ziyarat' &&
-                activeZiyarat.id === item.id);
-            const done = completedReadingIds.includes(item.id);
-            const showGroupHeading =
-              !isSearching && item.groupLabel !== lastGroupRendered;
-            if (showGroupHeading) {
-              lastGroupRendered = item.groupLabel;
-            }
-
-            return (
-              <React.Fragment key={item.id}>
-                {showGroupHeading && (
-                  <div className="pt-3 pb-1.5 px-2 text-xs font-display font-bold text-[#9C7835] bg-[#F3ECDA]/60">
-                    {item.groupLabel}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleSelectDuaOrZiyarat(item)}
-                  className={`w-full text-right px-3 py-3 transition-colors cursor-pointer flex items-center justify-between gap-2.5 border-r-[3px] ${
-                    selected
-                      ? 'bg-[#F3ECDA]/90 border-[#B8924A] text-[#0F3D2E]'
-                      : 'bg-transparent border-transparent hover:bg-[#F3ECDA]/45 text-[#11271F]'
-                  }`}
-                >
-                  <div className="min-w-0">
-                    {isSearching && (
-                      <div className="text-[11px] font-bold text-[#9C7835] mb-0.5">
-                        {item.section === 'adiyat' ? 'الأدعية' : 'الزيارات'} ·{' '}
-                        {item.groupLabel}
-                      </div>
-                    )}
-                    <h3 className="font-display font-bold text-sm sm:text-base leading-snug">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-[#425B51] mt-0.5 truncate">
-                      {item.subtitle}
-                    </p>
-                  </div>
-                  {done && (
-                    <CheckCircle2
-                      className="w-4 h-4 text-[#1F6B50] shrink-0"
-                      aria-label="تمت قراءته"
-                    />
-                  )}
-                </button>
-              </React.Fragment>
-            );
-          })}
-
-          {filteredMunajat.map((m) => {
-            const selected =
-              activeSection === 'munajat' && activeMunajat.id === m.id;
-            const done = completedReadingIds.includes(m.id);
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => handleSelectMunajat(m.id)}
-                className={`w-full text-right px-3 py-3 transition-colors cursor-pointer flex items-center justify-between gap-2.5 border-r-[3px] ${
-                  selected
-                    ? 'bg-[#F3ECDA]/90 border-[#B8924A] text-[#0F3D2E]'
-                    : 'bg-transparent border-transparent hover:bg-[#F3ECDA]/45 text-[#11271F]'
-                }`}
-              >
-                <div className="flex items-baseline gap-2.5 min-w-0">
-                  <span className="font-arabic font-bold text-base text-[#9C7835] shrink-0 tabular-nums">
-                    {toArabicDigits(m.number)}.
-                  </span>
-                  <div className="min-w-0">
-                    {isSearching && (
-                      <div className="text-[11px] font-bold text-[#9C7835]">
-                        المناجاة الخمس عشرة
-                      </div>
-                    )}
-                    <h3 className="font-display font-bold text-sm sm:text-base truncate">
-                      {m.title}
-                    </h3>
-                    <p className="text-xs text-[#425B51] truncate">
-                      {m.quickMeaning}
-                    </p>
-                  </div>
-                </div>
-                {done && (
-                  <CheckCircle2
-                    className="w-4 h-4 text-[#1F6B50] shrink-0"
-                    aria-label="مقروءة"
-                  />
-                )}
-              </button>
-            );
-          })}
-
-          {filteredSurahs.map((surah) => {
-            const selected =
-              activeSection === 'quran' && activeSurah.number === surah.number;
-            const readingId = `dl-quran-${surah.number}`;
-            const done = completedReadingIds.includes(readingId);
-            const isLocal = isSurahAvailableOffline(surah.number);
-
-            return (
-              <button
-                key={surah.number}
-                type="button"
-                onClick={() => handleSelectSurah(surah.number)}
-                className={`w-full text-right px-3 py-2.5 transition-colors cursor-pointer flex items-center justify-between gap-2.5 border-r-[3px] ${
-                  selected
-                    ? 'bg-[#F3ECDA]/90 border-[#B8924A] text-[#0F3D2E]'
-                    : 'bg-transparent border-transparent hover:bg-[#F3ECDA]/45 text-[#11271F]'
-                }`}
-              >
-                <div className="flex items-baseline gap-2.5 min-w-0">
-                  <span className="font-arabic font-bold text-base text-[#9C7835] shrink-0 tabular-nums">
-                    {toArabicDigits(surah.number)}.
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="font-display font-bold text-sm sm:text-base truncate">
-                      سورة {surah.name}
-                    </h3>
-                    <p className="text-xs text-[#425B51] tabular-nums">
-                      {surah.type} · {toArabicDigits(surah.ayahCount)} آية
-                      {isLocal ? ' · مخزنة' : ''}
-                    </p>
-                  </div>
-                </div>
-
-                {done && (
-                  <CheckCircle2
-                    className="w-4 h-4 text-[#1F6B50] shrink-0"
-                    aria-label="تمت قراءتها"
-                  />
-                )}
-              </button>
-            );
-          })}
-
-          {filteredDuasAndZiyarat.length === 0 &&
-            filteredMunajat.length === 0 &&
-            filteredSurahs.length === 0 && (
-              <div className="text-center py-8 px-4">
-                <p className="font-display font-bold text-[#425B51] text-sm">
-                  لم نجد نتائج مطابقة لعبارة البحث.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="mt-2 btn-text-ornate text-xs cursor-pointer"
-                >
-                  عرض جميع المواد
-                </button>
-              </div>
-            )}
-        </div>
-      </div>
-    );
-  };
-
-  // List-First UX for Adiyat, Sahifa, and Munajat:
-  // 1) Direct single flat list with simple live title search
-  if (isListFirstSection && openedEntryId === null) {
+  // 1) Section List View (Quran, Adiyat, Sahifa, Ziyarat, Munajat) — No Cross-Section Index Drawer
+  if (openedEntryId === null) {
     const sectionMeta =
-      activeSection === 'sahifa'
+      activeSection === 'quran'
+        ? {
+            title: 'القرآن الكريم',
+            subtitle: `${toArabicDigits(QURAN_SURAHS_META.length)} سورة مباركة · أتممت ${toArabicDigits(
+              QURAN_SURAHS_META.filter((s) =>
+                completedReadingIds.includes(`dl-quran-${s.number}`)
+              ).length
+            )}`,
+            icon: <QuranBookIcon className="w-6 h-6 text-[#B8924A] shrink-0" />,
+            emptyLabel: 'عرض جميع السور',
+            placeholder: 'ابحث باسم السورة أو رقمها...',
+          }
+        : activeSection === 'ziyarat'
+        ? {
+            title: 'الزيارات الشريفة',
+            subtitle: `${toArabicDigits(allZiyarat.length)} زيارة مأثورة · أتممت ${toArabicDigits(
+              allZiyarat.filter((z) => completedReadingIds.includes(z.id)).length
+            )}`,
+            icon: <ShrineDomeIcon className="w-6 h-6 text-[#B8924A] shrink-0" />,
+            emptyLabel: 'عرض جميع الزيارات',
+            placeholder: 'ابحث في الزيارات...',
+          }
+        : activeSection === 'sahifa'
         ? {
             title: 'الصحيفة السجادية',
             subtitle: `${toArabicDigits(allSahifa.length)} دعاءً مأثوراً للإمام السجاد (عليه السلام)`,
             icon: <ScrollText className="w-6 h-6 text-[#B8924A] shrink-0" aria-hidden="true" />,
             emptyLabel: 'عرض جميع أدعية الصحيفة',
+            placeholder: 'ابحث في عناوين الصحيفة...',
           }
         : activeSection === 'munajat'
         ? {
@@ -1864,6 +1188,7 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
             subtitle: `${toArabicDigits(MUNAJAT_LIST.length)} مناجاة للإمام زين العابدين (عليه السلام)`,
             icon: <MunajatMoonIcon className="w-6 h-6 text-[#B8924A] shrink-0" />,
             emptyLabel: 'عرض جميع المناجاة',
+            placeholder: 'ابحث في المناجاة...',
           }
         : {
             title: 'الأدعية ومفاتيح الجنان',
@@ -1872,6 +1197,7 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
             )}`,
             icon: <DuaScrollIcon className="w-6 h-6 text-[#B8924A] shrink-0" />,
             emptyLabel: 'عرض جميع الأدعية',
+            placeholder: 'ابحث في الأدعية...',
           };
 
     return (
@@ -1909,7 +1235,109 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
           </button>
         </div>
 
-        {/* Simple Live Title Search Box */}
+        {/* Section-specific Offline Download & Khatmah Progress (Quran) */}
+        {activeSection === 'quran' && (
+          <div className="space-y-3 mb-4">
+            <div className="flex flex-wrap gap-1.5">
+              {QURAN_SUBFILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setQuranSubFilter(f.id)}
+                  className={`min-h-[34px] px-3 py-1 rounded-[5px] border text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                    quranSubFilter === f.id
+                      ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
+                      : 'bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#425B51] border-[#B8924A]/35'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {offlineQuranCount < QURAN_SURAHS_META.length ? (
+                <button
+                  type="button"
+                  onClick={handleDownloadAllQuranOffline}
+                  disabled={downloadingAllQuran}
+                  className="w-full min-h-[44px] px-3.5 py-2 btn-manuscript text-xs flex items-center justify-between gap-2 cursor-pointer disabled:opacity-75"
+                >
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Download className="w-4 h-4 text-[#1F6B50] shrink-0" aria-hidden="true" />
+                    <span className="truncate font-bold text-[#0F3D2E]">
+                      {downloadingAllQuran
+                        ? 'جارٍ حفظ المصحف أوفلاين...'
+                        : 'حفظ المصحف كاملاً دون إنترنت'}
+                    </span>
+                  </span>
+                  <span className="text-[11px] font-bold text-[#9C7835] tabular-nums shrink-0">
+                    {toArabicDigits(offlineQuranCount)}/{toArabicDigits(QURAN_SURAHS_META.length)}
+                  </span>
+                </button>
+              ) : (
+                <div className="min-h-[44px] px-3.5 py-2 rounded-[6px] bg-[#0F3D2E]/8 border border-[#1F6B50]/35 text-[#0F3D2E] text-xs font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#1F6B50] shrink-0" aria-hidden="true" />
+                  <span>المصحف كاملاً (١١٤ سورة) محفوظ دون إنترنت</span>
+                </div>
+              )}
+
+              <div className="px-3.5 py-2 rounded-[6px] bg-[#F3ECDA]/70 border border-[#B8924A]/35 text-xs flex flex-col justify-center">
+                <div className="flex items-center justify-between gap-2 font-bold text-[#0F3D2E] tabular-nums">
+                  <span>متابعة الختمة · {khatmahSummary.currentJuzInfo.name}</span>
+                  <span className="text-[#7A5E2A]">{toArabicDigits(khatmahSummary.percent)}٪</span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full rounded-[2px] bg-[#B8924A]/20 overflow-hidden">
+                  <div
+                    className="h-full bg-[#1F6B50] transition-all duration-300"
+                    style={{ width: `${Math.max(2, khatmahSummary.percent)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section-specific Subfilters for Adiyat & Ziyarat */}
+        {activeSection === 'adiyat' && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {DUA_SUBFILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setDuaSubFilter(f.id)}
+                className={`min-h-[34px] px-3 py-1 rounded-[5px] border text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                  duaSubFilter === f.id
+                    ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
+                    : 'bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#425B51] border-[#B8924A]/35'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeSection === 'ziyarat' && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {ZIYARAT_SUBFILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setZiyaratSubFilter(f.id)}
+                className={`min-h-[34px] px-3 py-1 rounded-[5px] border text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                  ziyaratSubFilter === f.id
+                    ? 'bg-[#0F3D2E] text-[#FAF6EC] border-[#B8924A]'
+                    : 'bg-[#FAF6EC] hover:bg-[#F3ECDA] text-[#425B51] border-[#B8924A]/35'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Live Title Search inside Current Section Only */}
         <div className="relative mb-4">
           <Search
             className="w-4 h-4 text-[#1F6B50] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -1925,7 +1353,7 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
                 [activeSection]: val,
               }));
             }}
-            placeholder="ابحث في العناوين..."
+            placeholder={sectionMeta.placeholder}
             aria-label={`ابحث في عناوين ${sectionMeta.title}`}
             className="w-full min-h-[46px] pr-10 pl-10 py-2 rounded-[6px] bg-[#FAF6EC] focus:bg-white border border-[#B8924A]/55 focus:border-[#0F3D2E] text-sm font-medium text-[#11271F] placeholder:text-[#425B51]/75 focus:outline-none transition-colors"
           />
@@ -1946,21 +1374,24 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
           )}
         </div>
 
-        {/* Single Flat List — No Sidebar Index, No Sub-Sections */}
+        {/* Clean Single-Column Flat List */}
         <div className="manuscript-folio paper-grain rounded-[6px] divide-y divide-[#B8924A]/20 overflow-hidden">
           {visibleListEntries.length === 0 ? (
             <div className="py-10 px-4 text-center">
               <p className="font-display font-bold text-sm text-[#425B51]">
-                لم نعثر على عنوان مطابق لـ «{currentTitleSearch}».
+                لم نعثر على نتائج مطابقة في هذا القسم.
               </p>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   setTitleSearchBySection((prev) => ({
                     ...prev,
                     [activeSection]: '',
-                  }))
-                }
+                  }));
+                  setQuranSubFilter('all');
+                  setDuaSubFilter('all');
+                  setZiyaratSubFilter('all');
+                }}
                 className="mt-2 btn-text-ornate text-xs cursor-pointer"
               >
                 {sectionMeta.emptyLabel}
@@ -1969,12 +1400,11 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
           ) : (
             visibleListEntries.map((entry) => {
               const id = entry.id;
-              const title = entry.title;
-              const subtitle =
-                'subtitle' in entry ? entry.subtitle : entry.quickMeaning;
               const done = completedReadingIds.includes(id);
               const fav = bookmarkedIds.includes(id);
-              const hasProgress = !done && getSavedReadingPosition(id) > 0;
+              const hasProgress =
+                !done &&
+                (getSavedItemScrollY(id) > 0 || getSavedReadingPosition(id) > 0);
 
               return (
                 <div
@@ -1992,10 +1422,10 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
                 >
                   <div className="min-w-0 flex-1">
                     <h2 className="font-display font-bold text-base sm:text-lg text-[#0F3D2E] group-hover:text-[#1F6B50] leading-snug">
-                      {title}
+                      {entry.title}
                     </h2>
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5 text-xs text-[#425B51]">
-                      <span className="truncate">{subtitle}</span>
+                      <span className="truncate">{entry.subtitle}</span>
                       {hasProgress && (
                         <span className="text-[#9C7835] font-bold">
                           · موضع قراءة محفوظ
@@ -2045,152 +1475,165 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
     );
   }
 
-  // 2) Full-Page Single Entry Reader for Adiyat, Sahifa, and Munajat
-  if (isListFirstSection && openedEntryId !== null) {
-    const readerTitle =
-      activeSection === 'munajat'
-        ? activeMunajat.title
-        : currentDuaOrZiyaratItem.title;
-    const readerSubtitle =
-      activeSection === 'munajat'
-        ? `المناجاة رقم ${toArabicDigits(activeMunajat.number)} من ١٥ · الإمام زين العابدين (عليه السلام)`
-        : currentDuaOrZiyaratItem.subtitle;
+  // 2) Full-Page Single Entry Reader (Unified across Quran, Adiyat, Sahifa, Ziyarat, Munajat)
+  const readerTitle =
+    activeSection === 'quran'
+      ? `سورة ${activeSurah.name}`
+      : activeSection === 'munajat'
+      ? activeMunajat.title
+      : currentDuaOrZiyaratItem.title;
 
-    return (
-      <main className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 pb-4 mb-5 border-b border-[#B8924A]/35">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={handleBackToList}
-              className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
-              <span>رجوع إلى القائمة</span>
-            </button>
+  const readerSubtitle =
+    activeSection === 'quran'
+      ? `السورة رقم ${toArabicDigits(activeSurah.number)} · ${activeSurah.type} · ${toArabicDigits(
+          activeSurah.ayahCount
+        )} آية`
+      : activeSection === 'munajat'
+      ? `المناجاة رقم ${toArabicDigits(activeMunajat.number)} من ١٥ · الإمام زين العابدين (عليه السلام)`
+      : `${currentDuaOrZiyaratItem.groupLabel} · ${currentDuaOrZiyaratItem.subtitle}`;
 
-            <div className="min-w-0">
-              <h1 className="font-calligraphy font-bold text-xl sm:text-2xl text-[#0F3D2E] truncate">
-                {readerTitle}
-              </h1>
-              <p className="text-xs text-[#425B51] truncate mt-0.5">
-                {readerSubtitle}
-              </p>
-            </div>
-          </div>
+  return (
+    <main className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+      {/* Top Reader Controls: Back to List / Home + Typography + Night Mode */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 pb-4 mb-5 border-b border-[#B8924A]/35">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={handleBackToList}
+            className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+            <span>رجوع للقائمة</span>
+          </button>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div
-              role="group"
-              aria-label="نمط عرض الصفحات"
-              className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[6px] p-0.5"
-            >
-              <button
-                type="button"
-                onClick={() => handleChangeViewMode('book')}
-                aria-pressed={viewMode === 'book'}
-                className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-                  viewMode === 'book'
-                    ? 'bg-[#0F3D2E] text-[#FAF6EC]'
-                    : 'text-[#425B51] hover:text-[#0F3D2E]'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>كتاب</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleChangeViewMode('scroll')}
-                aria-pressed={viewMode === 'scroll'}
-                className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-                  viewMode === 'scroll'
-                    ? 'bg-[#0F3D2E] text-[#FAF6EC]'
-                    : 'text-[#425B51] hover:text-[#0F3D2E]'
-                }`}
-              >
-                <ScrollText className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>متصل</span>
-              </button>
-            </div>
-
-            <div className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[6px] p-0.5">
-              <button
-                type="button"
-                onClick={() =>
-                  setFontSize((s) => Math.max(MIN_FONT_SIZE, s - FONT_STEP))
-                }
-                disabled={fontSize <= MIN_FONT_SIZE}
-                aria-label="تصغير الخط"
-                className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <ZoomOut className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="text-xs">أ-</span>
-              </button>
-              <span
-                className="px-2.5 text-xs font-bold text-[#0F3D2E] border-x border-[#B8924A]/30 tabular-nums"
-                dir="ltr"
-              >
-                {fontSize}px
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setFontSize((s) => Math.min(MAX_FONT_SIZE, s + FONT_STEP))
-                }
-                disabled={fontSize >= MAX_FONT_SIZE}
-                aria-label="تكبير الخط"
-                className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <ZoomIn className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="text-xs">أ+</span>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setNightMode((prev) => !prev)}
-              className={`min-h-[42px] px-3.5 py-2 rounded-[6px] border font-display font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                nightMode
-                  ? 'bg-[#081A14] text-[#D9B96A] border-[#D9B96A]/65 hover:bg-[#0E2920]'
-                  : 'btn-manuscript'
-              }`}
-            >
-              {nightMode ? (
-                <>
-                  <Sun className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
-                  <span>ورق نهاري</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
-                  <span>مخطوط ليلي</span>
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              aria-label="إعدادات تغميق القراءة والتطبيق"
-              className="min-h-[42px] px-3 py-2 btn-manuscript text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-            >
-              <AstrolabeIcon className="w-4 h-4 text-[#1F6B50]" />
-              <span>الإعدادات</span>
-            </button>
+          <div className="min-w-0">
+            <h1 className="font-calligraphy font-bold text-xl sm:text-2xl text-[#0F3D2E] truncate">
+              {readerTitle}
+            </h1>
+            <p className="text-xs text-[#425B51] truncate mt-0.5 tabular-nums">
+              {readerSubtitle}
+            </p>
           </div>
         </div>
 
-        {viewMode === 'book' ? (
-          <section aria-label="لوحة القراءة بنمط الكتاب" className="space-y-4">
-            <div
-              className={`rounded-[6px] border p-4 sm:p-5 transition-colors duration-300 ${
-                nightMode
-                  ? 'manuscript-folio-dark'
-                  : 'manuscript-folio paper-grain text-[#11271F]'
-              }`}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[6px] p-0.5">
+            <button
+              type="button"
+              onClick={() =>
+                setFontSize((s) => Math.max(MIN_FONT_SIZE, s - FONT_STEP))
+              }
+              disabled={fontSize <= MIN_FONT_SIZE}
+              aria-label="تصغير الخط"
+              className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <ZoomOut className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="text-xs">أ-</span>
+            </button>
+            <span
+              className="px-2.5 text-xs font-bold text-[#0F3D2E] border-x border-[#B8924A]/30 tabular-nums"
+              dir="ltr"
+            >
+              {fontSize}px
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setFontSize((s) => Math.min(MAX_FONT_SIZE, s + FONT_STEP))
+              }
+              disabled={fontSize >= MAX_FONT_SIZE}
+              aria-label="تكبير الخط"
+              className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <ZoomIn className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="text-xs">أ+</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setNightMode((prev) => !prev)}
+            className={`min-h-[42px] px-3.5 py-2 rounded-[6px] border font-display font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
+              nightMode
+                ? 'bg-[#081A14] text-[#D9B96A] border-[#D9B96A]/65 hover:bg-[#0E2920]'
+                : 'btn-manuscript'
+            }`}
+          >
+            {nightMode ? (
+              <>
+                <Sun className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
+                <span>ورق نهاري</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+                <span>مخطوط ليلي</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="إعدادات تغميق القراءة والتطبيق"
+            className="min-h-[42px] px-3 py-2 btn-manuscript text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+          >
+            <AstrolabeIcon className="w-4 h-4 text-[#1F6B50]" />
+            <span>الإعدادات</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Illuminated Continuous Reader Folio */}
+      <section
+        aria-label="لوحة القراءة"
+        className={`relative rounded-[6px] p-7 sm:p-9 lg:p-11 transition-colors duration-200 paper-grain ${
+          nightMode ? 'manuscript-folio-dark' : 'manuscript-folio text-[#11271F]'
+        }`}
+      >
+        <CornerOrnaments tone={nightMode ? 'dark' : 'auto'} />
+
+        {activeSection === 'quran' ? (
+          <>
+            <div className="pt-2">
+              <SurahCartoucheHeader
+                surahName={activeSurah.name}
+                revelationType={activeSurah.type}
+                ayahCountArabic={toArabicDigits(activeSurah.ayahCount)}
+                dark={nightMode}
+              />
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
+                <span
+                  className={`text-xs font-medium ${
+                    nightMode ? 'text-[#C8B88A]' : 'text-[#425B51]'
+                  }`}
+                >
+                  القرآن الكريم · السورة رقم {toArabicDigits(activeSurah.number)}
+                </span>
+
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAutoFollowRecitation((v) => !v)}
+                    aria-pressed={autoFollowRecitation}
+                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      autoFollowRecitation
+                        ? 'bg-[#0F3D2E] border-[#D9B96A] text-[#FAF6EC]'
+                        : nightMode
+                          ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/85 hover:text-[#D9B96A]'
+                          : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
+                    }`}
+                  >
+                    <Radio
+                      className={`w-3.5 h-3.5 ${
+                        autoFollowRecitation ? 'text-[#D9B96A]' : ''
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <span>متابعة تلقائية</span>
+                  </button>
+
                   {onToggleBookmark && (
                     <button
                       type="button"
@@ -2202,8 +1645,8 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
                             ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
                             : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
                           : nightMode
-                          ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80 hover:text-[#D9B96A]'
-                          : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51] hover:border-[#B8924A]'
+                            ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80 hover:text-[#D9B96A]'
+                            : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51] hover:border-[#B8924A]'
                       }`}
                     >
                       <Bookmark
@@ -2234,95 +1677,122 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
                       }`}
                     >
                       <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                      <span>مقروء</span>
+                      <span>مقروءة</span>
                     </span>
                   )}
                 </div>
               </div>
-
-              <AudioReciterPlayer
-                mode="entry"
-                entryId={activeReadingId}
-                entryTitle={readerTitle}
-                tracks={ENTRY_AUDIO_TRACKS[activeReadingId] || []}
-                nightMode={nightMode}
-              />
             </div>
 
-            <ManuscriptBookFlip
-              bookKey={activeReadingId}
-              title={activeBookTitle}
-              pages={activeBookPages}
-              currentPage={bookPage}
-              onPageChange={handleBookPageChange}
+            <AudioReciterPlayer
+              mode="quran"
+              surahNumber={activeSurah.number}
+              surahName={activeSurah.name}
               nightMode={nightMode}
-              pageFlipSoundEnabled={focusSettings.pageFlipSound}
-              colophonFooter={
-                <div className="space-y-3">
-                  {justAwardedId === activeReadingId && (
-                    <div className="rounded-[5px] bg-[#0F3D2E] border border-[#D9B96A]/65 text-[#FAF6EC] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
-                      <span>تقبّل الله طاعتك! تم تسجيل إتمام هذه القراءة المباركة</span>
-                    </div>
-                  )}
+              onPlaybackProgress={handleQuranPlaybackProgress}
+            />
 
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    {isCurrentCompleted ? (
-                      <div
-                        className={`flex items-center gap-2 font-display font-bold text-sm sm:text-base ${
-                          nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                        }`}
-                      >
-                        <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                        <span>أتممت هذه القراءة المباركة</span>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleFinishReading}
-                        className="min-h-[46px] px-7 py-2 btn-gilded text-base flex items-center gap-2.5 cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                        <span>أتممت القراءة</span>
-                      </button>
-                    )}
-                  </div>
+            {hasSurahBismillah && (
+              <div className="mt-6 text-center">
+                <p
+                  className={`font-quran text-2xl sm:text-3xl ${
+                    nightMode ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
+                  }`}
+                >
+                  بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                </p>
+                <ManuscriptDivider variant="flourish" dark={nightMode} className="my-2" />
+              </div>
+            )}
+
+            <div className="mt-5 max-w-prose mx-auto" ref={readerBodyRef}>
+              {surahLoading ? (
+                <ManuscriptSpinner
+                  label={`جارٍ إحضار آيات سورة ${activeSurah.name}...`}
+                  dark={nightMode}
+                />
+              ) : surahError ? (
+                <div
+                  className={`rounded-[6px] p-6 text-center border ${
+                    nightMode
+                      ? 'bg-[#081A14] border-[#D9B96A]/45 text-[#F3EBD6]'
+                      : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#11271F]'
+                  }`}
+                >
+                  <p className="font-display font-bold text-base leading-relaxed">
+                    {surahError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setRetryToken((t) => t + 1)}
+                    className="mt-4 min-h-[42px] px-5 py-2 btn-emerald text-sm inline-flex items-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
+                    <span>إعادة المحاولة</span>
+                  </button>
                 </div>
-              }
-            />
-          </section>
+              ) : (
+                <p
+                  className={`font-quran text-justify ${fontClass} ${
+                    fontsReady ? 'opacity-100' : 'opacity-0'
+                  } ${nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'}`}
+                >
+                  {surahAyat.map((ayah, idx) => {
+                    const isRecited = playingAyahIndex === idx;
+                    const isActive =
+                      focusTrackerEnabled && activeUnitIndex === idx;
+                    const recitedBgOnly =
+                      isRecited && !isActive
+                        ? nightMode
+                          ? 'bg-[#D9B96A]/18 rounded-[4px] px-1 py-0.5'
+                          : 'bg-[#B8924A]/20 rounded-[4px] px-1 py-0.5'
+                        : '';
+                    const spanClass = isActive
+                      ? getReadingUnitClasses({
+                          isActive: true,
+                          enabled: true,
+                          nightMode,
+                          theme: focusTheme,
+                        })
+                      : isRecited
+                      ? `inline box-decoration-clone cursor-pointer transition-colors duration-150 ${recitedBgOnly}`
+                      : getReadingUnitClasses({
+                          isActive: false,
+                          enabled: focusTrackerEnabled,
+                          nightMode,
+                          theme: focusTheme,
+                        });
+                    return (
+                      <React.Fragment key={idx}>
+                        <span
+                          data-reading-unit-index={idx}
+                          onMouseEnter={() => {
+                            if (focusTrackerEnabled) setActiveUnitIndex(idx);
+                          }}
+                          onClick={() => {
+                            if (!focusTrackerEnabled) return;
+                            const sel = window.getSelection()?.toString();
+                            if (sel && sel.trim().length > 0) return;
+                            setActiveUnitIndex(idx);
+                          }}
+                          className={spanClass}
+                        >
+                          {ayah}
+                          <AyahRosetteMarker
+                            numberArabic={toArabicDigits(idx + 1)}
+                            dark={nightMode}
+                            highlighted={isActive || isRecited}
+                          />
+                        </span>{' '}
+                      </React.Fragment>
+                    );
+                  })}
+                </p>
+              )}
+            </div>
+          </>
         ) : (
-          <motion.section
-            key={activeReadingId}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22 }}
-            aria-label="لوحة القراءة"
-            className={`relative rounded-[6px] p-5 sm:p-8 lg:p-11 transition-colors duration-300 paper-grain ${
-              nightMode ? 'manuscript-folio-dark' : 'manuscript-folio text-[#11271F]'
-            }`}
-          >
-            <ManuscriptCornerBracket
-              position="top-right"
-              color={nightMode ? '#D9B96A' : '#B8924A'}
-              className="absolute top-2.5 right-2.5"
-            />
-            <ManuscriptCornerBracket
-              position="top-left"
-              color={nightMode ? '#D9B96A' : '#B8924A'}
-              className="absolute top-2.5 left-2.5"
-            />
-            <ManuscriptCornerBracket
-              position="bottom-right"
-              color={nightMode ? '#D9B96A' : '#B8924A'}
-              className="absolute bottom-2.5 right-2.5"
-            />
-            <ManuscriptCornerBracket
-              position="bottom-left"
-              color={nightMode ? '#D9B96A' : '#B8924A'}
-              className="absolute bottom-2.5 left-2.5"
-            />
-
+          <>
             <div className="pt-2 pb-4 border-b border-[#B8924A]/35 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <span
@@ -2332,6 +1802,8 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
                 >
                   {activeSection === 'munajat' ? (
                     <MunajatMoonIcon className="w-4 h-4" />
+                  ) : activeSection === 'ziyarat' ? (
+                    <ShrineDomeIcon className="w-4 h-4" />
                   ) : (
                     <DuaScrollIcon className="w-4 h-4" />
                   )}
@@ -2430,7 +1902,12 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
 
                 <ManuscriptDivider variant="crescent" dark={nightMode} />
 
-                <div className="mt-4 max-w-prose mx-auto space-y-6" ref={readerBodyRef}>
+                <div
+                  className={`mt-4 max-w-prose mx-auto space-y-6 ${
+                    fontsReady ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  ref={readerBodyRef}
+                >
                   {munajatSplitParagraphs.map((lines, idx) => (
                     <p
                       key={idx}
@@ -2508,7 +1985,12 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
 
                 <ManuscriptDivider variant="rosette" dark={nightMode} />
 
-                <div className="mt-4 max-w-prose mx-auto space-y-6" ref={readerBodyRef}>
+                <div
+                  className={`mt-4 max-w-prose mx-auto space-y-6 ${
+                    fontsReady ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  ref={readerBodyRef}
+                >
                   {preparedSegments.map((seg, idx) =>
                     seg.type === 'note' ? (
                       <div key={idx}>
@@ -2574,995 +2056,84 @@ export const DigitalLibraryScreen: React.FC<DigitalLibraryScreenProps> = ({
                 </div>
               </>
             )}
-
-            {justAwardedId === activeReadingId && (
-              <div className="mt-6 rounded-[5px] bg-[#0F3D2E] border border-[#D9B96A]/65 text-[#FAF6EC] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
-                <span>تقبّل الله طاعتك! تم تسجيل إتمام هذه القراءة المباركة</span>
-              </div>
-            )}
-
-            <div className="mt-8 pt-5 border-t border-[#B8924A]/35 flex flex-wrap items-center justify-between gap-4">
-              {isCurrentCompleted ? (
-                <div
-                  className={`flex items-center gap-2 font-display font-bold text-sm sm:text-base ${
-                    nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                  }`}
-                >
-                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                  <span>أتممت هذه القراءة المباركة</span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleFinishReading}
-                  className="min-h-[48px] px-7 py-2.5 btn-gilded text-base sm:text-lg flex items-center gap-2.5 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                  <span>أتممت القراءة</span>
-                </button>
-              )}
-            </div>
-          </motion.section>
+          </>
         )}
 
-        <ShareCardModal
-          payload={sharePayload}
-          onClose={() => setSharePayload(null)}
-        />
-      </main>
-    );
-  }
-
-  return (
-    <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-      {/* Editorial Masthead Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4 pb-4 mb-5 border-b border-[#B8924A]/35">
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onBackHome}
-            className="min-h-[42px] px-3.5 py-2 btn-manuscript text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
-          >
-            <ArrowRight className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
-            <span>الرئيسية</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="lg:hidden min-h-[42px] px-3.5 py-2 btn-emerald text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
-          >
-            <Menu className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
-            <span>الفهرس والأقسام</span>
-          </button>
-
-          <div>
-            <h1 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#0F3D2E] flex items-center gap-2.5">
-              {activeSection === 'quran' ? (
-                <QuranBookIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
-              ) : activeSection === 'ziyarat' ? (
-                <ShrineDomeIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
-              ) : activeSection === 'munajat' ? (
-                <MunajatMoonIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
-              ) : (
-                <DuaScrollIcon className="w-6 h-6 text-[#B8924A] shrink-0" />
-              )}
-              <span>خزانة القرآن والأدعية</span>
-            </h1>
-            <p className="text-xs sm:text-sm font-medium text-[#425B51] mt-0.5 tabular-nums">
-              الأدعية ({toArabicDigits(allDuas.length)}) · الزيارات ({toArabicDigits(allZiyarat.length)}) · المناجاة ({toArabicDigits(MUNAJAT_LIST.length)}) · المصحف الشريف ({toArabicDigits(QURAN_SURAHS_META.length)}) · أتممت {toArabicDigits(totalCompletedDigital)} من {toArabicDigits(totalLibraryItems)}
-            </p>
+        {justAwardedId === activeReadingId && (
+          <div className="mt-6 rounded-[5px] bg-[#0F3D2E] border border-[#D9B96A]/65 text-[#FAF6EC] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
+            <span>تقبّل الله طاعتك! تم تسجيل إتمام هذه القراءة المباركة</span>
           </div>
-        </div>
+        )}
 
-        {/* Book View Toggle, Typographic Size, Night Ink Toggle & Settings */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            role="group"
-            aria-label="نمط عرض الصفحات"
-            className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[6px] p-0.5"
-          >
-            <button
-              type="button"
-              onClick={() => handleChangeViewMode('book')}
-              aria-pressed={viewMode === 'book'}
-              className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-                viewMode === 'book'
-                  ? 'bg-[#0F3D2E] text-[#FAF6EC]'
-                  : 'text-[#425B51] hover:text-[#0F3D2E]'
+        <div className="mt-8 pt-5 border-t border-[#B8924A]/35 flex flex-wrap items-center justify-between gap-4">
+          {isCurrentCompleted ? (
+            <div
+              className={`flex items-center gap-2 font-display font-bold text-sm sm:text-base ${
+                nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>كتاب</span>
-            </button>
+              <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+              <span>أتممت هذه القراءة المباركة</span>
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={() => handleChangeViewMode('scroll')}
-              aria-pressed={viewMode === 'scroll'}
-              className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-                viewMode === 'scroll'
-                  ? 'bg-[#0F3D2E] text-[#FAF6EC]'
-                  : 'text-[#425B51] hover:text-[#0F3D2E]'
-              }`}
+              onClick={handleFinishReading}
+              className="min-h-[48px] px-7 py-2.5 btn-gilded text-base sm:text-lg flex items-center gap-2.5 cursor-pointer"
             >
-              <ScrollText className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>متصل</span>
-            </button>
-          </div>
-
-          {onOpenTasbih && (
-            <button
-              type="button"
-              onClick={onOpenTasbih}
-              className="min-h-[42px] px-3.5 py-2 btn-emerald text-xs sm:text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
-            >
-              <TasbihBeadsIcon className="w-4 h-4 text-[#D9B96A]" />
-              <span>المسبحة</span>
+              <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+              <span>أتممت القراءة</span>
             </button>
           )}
+        </div>
 
-          <div className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[6px] p-0.5">
-            <button
-              type="button"
-              onClick={() =>
-                setFontSize((s) => Math.max(MIN_FONT_SIZE, s - FONT_STEP))
-              }
-              disabled={fontSize <= MIN_FONT_SIZE}
-              aria-label="تصغير الخط"
-              className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <ZoomOut className="w-3.5 h-3.5" aria-hidden="true" />
-              <span className="text-xs">أ-</span>
-            </button>
-            <span
-              className="px-2.5 text-xs font-bold text-[#0F3D2E] border-x border-[#B8924A]/30 tabular-nums"
-              dir="ltr"
-            >
-              {fontSize}px
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setFontSize((s) => Math.min(MAX_FONT_SIZE, s + FONT_STEP))
-              }
-              disabled={fontSize >= MAX_FONT_SIZE}
-              aria-label="تكبير الخط"
-              className="min-h-[38px] min-w-[38px] px-2 hover:bg-[#F3ECDA] disabled:opacity-40 text-[#0F3D2E] font-bold flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <ZoomIn className="w-3.5 h-3.5" aria-hidden="true" />
-              <span className="text-xs">أ+</span>
-            </button>
-          </div>
-
+        {/* Static Previous / Next Navigation */}
+        <nav
+          aria-label="التنقل بين النصوص"
+          className="mt-6 pt-5 border-t border-[#B8924A]/25 grid grid-cols-1 sm:grid-cols-2 gap-3"
+        >
           <button
             type="button"
-            onClick={() => setNightMode((prev) => !prev)}
-            className={`min-h-[42px] px-3.5 py-2 rounded-[6px] border font-display font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
+            disabled={!adjacentNav.goPrev}
+            onClick={() => adjacentNav.goPrev?.()}
+            className={`min-h-[48px] px-4 py-2.5 rounded-[6px] border text-right flex items-center justify-between gap-2 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed transition-colors ${
               nightMode
-                ? 'bg-[#081A14] text-[#D9B96A] border-[#D9B96A]/65 hover:bg-[#0E2920]'
-                : 'btn-manuscript'
+                ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#F3EBD6] hover:bg-[#113127]'
+                : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
             }`}
           >
-            {nightMode ? (
-              <>
-                <Sun className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
-                <span>ورق نهاري</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
-                <span>مخطوط ليلي</span>
-              </>
-            )}
+            <span className="flex items-center gap-2 min-w-0">
+              <ChevronRight className="w-4 h-4 shrink-0 text-[#B8924A]" aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="block text-[11px] opacity-75">السابق</span>
+                <span className="block font-display font-bold text-xs sm:text-sm truncate">
+                  {adjacentNav.prevLabel || 'أول القائمة'}
+                </span>
+              </span>
+            </span>
           </button>
 
           <button
             type="button"
-            onClick={onOpenSettings}
-            aria-label="إعدادات تغميق القراءة والتطبيق"
-            className="min-h-[42px] px-3 py-2 btn-manuscript text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            disabled={!adjacentNav.goNext}
+            onClick={() => adjacentNav.goNext?.()}
+            className={`min-h-[48px] px-4 py-2.5 rounded-[6px] border text-left flex items-center justify-end gap-2 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed transition-colors ${
+              nightMode
+                ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#F3EBD6] hover:bg-[#113127]'
+                : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
+            }`}
           >
-            <AstrolabeIcon className="w-4 h-4 text-[#1F6B50]" />
-            <span>الإعدادات</span>
+            <span className="min-w-0 text-left">
+              <span className="block text-[11px] opacity-75">التالي</span>
+              <span className="block font-display font-bold text-xs sm:text-sm truncate">
+                {adjacentNav.nextLabel || 'آخر القائمة'}
+              </span>
+            </span>
+            <ChevronLeft className="w-4 h-4 shrink-0 text-[#B8924A]" aria-hidden="true" />
           </button>
-        </div>
-      </div>
-
-      {/* Mobile Manuscript Index Drawer */}
-      {drawerOpen && (
-        <div
-          className="fixed inset-0 z-50 lg:hidden flex"
-          role="dialog"
-          aria-modal="true"
-          aria-label="فهرس المكتبة الدينية"
-        >
-          <div
-            className="fixed inset-0 bg-[#081A14]/65 backdrop-blur-xs"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <div className="relative z-10 w-[90%] max-w-sm bg-[#FAF6EC] paper-grain h-full p-4 shadow-2xl border-l border-[#B8924A] flex flex-col">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#B8924A]/35">
-              <h2 className="font-calligraphy font-bold text-xl text-[#0F3D2E]">
-                فهرس الخزانة المباركة
-              </h2>
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(false)}
-                aria-label="إغلاق الفهرس"
-                className="min-h-[40px] min-w-[40px] btn-manuscript flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-5 h-5 text-[#0F3D2E]" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">{renderSidebarContent()}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Asymmetric Ledger Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Desktop Index Column */}
-        <aside className="hidden lg:block lg:col-span-4 manuscript-folio paper-grain rounded-[6px] p-4 sticky top-20">
-          {renderSidebarContent()}
-        </aside>
-
-        {/* Illuminated Manuscript / Mushaf Reader Folio (3D Flip Book OR Continuous Scroll) */}
-        {viewMode === 'book' ? (
-          <section
-            aria-label="لوحة القراءة بنمط الكتاب"
-            className="lg:col-span-8 space-y-4"
-          >
-            {/* Persistent Top Title / Bookmark / Audio Bar */}
-            <div
-              className={`rounded-[6px] border p-4 sm:p-5 transition-colors duration-300 ${
-                nightMode
-                  ? 'manuscript-folio-dark'
-                  : 'manuscript-folio paper-grain text-[#11271F]'
-              }`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <div className="min-w-0">
-                  <span
-                    className={`text-xs font-medium block ${
-                      nightMode ? 'text-[#D9B96A]' : 'text-[#7A5E2A]'
-                    }`}
-                  >
-                    {activeSection === 'quran'
-                      ? `القرآن الكريم · السورة رقم ${toArabicDigits(activeSurah.number)}`
-                      : activeSection === 'munajat'
-                      ? `المناجاة رقم ${toArabicDigits(activeMunajat.number)} من ١٥`
-                      : currentDuaOrZiyaratItem.groupLabel}
-                  </span>
-                  <h2
-                    className={`font-calligraphy font-bold text-xl sm:text-2xl truncate ${
-                      nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
-                    }`}
-                  >
-                    {activeBookTitle}
-                  </h2>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {onToggleBookmark && (
-                    <button
-                      type="button"
-                      onClick={() => onToggleBookmark(activeReadingId)}
-                      aria-label={isCurrentBookmarked ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
-                      className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                        isCurrentBookmarked
-                          ? nightMode
-                            ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
-                            : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
-                          : nightMode
-                            ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80 hover:text-[#D9B96A]'
-                            : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51] hover:border-[#B8924A]'
-                      }`}
-                    >
-                      <Bookmark
-                        className={`w-3.5 h-3.5 ${isCurrentBookmarked ? 'fill-current' : ''}`}
-                        aria-hidden="true"
-                      />
-                      <span>{isCurrentBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleOpenShareCard}
-                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                      nightMode
-                        ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A] hover:border-[#D9B96A]'
-                        : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
-                    }`}
-                  >
-                    <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>مشاركة كبطاقة</span>
-                  </button>
-
-                  {isCurrentCompleted && (
-                    <span
-                      className={`inline-flex items-center gap-1 text-xs font-bold ${
-                        nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                      <span>مقروء</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {activeSection === 'quran' ? (
-                <AudioReciterPlayer
-                  mode="quran"
-                  surahNumber={activeSurah.number}
-                  surahName={activeSurah.name}
-                  nightMode={nightMode}
-                />
-              ) : activeSection === 'munajat' ? (
-                <AudioReciterPlayer
-                  mode="entry"
-                  entryId={activeMunajat.id}
-                  entryTitle={activeMunajat.title}
-                  tracks={ENTRY_AUDIO_TRACKS[activeMunajat.id] || []}
-                  nightMode={nightMode}
-                />
-              ) : (
-                <AudioReciterPlayer
-                  mode="entry"
-                  entryId={currentDuaOrZiyaratItem.id}
-                  entryTitle={currentDuaOrZiyaratItem.title}
-                  tracks={ENTRY_AUDIO_TRACKS[currentDuaOrZiyaratItem.id] || []}
-                  nightMode={nightMode}
-                />
-              )}
-            </div>
-
-            {activeSection === 'quran' && surahLoading ? (
-              <div
-                className={`rounded-[6px] p-8 ${
-                  nightMode ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
-                }`}
-              >
-                <ManuscriptSpinner
-                  label={`جارٍ إحضار آيات سورة ${activeSurah.name}...`}
-                  dark={nightMode}
-                />
-              </div>
-            ) : activeSection === 'quran' && surahError ? (
-              <div
-                className={`rounded-[6px] p-6 text-center border ${
-                  nightMode
-                    ? 'bg-[#081A14] border-[#D9B96A]/45 text-[#F3EBD6]'
-                    : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#11271F]'
-                }`}
-              >
-                <p className="font-display font-bold text-base leading-relaxed">
-                  {surahError}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setRetryToken((t) => t + 1)}
-                  className="mt-4 min-h-[42px] px-5 py-2 btn-emerald text-sm inline-flex items-center gap-2 cursor-pointer"
-                >
-                  <RefreshCw className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
-                  <span>إعادة المحاولة</span>
-                </button>
-              </div>
-            ) : (
-              <ManuscriptBookFlip
-                bookKey={activeReadingId}
-                title={activeBookTitle}
-                pages={activeBookPages}
-                currentPage={bookPage}
-                onPageChange={handleBookPageChange}
-                nightMode={nightMode}
-                pageFlipSoundEnabled={focusSettings.pageFlipSound}
-                colophonFooter={
-                  <div className="space-y-3">
-                    {justAwardedId === activeReadingId && (
-                      <div className="rounded-[5px] bg-[#0F3D2E] border border-[#D9B96A]/65 text-[#FAF6EC] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
-                        <CheckCircle2
-                          className="w-5 h-5 text-[#D9B96A]"
-                          aria-hidden="true"
-                        />
-                        <span>تقبّل الله طاعتك! تم تسجيل إتمام هذه القراءة المباركة</span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      {isCurrentCompleted ? (
-                        <div
-                          className={`flex items-center gap-2 font-display font-bold text-sm sm:text-base ${
-                            nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                          }`}
-                        >
-                          <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                          <span>أتممت هذه القراءة المباركة</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleFinishReading}
-                          className="min-h-[46px] px-7 py-2 btn-gilded text-base flex items-center gap-2.5 cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                          <span>أتممت القراءة</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                }
-              />
-            )}
-          </section>
-        ) : (
-        <motion.section
-          key={activeReadingId}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22 }}
-          aria-label="لوحة القراءة"
-          className={`lg:col-span-8 relative rounded-[6px] p-5 sm:p-8 lg:p-11 transition-colors duration-300 paper-grain ${
-            nightMode ? 'manuscript-folio-dark' : 'manuscript-folio text-[#11271F]'
-          }`}
-        >
-          {/* Four Illuminated Corner Brackets */}
-          <ManuscriptCornerBracket
-            position="top-right"
-            color={nightMode ? '#D9B96A' : '#B8924A'}
-            className="absolute top-2.5 right-2.5"
-          />
-          <ManuscriptCornerBracket
-            position="top-left"
-            color={nightMode ? '#D9B96A' : '#B8924A'}
-            className="absolute top-2.5 left-2.5"
-          />
-          <ManuscriptCornerBracket
-            position="bottom-right"
-            color={nightMode ? '#D9B96A' : '#B8924A'}
-            className="absolute bottom-2.5 right-2.5"
-          />
-          <ManuscriptCornerBracket
-            position="bottom-left"
-            color={nightMode ? '#D9B96A' : '#B8924A'}
-            className="absolute bottom-2.5 left-2.5"
-          />
-
-          {activeSection === 'quran' ? (
-            <>
-              {/* Authentic Mushaf Cartouche Header */}
-              <div className="pt-2">
-                <SurahCartoucheHeader
-                  surahName={activeSurah.name}
-                  revelationType={activeSurah.type}
-                  ayahCountArabic={toArabicDigits(activeSurah.ayahCount)}
-                  dark={nightMode}
-                />
-
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
-                  <span
-                    className={`text-xs font-medium ${
-                      nightMode ? 'text-[#C8B88A]' : 'text-[#425B51]'
-                    }`}
-                  >
-                    القرآن الكريم · السورة رقم {toArabicDigits(activeSurah.number)}
-                  </span>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {onToggleBookmark && (
-                      <button
-                        type="button"
-                        onClick={() => onToggleBookmark(activeReadingId)}
-                        aria-label={isCurrentBookmarked ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
-                        className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                          isCurrentBookmarked
-                            ? nightMode
-                              ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
-                              : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
-                            : nightMode
-                              ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80 hover:text-[#D9B96A]'
-                              : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51] hover:border-[#B8924A]'
-                        }`}
-                      >
-                        <Bookmark
-                          className={`w-3.5 h-3.5 ${isCurrentBookmarked ? 'fill-current' : ''}`}
-                          aria-hidden="true"
-                        />
-                        <span>{isCurrentBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={handleOpenShareCard}
-                      className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                        nightMode
-                          ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A] hover:border-[#D9B96A]'
-                          : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
-                      }`}
-                    >
-                      <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>مشاركة كبطاقة</span>
-                    </button>
-
-                    {isCurrentCompleted && (
-                      <span
-                        className={`inline-flex items-center gap-1 text-xs font-bold ${
-                          nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                        }`}
-                      >
-                        <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                        <span>مقروءة</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <AudioReciterPlayer
-                mode="quran"
-                surahNumber={activeSurah.number}
-                surahName={activeSurah.name}
-                nightMode={nightMode}
-              />
-
-              {activeSurah.number !== 1 && activeSurah.number !== 9 && (
-                <div className="mt-6 text-center">
-                  <p
-                    className={`font-quran text-2xl sm:text-3xl ${
-                      nightMode ? 'text-[#D9B96A]' : 'text-[#0F3D2E]'
-                    }`}
-                  >
-                    بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                  </p>
-                  <ManuscriptDivider variant="flourish" dark={nightMode} className="my-2" />
-                </div>
-              )}
-
-              <div className="mt-5 max-w-prose mx-auto" ref={readerBodyRef}>
-                {surahLoading ? (
-                  <ManuscriptSpinner
-                    label={`جارٍ إحضار آيات سورة ${activeSurah.name}...`}
-                    dark={nightMode}
-                  />
-                ) : surahError ? (
-                  <div
-                    className={`rounded-[6px] p-6 text-center border ${
-                      nightMode
-                        ? 'bg-[#081A14] border-[#D9B96A]/45 text-[#F3EBD6]'
-                        : 'bg-[#F3ECDA]/75 border-[#B8924A]/50 text-[#11271F]'
-                    }`}
-                  >
-                    <p className="font-display font-bold text-base leading-relaxed">
-                      {surahError}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setRetryToken((t) => t + 1)}
-                      className="mt-4 min-h-[42px] px-5 py-2 btn-emerald text-sm inline-flex items-center gap-2 cursor-pointer"
-                    >
-                      <RefreshCw className="w-4 h-4 text-[#D9B96A]" aria-hidden="true" />
-                      <span>إعادة المحاولة</span>
-                    </button>
-                  </div>
-                ) : (
-                  <p
-                    className={`font-quran text-justify ${fontClass} ${
-                      nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'
-                    }`}
-                  >
-                    {surahAyat.map((ayah, idx) => {
-                      const isActive =
-                        focusTrackerEnabled && activeUnitIndex === idx;
-                      return (
-                        <React.Fragment key={idx}>
-                          <span
-                            data-reading-unit-index={idx}
-                            onMouseEnter={() => {
-                              if (focusTrackerEnabled) setActiveUnitIndex(idx);
-                            }}
-                            onClick={() => {
-                              if (!focusTrackerEnabled) return;
-                              const sel = window.getSelection()?.toString();
-                              if (sel && sel.trim().length > 0) return;
-                              setActiveUnitIndex(idx);
-                            }}
-                            className={getReadingUnitClasses({
-                              isActive,
-                              enabled: focusTrackerEnabled,
-                              nightMode,
-                              theme: focusTheme,
-                            })}
-                          >
-                            {ayah}
-                            <AyahRosetteMarker
-                              numberArabic={toArabicDigits(idx + 1)}
-                              dark={nightMode}
-                              highlighted={isActive}
-                            />
-                          </span>{' '}
-                        </React.Fragment>
-                      );
-                    })}
-                  </p>
-                )}
-              </div>
-            </>
-          ) : activeSection === 'munajat' ? (
-            <>
-              {/* Munajat Prayer Book Header */}
-              <div className="pt-2 pb-4 border-b border-[#B8924A]/35 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold ${
-                      nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                    }`}
-                  >
-                    <MunajatMoonIcon className="w-4 h-4" />
-                    <span>
-                      المناجاة رقم {toArabicDigits(activeMunajat.number)} من ١٥ · الإمام زين العابدين (عليه السلام)
-                    </span>
-                  </span>
-                  <h2
-                    className={`font-calligraphy font-bold text-2xl sm:text-4xl mt-1.5 ${
-                      nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
-                    }`}
-                  >
-                    {activeMunajat.title}
-                  </h2>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {onToggleBookmark && (
-                    <button
-                      type="button"
-                      onClick={() => onToggleBookmark(activeReadingId)}
-                      aria-label={isCurrentBookmarked ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
-                      className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                        isCurrentBookmarked
-                          ? nightMode
-                            ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
-                            : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
-                          : nightMode
-                            ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80 hover:text-[#D9B96A]'
-                            : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51] hover:border-[#B8924A]'
-                      }`}
-                    >
-                      <Bookmark
-                        className={`w-3.5 h-3.5 ${isCurrentBookmarked ? 'fill-current' : ''}`}
-                        aria-hidden="true"
-                      />
-                      <span>{isCurrentBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleOpenShareCard}
-                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                      nightMode
-                        ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A] hover:border-[#D9B96A]'
-                        : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
-                    }`}
-                  >
-                    <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>مشاركة كبطاقة</span>
-                  </button>
-
-                  {isCurrentCompleted && (
-                    <span
-                      className={`inline-flex items-center gap-1 text-xs font-bold ${
-                        nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                      <span>مقروءة</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <AudioReciterPlayer
-                mode="entry"
-                entryId={activeMunajat.id}
-                entryTitle={activeMunajat.title}
-                tracks={ENTRY_AUDIO_TRACKS[activeMunajat.id] || []}
-                nightMode={nightMode}
-              />
-
-              {/* Marginal Illumination Summary */}
-              <div
-                className={`mt-5 rounded-[5px] p-4 sm:p-5 border-r-[3px] border border-[#B8924A]/35 space-y-2.5 ${
-                  nightMode
-                    ? 'bg-[#081A14]/75 border-r-[#D9B96A] text-[#F3EBD6]'
-                    : 'bg-[#F3ECDA]/65 border-r-[#B8924A] text-[#11271F]'
-                }`}
-              >
-                <p className="text-sm sm:text-base leading-relaxed">
-                  {activeMunajat.quickMeaning}
-                </p>
-                <div
-                  className={`pt-2 border-t flex items-start gap-2 text-xs sm:text-sm font-medium ${
-                    nightMode
-                      ? 'border-[#D9B96A]/20 text-[#D9B96A]'
-                      : 'border-[#B8924A]/25 text-[#1F6B50]'
-                  }`}
-                >
-                  <Lightbulb className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-                  <span>العبرة: {activeMunajat.lifeLesson}</span>
-                </div>
-              </div>
-
-              <ManuscriptDivider variant="crescent" dark={nightMode} />
-
-              <div className="mt-4 max-w-prose mx-auto space-y-6" ref={readerBodyRef}>
-                {munajatSplitParagraphs.map((lines, idx) => (
-                  <p
-                    key={idx}
-                    className={`font-arabic whitespace-pre-line ${fontClass} ${
-                      nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'
-                    }`}
-                  >
-                    {lines.map(({ text, unitIdx }) => {
-                      const trailingNewlinesMatch = text.match(/\n+$/);
-                      const visibleChunk = trailingNewlinesMatch
-                        ? text.slice(
-                            0,
-                            text.length - trailingNewlinesMatch[0].length
-                          )
-                        : text;
-                      const trailingBreaks = trailingNewlinesMatch
-                        ? trailingNewlinesMatch[0]
-                        : '';
-                      const isActive =
-                        focusTrackerEnabled && activeUnitIndex === unitIdx;
-
-                      return (
-                        <React.Fragment key={unitIdx}>
-                          <span
-                            data-reading-unit-index={unitIdx}
-                            onMouseEnter={() => {
-                              if (focusTrackerEnabled)
-                                setActiveUnitIndex(unitIdx);
-                            }}
-                            onClick={() => {
-                              if (!focusTrackerEnabled) return;
-                              const sel = window.getSelection()?.toString();
-                              if (sel && sel.trim().length > 0) return;
-                              setActiveUnitIndex(unitIdx);
-                            }}
-                            className={getReadingUnitClasses({
-                              isActive,
-                              enabled: focusTrackerEnabled,
-                              nightMode,
-                              theme: focusTheme,
-                            })}
-                          >
-                            {visibleChunk}
-                          </span>
-                          {trailingBreaks}
-                        </React.Fragment>
-                      );
-                    })}
-                  </p>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Classic Prayer Book Header (Duas / Ziyarat) */}
-              <div className="pt-2 pb-4 border-b border-[#B8924A]/35 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold ${
-                      nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                    }`}
-                  >
-                    {activeSection === 'ziyarat' ? (
-                      <ShrineDomeIcon className="w-4 h-4" />
-                    ) : (
-                      <DuaScrollIcon className="w-4 h-4" />
-                    )}
-                    <span>
-                      {currentDuaOrZiyaratItem.groupLabel} ·{' '}
-                      {currentDuaOrZiyaratItem.subtitle}
-                    </span>
-                  </span>
-                  <h2
-                    className={`font-calligraphy font-bold text-2xl sm:text-4xl mt-1.5 ${
-                      nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
-                    }`}
-                  >
-                    {currentDuaOrZiyaratItem.title}
-                  </h2>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {onToggleBookmark && (
-                    <button
-                      type="button"
-                      onClick={() => onToggleBookmark(activeReadingId)}
-                      aria-label={isCurrentBookmarked ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
-                      className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                        isCurrentBookmarked
-                          ? nightMode
-                            ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
-                            : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
-                          : nightMode
-                            ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80 hover:text-[#D9B96A]'
-                            : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51] hover:border-[#B8924A]'
-                      }`}
-                    >
-                      <Bookmark
-                        className={`w-3.5 h-3.5 ${isCurrentBookmarked ? 'fill-current' : ''}`}
-                        aria-hidden="true"
-                      />
-                      <span>{isCurrentBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleOpenShareCard}
-                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                      nightMode
-                        ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A] hover:border-[#D9B96A]'
-                        : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
-                    }`}
-                  >
-                    <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>مشاركة كبطاقة</span>
-                  </button>
-
-                  {isCurrentCompleted && (
-                    <span
-                      className={`inline-flex items-center gap-1 text-xs font-bold ${
-                        nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                      <span>مقروء</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <AudioReciterPlayer
-                mode="entry"
-                entryId={currentDuaOrZiyaratItem.id}
-                entryTitle={currentDuaOrZiyaratItem.title}
-                tracks={ENTRY_AUDIO_TRACKS[currentDuaOrZiyaratItem.id] || []}
-                nightMode={nightMode}
-              />
-
-              {currentDuaOrZiyaratItem.meaningSummary && (
-                <div
-                  className={`mt-5 rounded-[5px] p-4 border-r-[3px] border border-[#B8924A]/35 ${
-                    nightMode
-                      ? 'bg-[#081A14]/75 border-r-[#D9B96A] text-[#F3EBD6]'
-                      : 'bg-[#F3ECDA]/65 border-r-[#B8924A] text-[#11271F]'
-                  }`}
-                >
-                  <p
-                    className={`font-display font-bold text-xs mb-1 ${
-                      nightMode ? 'text-[#D9B96A]' : 'text-[#7A5420]'
-                    }`}
-                  >
-                    معنى الدعاء باختصار
-                  </p>
-                  <p className="text-sm sm:text-base leading-relaxed">
-                    {currentDuaOrZiyaratItem.meaningSummary}
-                  </p>
-                </div>
-              )}
-
-              <ManuscriptDivider variant="rosette" dark={nightMode} />
-
-              <div className="mt-4 max-w-prose mx-auto space-y-6" ref={readerBodyRef}>
-                {preparedSegments.map((seg, idx) =>
-                  seg.type === 'note' ? (
-                    <div key={idx}>
-                      <span
-                        className={
-                          nightMode ? 'editorial-note-dark' : 'editorial-note'
-                        }
-                      >
-                        {seg.content}
-                      </span>
-                    </div>
-                  ) : (
-                    <p
-                      key={idx}
-                      className={`font-arabic whitespace-pre-line ${fontClass} ${
-                        nightMode ? 'text-[#F3EBD6]' : 'text-[#11271F]'
-                      }`}
-                    >
-                      {seg.lines.map(({ text, unitIdx }) => {
-                        const trailingNewlinesMatch = text.match(/\n+$/);
-                        const visibleChunk = trailingNewlinesMatch
-                          ? text.slice(
-                              0,
-                              text.length - trailingNewlinesMatch[0].length
-                            )
-                          : text;
-                        const trailingBreaks = trailingNewlinesMatch
-                          ? trailingNewlinesMatch[0]
-                          : '';
-                        const isActive =
-                          focusTrackerEnabled && activeUnitIndex === unitIdx;
-
-                        return (
-                          <React.Fragment key={unitIdx}>
-                            <span
-                              data-reading-unit-index={unitIdx}
-                              onMouseEnter={() => {
-                                if (focusTrackerEnabled)
-                                  setActiveUnitIndex(unitIdx);
-                              }}
-                              onClick={() => {
-                                if (!focusTrackerEnabled) return;
-                                const sel = window.getSelection()?.toString();
-                                if (sel && sel.trim().length > 0) return;
-                                setActiveUnitIndex(unitIdx);
-                              }}
-                              className={getReadingUnitClasses({
-                                isActive,
-                                enabled: focusTrackerEnabled,
-                                nightMode,
-                                theme: focusTheme,
-                              })}
-                            >
-                              {visibleChunk}
-                            </span>
-                            {trailingBreaks}
-                          </React.Fragment>
-                        );
-                      })}
-                    </p>
-                  )
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Completion Feedback */}
-          {justAwardedId === activeReadingId && (
-            <div className="mt-6 rounded-[5px] bg-[#0F3D2E] border border-[#D9B96A]/65 text-[#FAF6EC] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
-              <CheckCircle2
-                className="w-5 h-5 text-[#D9B96A]"
-                aria-hidden="true"
-              />
-              <span>تقبّل الله طاعتك! تم تسجيل إتمام هذه القراءة المباركة</span>
-            </div>
-          )}
-
-          {/* Colophon Completion CTA */}
-          <div className="mt-8 pt-5 border-t border-[#B8924A]/35 flex flex-wrap items-center justify-between gap-4">
-            {isCurrentCompleted ? (
-              <div
-                className={`flex items-center gap-2 font-display font-bold text-sm sm:text-base ${
-                  nightMode ? 'text-[#D9B96A]' : 'text-[#1F6B50]'
-                }`}
-              >
-                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                <span>أتممت هذه القراءة المباركة</span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleFinishReading}
-                className="min-h-[48px] px-7 py-2.5 btn-gilded text-base sm:text-lg flex items-center gap-2.5 cursor-pointer"
-              >
-                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                <span>أتممت القراءة</span>
-              </button>
-            )}
-          </div>
-        </motion.section>
-        )}
-      </div>
+        </nav>
+      </section>
 
       <ShareCardModal
         payload={sharePayload}

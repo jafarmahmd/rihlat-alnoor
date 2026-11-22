@@ -24,7 +24,7 @@ import {
 import { STORE_ITEMS } from '../data/storeItems';
 import { GameProgress, StoreCategory, StoreItem } from '../types/game';
 import {
-  ManuscriptCornerBracket,
+  CornerOrnaments,
   ManuscriptDivider,
   StoreTreasuryIcon,
 } from './IslamicOrnaments';
@@ -501,10 +501,9 @@ export const StoreScreen: React.FC<StoreScreenProps> = ({
             initial={{ opacity: 0, scale: 0.94, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-            className="relative w-full max-w-md manuscript-folio paper-grain rounded-[6px] p-6 sm:p-8 shadow-2xl text-center"
+            className="relative w-full max-w-md manuscript-folio paper-grain rounded-[6px] p-7 sm:p-9 shadow-2xl text-center"
           >
-            <ManuscriptCornerBracket position="top-right" className="absolute top-2.5 right-2.5" />
-            <ManuscriptCornerBracket position="top-left" className="absolute top-2.5 left-2.5" />
+            <CornerOrnaments />
 
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#0F3D2E] border-2 border-[#D9B96A] text-[#D9B96A] mb-3">
               {renderStoreIcon(celebratingItem.item.iconName, 'w-8 h-8')}

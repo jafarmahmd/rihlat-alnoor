@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BellRing, Compass, LocateFixed, MapPin, Navigation, X } from 'lucide-react';
+import { BellRing, Compass, LocateFixed, MapPin } from 'lucide-react';
 import { loadAdhanSettings } from '../data/adhanSettings';
 import {
   ensureNotificationPermissionIfMissing,
@@ -17,11 +17,14 @@ import {
   savePrayerLocationPreference,
   toArabicNums,
 } from '../utils/prayerTimes';
+import { detectAndSaveGpsLocation } from '../utils/gpsLocation';
 import {
-  ManuscriptCornerBracket,
-  ManuscriptDivider,
   MinaretAdhanIcon,
 } from './IslamicOrnaments';
+import {
+  QiblaCompassModal,
+  requestIosCompassPermissionIfNeeded,
+} from './QiblaCompassModal';
 
 interface PrayerQiblaCardProps {
   onOpenAdhanSettings?: () => void;
@@ -38,8 +41,6 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [now, setNow] = useState<Date>(() => new Date());
   const [qiblaModalOpen, setQiblaModalOpen] = useState(false);
-  const [headingDeg, setHeadingDeg] = useState<number | null>(null);
-  const [sensorStatus, setSensorStatus] = useState<'idle' | 'active' | 'unsupported'>('idle');
   const [notifPermission, setNotifPermission] = useState<
     NotificationPermission | 'unsupported'
   >('granted');
@@ -85,42 +86,8 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
     return () => window.clearInterval(id);
   }, []);
 
-  // Device orientation listener when Qibla compass modal is opened
-  useEffect(() => {
-    if (!qiblaModalOpen || typeof window === 'undefined') return;
-    if (!('DeviceOrientationEvent' in window)) {
-      setSensorStatus('unsupported');
-      return;
-    }
-
-    const onOrientation = (ev: DeviceOrientationEvent) => {
-      const webkitHeading = (ev as unknown as { webkitCompassHeading?: number })
-        .webkitCompassHeading;
-      if (typeof webkitHeading === 'number' && Number.isFinite(webkitHeading)) {
-        setHeadingDeg(webkitHeading);
-        setSensorStatus('active');
-      } else if (typeof ev.alpha === 'number' && Number.isFinite(ev.alpha)) {
-        setHeadingDeg((360 - ev.alpha) % 360);
-        setSensorStatus('active');
-      }
-    };
-
-    window.addEventListener('deviceorientation', onOrientation, true);
-    return () => window.removeEventListener('deviceorientation', onOrientation, true);
-  }, [qiblaModalOpen]);
-
   const requestIosCompassIfNeeded = async () => {
-    const DevOrient = window.DeviceOrientationEvent as unknown as {
-      requestPermission?: () => Promise<'granted' | 'denied'>;
-    };
-    if (DevOrient && typeof DevOrient.requestPermission === 'function') {
-      try {
-        const res = await DevOrient.requestPermission();
-        if (res !== 'granted') setSensorStatus('unsupported');
-      } catch {
-        setSensorStatus('unsupported');
-      }
-    }
+    await requestIosCompassPermissionIfNeeded();
   };
 
   const handleCitySelect = (cityId: string) => {
@@ -133,37 +100,23 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
       lat: found.lat,
       lng: found.lng,
       cityLabel: found.nameAr,
+      city: found.nameAr,
+      country: found.countryAr,
     };
     setLocPref(next);
     savePrayerLocationPreference(next);
   };
 
-  const handleUseGps = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setGpsError('متصفحك لا يدعم تحديد الموقع التلقائي، اختر المدينة من القائمة.');
-      return;
-    }
+  const handleUseGps = async () => {
     setLoadingGps(true);
     setGpsError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLoadingGps(false);
-        const next: PrayerLocationPreference = {
-          mode: 'gps',
-          cityId: 'gps',
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          cityLabel: 'موقعي الحالي (GPS)',
-        };
-        setLocPref(next);
-        savePrayerLocationPreference(next);
-      },
-      () => {
-        setLoadingGps(false);
-        setGpsError('تعذّر الوصول للموقع الجغرافي، يمكنك اختيار مدينتك من القائمة.');
-      },
-      { enableHighAccuracy: false, timeout: 9000, maximumAge: 600000 }
-    );
+    const res = await detectAndSaveGpsLocation();
+    setLoadingGps(false);
+    if (res.ok && res.preference) {
+      setLocPref(res.preference);
+    } else {
+      setGpsError(res.message);
+    }
   };
 
   const nextPrayer = useMemo(
@@ -189,9 +142,6 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
     { key: 'isha', label: 'العشاء', value: prayerData.timings.isha },
   ];
 
-  const arrowRotationDeg =
-    headingDeg !== null ? qibla.bearingDeg - headingDeg : qibla.bearingDeg;
-
   return (
     <>
       <section
@@ -215,7 +165,7 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
                 className="min-h-[38px] px-2.5 py-1 rounded-[5px] bg-[#F3ECDA] border border-[#B8924A]/50 font-display font-bold text-xs sm:text-sm text-[#0F3D2E] focus:outline-none focus:border-[#0F3D2E] cursor-pointer"
               >
                 {locPref.mode === 'gps' && (
-                  <option value="gps">موقعي الحالي (GPS)</option>
+                  <option value="gps">{locPref.cityLabel} (GPS)</option>
                 )}
                 {PRESET_CITIES.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -227,7 +177,7 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
 
             <button
               type="button"
-              onClick={handleUseGps}
+              onClick={() => void handleUseGps()}
               disabled={loadingGps}
               className="min-h-[38px] px-3 py-1 btn-manuscript text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
             >
@@ -342,85 +292,11 @@ export const PrayerQiblaCard: React.FC<PrayerQiblaCardProps> = ({
         </div>
       </section>
 
-      {/* Interactive Qibla Compass Modal */}
-      {qiblaModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#081A14]/75 backdrop-blur-xs"
-          role="dialog"
-          aria-modal="true"
-          aria-label="بوصلة تحديد اتجاه القبلة"
-          onClick={() => setQiblaModalOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md manuscript-folio rounded-[8px] p-5 sm:p-7 text-center shadow-2xl"
-          >
-            <ManuscriptCornerBracket position="top-right" className="absolute top-2.5 right-2.5" />
-            <ManuscriptCornerBracket position="top-left" className="absolute top-2.5 left-2.5" />
-            <ManuscriptCornerBracket position="bottom-right" className="absolute bottom-2.5 right-2.5" />
-            <ManuscriptCornerBracket position="bottom-left" className="absolute bottom-2.5 left-2.5" />
-
-            <div className="flex items-center justify-between pb-3 border-b border-[#B8924A]/35">
-              <h3 className="font-calligraphy font-bold text-2xl text-[#0F3D2E]">
-                بوصلة القبلة الشريفة
-              </h3>
-              <button
-                type="button"
-                onClick={() => setQiblaModalOpen(false)}
-                aria-label="إغلاق البوصلة"
-                className="min-w-[38px] min-h-[38px] rounded-[5px] border border-[#B8924A]/40 text-[#425B51] hover:bg-[#F3ECDA] flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="my-5 flex flex-col items-center">
-              {/* Engraved Astrolabe Compass Dial */}
-              <div className="relative w-56 h-56 rounded-full bg-[#0F3D2E] border-2 border-[#D9B96A] shadow-inner flex items-center justify-center">
-                <span className="absolute top-2 text-xs font-bold text-[#D9B96A]">ش</span>
-                <span className="absolute bottom-2 text-xs font-bold text-[#FAF6EC]/75">ج</span>
-                <span className="absolute right-3 text-xs font-bold text-[#FAF6EC]/75">ق</span>
-                <span className="absolute left-3 text-xs font-bold text-[#FAF6EC]/75">غ</span>
-
-                {/* Inner gold degree ring */}
-                <div className="w-44 h-44 rounded-full border border-[#D9B96A]/35 flex items-center justify-center relative">
-                  <div
-                    className="transition-transform duration-300 ease-out flex flex-col items-center"
-                    style={{ transform: `rotate(${arrowRotationDeg}deg)` }}
-                  >
-                    <Navigation
-                      className="w-12 h-12 text-[#D9B96A] fill-[#D9B96A]"
-                      aria-hidden="true"
-                    />
-                    <span className="mt-1 text-[10px] font-bold text-[#FAF6EC]">
-                      الكعبة
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-1">
-                <p className="font-display font-bold text-lg text-[#0F3D2E] tabular-nums">
-                  زاوية القبلة: {toArabicNums(qibla.bearingDeg)}° ({qibla.cardinalAr})
-                </p>
-                <p className="text-xs text-[#425B51] tabular-nums">
-                  {locPref.cityLabel} · المسافة إلى مكة المكرمة: {toArabicNums(qibla.distanceKm)} كم
-                </p>
-              </div>
-            </div>
-
-            <ManuscriptDivider variant="crescent" />
-
-            <p className="mt-3 text-xs text-[#425B51] leading-relaxed">
-              {sensorStatus === 'active' && headingDeg !== null
-                ? `البوصلة تتحرك تلقائياً وفق مستشعر جهازك (الاتجاه الحالي: ${toArabicNums(
-                    Math.round(headingDeg)
-                  )}° من الشمال).`
-                : 'الاتجاه الموضح مقاس عقارب الساعة بدءاً من الشمال الحقيقي؛ إذا لم يدعم جهازك مستشعر المغناطيسية، وجّه الأعلى نحو الشمال الجغرافي.'}
-            </p>
-          </div>
-        </div>
-      )}
+      <QiblaCompassModal
+        isOpen={qiblaModalOpen}
+        onClose={() => setQiblaModalOpen(false)}
+        locationPref={locPref}
+      />
     </>
   );
 };

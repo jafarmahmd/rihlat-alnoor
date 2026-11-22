@@ -18,7 +18,7 @@ import {
 import { MASOOMEEN_LIBRARY } from '../data/library';
 import { StationIllustration } from './StationIllustration';
 import {
-  ManuscriptCornerBracket,
+  CornerOrnaments,
   ManuscriptDivider,
   StoriesLanternIcon,
 } from './IslamicOrnaments';
@@ -306,10 +306,9 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.22 }}
-            className="relative rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] p-5 sm:p-7 border border-[#B8924A] shadow-lg"
+            className="relative rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] p-7 sm:p-8 border border-[#B8924A] shadow-lg"
           >
-            <ManuscriptCornerBracket position="top-right" color="#D9B96A" className="absolute top-2.5 right-2.5" />
-            <ManuscriptCornerBracket position="top-left" color="#D9B96A" className="absolute top-2.5 left-2.5" />
+            <CornerOrnaments tone="dark" />
 
             <div className="pt-1">
               <p className="text-xs font-bold text-[#D9B96A] flex items-center gap-1.5">

@@ -40,10 +40,20 @@ import {
 
 const ADHAN_LOCAL_NOTIF_BASE_ID = 5000;
 const ADHAN_LOCAL_NOTIF_MAX_ID = 5999;
-const SILENT_CHANNEL_ID = 'adhan_silent_alerts';
-const LAYL_GENTLE_CHANNEL_ID = 'salat_allayl_reminders';
+const TEST_DELAYED_ADHAN_NOTIF_ID = 5996;
+const SILENT_CHANNEL_ID = 'adhan_silent_v2';
+const PLAYBACK_CHANNEL_ID = 'adhan_playback_v2';
+const LAYL_GENTLE_CHANNEL_ID = 'salat_allayl_reminders_v2';
 const SCHEDULE_DAYS_AHEAD = 14;
 const SCHEDULE_META_ENGINE_KEY_PREFIX = 'adhan_';
+
+export interface NotificationChannelStatus {
+  id: string;
+  name: string;
+  sound: string;
+  importance: number;
+  hasEmptySound: boolean;
+}
 
 export interface CombinedAdhanDiagnostics {
   isNativeAndroid: boolean;
@@ -79,8 +89,8 @@ function getActiveMuezzinRawNames(settings: AdhanSettings): string[] {
 }
 
 /**
- * ينشئ قناة إشعارات مستقلة لكل مؤذن نشط (adhan_<rawName>)
- * ويحذف القنوات القديمة غير المستخدمة، وينشئ قناتي الإشعار الصامت وصلاة الليل.
+ * ينشئ قناة إشعارات مستقلة لكل مؤذن نشط (adhan_v2_<rawName>)
+ * ويحذف القنوات القديمة غير المسماة بـ v2 أو غير المستخدمة، وينشئ قناتي الإشعار الصامت وصلاة الليل.
  */
 export async function syncAndroidAdhanNotificationChannels(
   settings: AdhanSettings
@@ -100,12 +110,16 @@ export async function syncAndroidAdhanNotificationChannels(
     }));
 
     for (const ch of existing.channels || []) {
-      if (
+      const isLegacyAdhan =
         ch.id.startsWith(SCHEDULE_META_ENGINE_KEY_PREFIX) &&
+        !ch.id.startsWith('adhan_v2_') &&
         ch.id !== SILENT_CHANNEL_ID &&
-        ch.id !== 'adhan_playback_service' &&
-        !activeChannelIds.has(ch.id)
-      ) {
+        ch.id !== PLAYBACK_CHANNEL_ID;
+      const isUnusedCurrentAdhan =
+        ch.id.startsWith('adhan_v2_') && !activeChannelIds.has(ch.id);
+      const isLegacyLayl = ch.id === 'salat_allayl_reminders';
+
+      if (isLegacyAdhan || isUnusedCurrentAdhan || isLegacyLayl) {
         await LocalNotifications.deleteChannel({ id: ch.id }).catch(() => {});
       }
     }
@@ -119,7 +133,7 @@ export async function syncAndroidAdhanNotificationChannels(
         description: `تنبيهات مواقيت الصلاة بصوت المؤذن ${m.displayName}`,
         importance: 5,
         visibility: 1,
-        sound: m.rawName,
+        sound: `${m.rawName}.mp3`,
         vibration: true,
         lights: true,
         lightColor: '#B8924A',
@@ -149,6 +163,35 @@ export async function syncAndroidAdhanNotificationChannels(
     }).catch(() => {});
   } catch (err) {
     console.warn('Failed to sync Android Adhan notification channels:', err);
+  }
+}
+
+export async function getAndroidNotificationChannelsStatus(): Promise<{
+  supported: boolean;
+  channels: NotificationChannelStatus[];
+}> {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
+    return { supported: false, channels: [] };
+  }
+  try {
+    const res = await LocalNotifications.listChannels();
+    const channels: NotificationChannelStatus[] = (res.channels || []).map((ch) => {
+      const soundStr = typeof ch.sound === 'string' ? ch.sound.trim() : '';
+      return {
+        id: ch.id,
+        name: ch.name || ch.id,
+        sound: soundStr,
+        importance: typeof ch.importance === 'number' ? ch.importance : 0,
+        hasEmptySound:
+          ch.id.startsWith(SCHEDULE_META_ENGINE_KEY_PREFIX) &&
+          ch.id !== SILENT_CHANNEL_ID &&
+          ch.id !== PLAYBACK_CHANNEL_ID &&
+          soundStr.length === 0,
+      };
+    });
+    return { supported: true, channels };
+  } catch {
+    return { supported: true, channels: [] };
   }
 }
 
@@ -204,6 +247,8 @@ export function build14DayAdhanAlarmPlan(now: Date = new Date()): {
             rawName: '',
             channelId: SILENT_CHANNEL_ID,
             allowNotificationsDuringAdhan: settings.allowNotificationsDuringAdhan,
+            playAdhanInSilentMode: settings.playAdhanInSilentMode,
+            audioUsage: settings.adhanAudioUsage,
           });
         }
       }
@@ -225,6 +270,8 @@ export function build14DayAdhanAlarmPlan(now: Date = new Date()): {
             ? SILENT_CHANNEL_ID
             : getAdhanChannelIdForMuezzin(muezzin.rawName),
           allowNotificationsDuringAdhan: settings.allowNotificationsDuringAdhan,
+          playAdhanInSilentMode: settings.playAdhanInSilentMode,
+          audioUsage: settings.adhanAudioUsage,
         });
       }
     }
@@ -268,6 +315,8 @@ export function build14DayAdhanAlarmPlan(now: Date = new Date()): {
           rawName: soundType === 'adhan' ? laylMuezzin.rawName : '',
           channelId,
           allowNotificationsDuringAdhan: settings.allowNotificationsDuringAdhan,
+          playAdhanInSilentMode: settings.playAdhanInSilentMode,
+          audioUsage: settings.adhanAudioUsage,
         });
       }
     }
@@ -322,6 +371,8 @@ export async function syncAdhanAndPrayerAlarms(): Promise<AdhanScheduleMeta> {
         alarms,
         expectedRawNames,
         allowNotificationsDuringAdhan: settings.allowNotificationsDuringAdhan,
+        playAdhanInSilentMode: settings.playAdhanInSilentMode,
+        audioUsage: settings.adhanAudioUsage,
       });
 
       const meta: AdhanScheduleMeta = {
@@ -352,7 +403,9 @@ export async function syncAdhanAndPrayerAlarms(): Promise<AdhanScheduleMeta> {
           channelId:
             Capacitor.getPlatform() === 'android' ? alarm.channelId : undefined,
           sound:
-            alarm.mode === 'adhan' && alarm.rawName ? alarm.rawName : undefined,
+            alarm.mode === 'adhan' && alarm.rawName
+              ? `${alarm.rawName}.mp3`
+              : undefined,
           autoCancel: true,
           foreground: true,
           isExactNotification: true,
@@ -433,6 +486,7 @@ export async function triggerPrayerAdhanTestNow(options: {
 
   if (isCustomAdhanPluginAvailable()) {
     try {
+      await syncAndroidAdhanNotificationChannels(settings);
       const res = await AdhanSchedulerPlugin.playTestAdhan({
         title,
         body,
@@ -445,6 +499,8 @@ export async function triggerPrayerAdhanTestNow(options: {
             ? LAYL_GENTLE_CHANNEL_ID
             : SILENT_CHANNEL_ID,
         allowNotificationsDuringAdhan: settings.allowNotificationsDuringAdhan,
+        playAdhanInSilentMode: settings.playAdhanInSilentMode,
+        audioUsage: settings.adhanAudioUsage,
       });
       if (mode !== 'silent') {
         syncNativeAdhanStateFromPlugin(true, title, muezzin.rawName);
@@ -479,6 +535,7 @@ export async function triggerPrayerAdhanTestNow(options: {
                   : mode === 'gentle'
                   ? LAYL_GENTLE_CHANNEL_ID
                   : SILENT_CHANNEL_ID,
+              sound: mode === 'adhan' ? `${muezzin.rawName}.mp3` : undefined,
               autoCancel: true,
               foreground: true,
             },
@@ -510,6 +567,131 @@ export async function triggerPrayerAdhanTestNow(options: {
   }
 
   return { ok: true, usedFallbackSound: false };
+}
+
+/**
+ * يجدول اختباراً حقيقياً على مستوى النظام بعد 10 ثوانٍ بصوت المؤذن المختار
+ * للتحقق من قناة الإشعار والمنبه وتشغيل الصوت عند قفل الشاشة أو الخروج من التطبيق.
+ */
+export async function scheduleAdhanTestIn10Seconds(options?: {
+  prayerKey?: PrayerAlertKey;
+  rawName?: string;
+}): Promise<{ ok: boolean; muezzinName: string; engine: string }> {
+  const settings = loadAdhanSettings();
+  const loc = loadPrayerLocationPreference();
+  const pKey: PrayerAlertKey = options?.prayerKey || 'fajr';
+  const rawName =
+    options?.rawName ||
+    settings.prayers[pKey]?.muezzinRawName ||
+    MUEZZIN_ENTRIES[0].rawName;
+  const muezzin = getMuezzinByRawName(rawName);
+  const channelId = getAdhanChannelIdForMuezzin(muezzin.rawName);
+  const triggerAtMs = Date.now() + 10_000;
+  const title = `اختبار الأذان (${muezzin.displayName})`;
+  const body = `${loc.cityLabel} · اختبار جدولة حقيقية بعد ١٠ ثوانٍ بصوت ${muezzin.displayName}`;
+
+  if (Capacitor.isNativePlatform()) {
+    await syncAndroidAdhanNotificationChannels(settings);
+
+    // Ensure channel exists specifically for the selected muezzin even if disabled
+    if (Capacitor.getPlatform() === 'android') {
+      await LocalNotifications.createChannel({
+        id: channelId,
+        name: `أذان ${muezzin.displayName}`,
+        description: `تنبيهات مواقيت الصلاة بصوت المؤذن ${muezzin.displayName}`,
+        importance: 5,
+        visibility: 1,
+        sound: `${muezzin.rawName}.mp3`,
+        vibration: true,
+        lights: true,
+        lightColor: '#B8924A',
+      }).catch(() => {});
+    }
+
+    if (isCustomAdhanPluginAvailable() && AdhanSchedulerPlugin.scheduleTestAlarm) {
+      try {
+        await AdhanSchedulerPlugin.scheduleTestAlarm({
+          id: TEST_DELAYED_ADHAN_NOTIF_ID,
+          triggerAtMs,
+          title,
+          body,
+          prayerKey: pKey,
+          mode: 'adhan',
+          rawName: muezzin.rawName,
+          channelId,
+          allowNotificationsDuringAdhan: settings.allowNotificationsDuringAdhan,
+          playAdhanInSilentMode: settings.playAdhanInSilentMode,
+          audioUsage: settings.adhanAudioUsage,
+        });
+        return {
+          ok: true,
+          muezzinName: muezzin.displayName,
+          engine: 'native-foreground',
+        };
+      } catch {
+        // Fall back to LocalNotifications 10s schedule
+      }
+    }
+
+    try {
+      await LocalNotifications.cancel({
+        notifications: [{ id: TEST_DELAYED_ADHAN_NOTIF_ID }],
+      }).catch(() => {});
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: TEST_DELAYED_ADHAN_NOTIF_ID,
+            title,
+            body,
+            channelId:
+              Capacitor.getPlatform() === 'android' ? channelId : undefined,
+            sound: `${muezzin.rawName}.mp3`,
+            autoCancel: true,
+            foreground: true,
+            isExactNotification: true,
+            schedule: {
+              at: new Date(triggerAtMs),
+              allowWhileIdle: true,
+            },
+            extra: {
+              prayerKey: pKey,
+              mode: 'adhan',
+              rawName: muezzin.rawName,
+            },
+          },
+        ],
+      });
+      return {
+        ok: true,
+        muezzinName: muezzin.displayName,
+        engine: 'local-notifications',
+      };
+    } catch {
+      return {
+        ok: false,
+        muezzinName: muezzin.displayName,
+        engine: 'local-notifications',
+      };
+    }
+  }
+
+  // Web preview fallback
+  window.setTimeout(() => {
+    void triggerPrayerAdhanTestNow({
+      prayerKey: pKey,
+      rawName: muezzin.rawName,
+      mode: 'adhan',
+      title,
+      body,
+    });
+  }, 10_000);
+
+  return {
+    ok: true,
+    muezzinName: muezzin.displayName,
+    engine: 'web',
+  };
 }
 
 export async function getCombinedAdhanDiagnostics(): Promise<CombinedAdhanDiagnostics> {

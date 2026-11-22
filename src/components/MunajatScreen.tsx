@@ -1,13 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   Bookmark,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Moon,
-  ScrollText,
   Search,
   Share2,
   Sun,
@@ -20,18 +19,16 @@ import {
   ReadingFocusSettings,
   getReadingUnitClasses,
   getSavedReadingPosition,
-  saveReadingPositionForKey,
   splitIntoReadableLines,
   useReadingFocusTracker,
 } from './ReadingFocusControls';
-import { ManuscriptBookFlip, ManuscriptBookPage } from './ManuscriptBookFlip';
+import { toArabicDigits } from '../utils/arabicNumbers';
+import { useFontsReady } from '../utils/fontsReady';
 import {
-  ReaderViewMode,
-  loadReaderViewMode,
-  paginateProseBlocks,
-  saveReaderViewMode,
-  toArabicDigits,
-} from '../utils/bookPagination';
+  getSavedItemScrollY,
+  saveItemScrollY,
+  useItemScrollPersistence,
+} from '../utils/readingScrollStorage';
 import { AudioReciterPlayer } from './AudioReciterPlayer';
 import { ENTRY_AUDIO_TRACKS } from '../data/reciterAudio';
 import { MUNAJAT_LIST } from '../data/munajat';
@@ -43,7 +40,7 @@ import {
 } from '../utils/appAppearance';
 import {
   AstrolabeIcon,
-  ManuscriptCornerBracket,
+  CornerOrnaments,
   ManuscriptDivider,
   MunajatMoonIcon,
 } from './IslamicOrnaments';
@@ -65,8 +62,6 @@ const FONT_SIZE_STEPS = [
   'text-2xl sm:text-3xl leading-[2.35]',
   'text-3xl sm:text-4xl leading-[2.4]',
 ];
-
-const FONT_PIXEL_VALUES = [18, 22, 26, 30];
 
 function normalizeArabicTitle(input: string): string {
   return input
@@ -95,14 +90,14 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
   useEffect(() => {
     return subscribeAppAppearance((s) => setNightMode(s.colorTheme === 'night'));
   }, []);
-  const [viewMode, setViewMode] = useState<ReaderViewMode>(() => loadReaderViewMode());
-  const [bookPage, setBookPage] = useState<number>(0);
   const [justAwarded, setJustAwarded] = useState<boolean>(false);
   const [sharePayload, setSharePayload] = useState<ShareCardPayload | null>(null);
   const focusTrackerEnabled = focusSettings.enabled;
   const focusTheme = focusSettings.theme;
   const readerBodyRef = useRef<HTMLDivElement | null>(null);
   const listScrollYRef = useRef<number>(0);
+  const pendingListRestoreRef = useRef<boolean>(false);
+  const fontsReady = useFontsReady();
 
   const normalizedQuery = useMemo(
     () => normalizeArabicTitle(searchQuery),
@@ -116,37 +111,65 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
     );
   }, [normalizedQuery]);
 
-  const activeMunajat: MunajatItem | null = useMemo(() => {
-    if (!openedId) return null;
-    return MUNAJAT_LIST.find((m) => m.id === openedId) || null;
+  const activeMunajatIndex = useMemo(() => {
+    if (!openedId) return -1;
+    return MUNAJAT_LIST.findIndex((m) => m.id === openedId);
   }, [openedId]);
+
+  const activeMunajat: MunajatItem | null =
+    activeMunajatIndex >= 0 ? MUNAJAT_LIST[activeMunajatIndex] : null;
+  const prevMunajat =
+    activeMunajatIndex > 0 ? MUNAJAT_LIST[activeMunajatIndex - 1] : null;
+  const nextMunajat =
+    activeMunajatIndex >= 0 && activeMunajatIndex < MUNAJAT_LIST.length - 1
+      ? MUNAJAT_LIST[activeMunajatIndex + 1]
+      : null;
 
   useEffect(() => {
     if (!activeMunajat) return;
     onSetLastRead?.('munajat', activeMunajat.id, activeMunajat.title);
   }, [activeMunajat?.id]);
 
+  // Persist and restore exact vertical scroll position per Munajat ID
+  useItemScrollPersistence({
+    itemId: activeMunajat ? activeMunajat.id : null,
+    ready: Boolean(activeMunajat) && fontsReady,
+  });
+
+  // Restore exact list scroll position upon returning from reader
+  useLayoutEffect(() => {
+    if (openedId !== null || !pendingListRestoreRef.current) return;
+    pendingListRestoreRef.current = false;
+    const restoreY = listScrollYRef.current;
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: restoreY, behavior: 'auto' });
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: restoreY, behavior: 'auto' });
+      });
+    }
+  }, [openedId]);
+
   const handleOpenMunajat = (id: string) => {
     listScrollYRef.current = typeof window !== 'undefined' ? window.scrollY : 0;
     setOpenedId(id);
     setJustAwarded(false);
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  const handleNavigateAdjacentMunajat = (targetId: string) => {
+    if (activeMunajat && typeof window !== 'undefined') {
+      saveItemScrollY(activeMunajat.id, window.scrollY);
     }
+    setOpenedId(targetId);
+    setJustAwarded(false);
   };
 
   const handleBackToList = () => {
-    const restoreY = listScrollYRef.current;
+    if (activeMunajat && typeof window !== 'undefined') {
+      saveItemScrollY(activeMunajat.id, window.scrollY);
+    }
+    pendingListRestoreRef.current = true;
     setOpenedId(null);
     setJustAwarded(false);
-    if (typeof window !== 'undefined') {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: restoreY, behavior: 'auto' });
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: restoreY, behavior: 'auto' });
-        });
-      });
-    }
   };
 
   useEffect(() => {
@@ -182,58 +205,9 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
   const { activeUnitIndex, setActiveUnitIndex } = useReadingFocusTracker({
     resetKey: activeMunajat?.id || 'munajat-list',
     unitCount,
-    enabled: Boolean(activeMunajat) && focusTrackerEnabled && viewMode === 'scroll',
+    enabled: Boolean(activeMunajat) && focusTrackerEnabled,
     contentRef: readerBodyRef,
   });
-
-  const handleChangeViewMode = (mode: ReaderViewMode) => {
-    setViewMode(mode);
-    saveReaderViewMode(mode);
-  };
-
-  const paginatedVerses = useMemo(() => {
-    if (!activeMunajat) return [];
-    const blocks = splitVerses.map((lines, idx) => ({
-      id: idx,
-      lines,
-      textLength: lines.reduce((sum, l) => sum + l.text.length, 0),
-      unitIndices: lines.map((l) => l.unitIdx),
-    }));
-    return paginateProseBlocks(
-      blocks,
-      FONT_PIXEL_VALUES[fontStep] ?? 22,
-      true
-    );
-  }, [activeMunajat, splitVerses, fontStep]);
-
-  useEffect(() => {
-    if (!activeMunajat) return;
-    const savedUnit = getSavedReadingPosition(activeMunajat.id);
-    if (savedUnit > 0 && paginatedVerses.length > 0) {
-      const targetIdx = paginatedVerses.findIndex((page) =>
-        page.items.some((item) => item.unitIndices.includes(savedUnit))
-      );
-      setBookPage(targetIdx >= 0 ? targetIdx : 0);
-    } else {
-      setBookPage(0);
-    }
-  }, [activeMunajat?.id]);
-
-  useEffect(() => {
-    if (paginatedVerses.length > 0 && bookPage >= paginatedVerses.length) {
-      setBookPage(Math.max(0, paginatedVerses.length - 1));
-    }
-  }, [paginatedVerses.length, bookPage]);
-
-  const handleBookPageChange = (nextPage: number) => {
-    setBookPage(nextPage);
-    if (!activeMunajat) return;
-    const slice = paginatedVerses[nextPage];
-    const firstUnit = slice?.items.find((it) => it.unitIndices.length > 0)?.unitIndices[0];
-    if (typeof firstUnit === 'number') {
-      saveReadingPositionForKey(activeMunajat.id, firstUnit);
-    }
-  };
 
   const completedCount = MUNAJAT_LIST.filter((m) =>
     completedReadingIds.includes(m.id)
@@ -309,87 +283,6 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
       })}
     </p>
   );
-
-  const bookPages: ManuscriptBookPage[] = useMemo(() => {
-    if (!activeMunajat) return [];
-    return paginatedVerses.map((slice, pIdx) => ({
-      id: `${activeMunajat.id}-page-${slice.pageNumber}`,
-      content: (
-        <div className="max-w-prose mx-auto">
-          {pIdx === 0 && (
-            <>
-              <header className="text-center pb-4">
-                <p
-                  className={`text-xs font-medium ${
-                    nightMode ? 'text-[#D9B96A]' : 'text-[#7A5E2A]'
-                  }`}
-                >
-                  المناجاة رقم {toArabicDigits(activeMunajat.number)} من ١٥ · الصحيفة السجادية
-                </p>
-                <h2
-                  className={`font-calligraphy font-bold text-3xl sm:text-4xl mt-1 ${
-                    nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
-                  }`}
-                >
-                  {activeMunajat.title}
-                </h2>
-                {isCompleted && (
-                  <div
-                    className={`mt-2 inline-flex items-center gap-1.5 text-xs font-bold ${
-                      nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                    <span>مقروءة</span>
-                  </div>
-                )}
-              </header>
-
-              <div
-                className={`my-4 pr-4 border-r-2 space-y-1.5 text-sm leading-relaxed ${
-                  nightMode
-                    ? 'border-[#D9B96A] text-[#C8B88A]'
-                    : 'border-[#B8924A] text-[#425B51]'
-                }`}
-              >
-                <p>
-                  <strong className={nightMode ? 'text-[#E8CE88]' : 'text-[#0F3D2E]'}>
-                    المعنى:{' '}
-                  </strong>
-                  {activeMunajat.quickMeaning}
-                </p>
-                <p>
-                  <strong className={nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'}>
-                    العبرة:{' '}
-                  </strong>
-                  {activeMunajat.lifeLesson}
-                </p>
-              </div>
-
-              <ManuscriptDivider variant="crescent" dark={nightMode} />
-            </>
-          )}
-
-          <div className="mt-4 space-y-6">
-            {slice.items.map((block) => (
-              <React.Fragment key={block.id}>
-                {renderVerseLines(block.lines)}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      ),
-    }));
-  }, [
-    paginatedVerses,
-    activeMunajat,
-    nightMode,
-    isCompleted,
-    fontStep,
-    focusTrackerEnabled,
-    focusTheme,
-    activeUnitIndex,
-  ]);
 
   // View 1: Single Unified List + Title Search
   if (!activeMunajat) {
@@ -472,7 +365,10 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
             visibleMunajat.map((item) => {
               const done = completedReadingIds.includes(item.id);
               const fav = bookmarkedIds.includes(item.id);
-              const hasProgress = !done && getSavedReadingPosition(item.id) > 0;
+              const hasProgress =
+                !done &&
+                (getSavedItemScrollY(item.id) > 0 ||
+                  getSavedReadingPosition(item.id) > 0);
 
               return (
                 <div
@@ -543,10 +439,10 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
     );
   }
 
-  // View 2: Full-Page Single Munajat Reader
+  // View 2: Static Single-Page Continuous Munajat Reader (Zero reflow / Zero animations)
   return (
     <main className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 mb-5 pb-3.5 border-b border-[#B8924A]/35">
+      <div className="min-h-[58px] flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 mb-5 pb-3.5 border-b border-[#B8924A]/35">
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
@@ -568,39 +464,6 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <div
-            role="group"
-            aria-label="نمط عرض الصفحات"
-            className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[5px] p-0.5"
-          >
-            <button
-              type="button"
-              onClick={() => handleChangeViewMode('book')}
-              aria-pressed={viewMode === 'book'}
-              className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-                viewMode === 'book'
-                  ? 'bg-[#0F3D2E] text-[#FAF6EC]'
-                  : 'text-[#425B51] hover:text-[#0F3D2E]'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>كتاب</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleChangeViewMode('scroll')}
-              aria-pressed={viewMode === 'scroll'}
-              className={`min-h-[38px] px-3 py-1 rounded-[4px] font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-                viewMode === 'scroll'
-                  ? 'bg-[#0F3D2E] text-[#FAF6EC]'
-                  : 'text-[#425B51] hover:text-[#0F3D2E]'
-              }`}
-            >
-              <ScrollText className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>متصل</span>
-            </button>
-          </div>
-
           <div className="inline-flex items-center bg-[#FAF6EC] border border-[#B8924A]/50 rounded-[5px] p-0.5">
             <button
               type="button"
@@ -663,284 +526,209 @@ export const MunajatScreen: React.FC<MunajatScreenProps> = ({
         </div>
       </div>
 
-      {viewMode === 'book' ? (
-        <div className="space-y-4">
-          <div
-            className={`rounded-[6px] border p-4 transition-colors duration-300 ${
-              nightMode
-                ? 'manuscript-folio-dark'
-                : 'manuscript-folio paper-grain text-[#11271F]'
-            }`}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {onToggleBookmark && (
-                  <button
-                    type="button"
-                    onClick={() => onToggleBookmark(activeMunajat.id)}
-                    className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                      isBookmarked
-                        ? nightMode
-                          ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
-                          : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
-                        : nightMode
-                        ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80'
-                        : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51]'
-                    }`}
-                  >
-                    <Bookmark
-                      className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`}
-                      aria-hidden="true"
-                    />
-                    <span>{isBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
-                  </button>
-                )}
+      <section
+        aria-label="لوحة قراءة المناجاة"
+        className={`relative rounded-[6px] p-7 sm:p-10 transition-colors duration-200 ${
+          nightMode ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
+        }`}
+      >
+        <CornerOrnaments tone={nightMode ? 'dark' : 'auto'} />
 
-                <button
-                  type="button"
-                  onClick={handleOpenShareCard}
-                  className={`min-h-[38px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                    nightMode
-                      ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A]'
-                      : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
-                  }`}
-                >
-                  <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>مشاركة كبطاقة</span>
-                </button>
-              </div>
-            </div>
-
-            <AudioReciterPlayer
-              mode="entry"
-              entryId={activeMunajat.id}
-              entryTitle={activeMunajat.title}
-              tracks={ENTRY_AUDIO_TRACKS[activeMunajat.id] || []}
-              nightMode={nightMode}
-            />
-          </div>
-
-          <ManuscriptBookFlip
-            bookKey={activeMunajat.id}
-            title={activeMunajat.title}
-            pages={bookPages}
-            currentPage={bookPage}
-            onPageChange={handleBookPageChange}
-            nightMode={nightMode}
-            pageFlipSoundEnabled={focusSettings.pageFlipSound}
-            colophonFooter={
-              <div className="space-y-3">
-                {justAwarded && (
-                  <div className="rounded-[5px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] p-3.5 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
-                    <span>بارك الله فيك! تم تسجيل إتمام قراءة هذه المناجاة</span>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  {isCompleted ? (
-                    <div
-                      className={`flex items-center gap-2 font-bold text-sm ${
-                        nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                      <span>أتممت قراءة هذه المناجاة المباركة</span>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleFinishReading}
-                      className={`w-full sm:w-auto min-h-[46px] px-7 py-2 text-base flex items-center justify-center gap-2 cursor-pointer ${
-                        nightMode ? 'btn-gilded' : 'btn-emerald'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                      <span>أتممت القراءة</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleOpenShareCard}
-                    className="min-h-[42px] px-4 py-2 btn-manuscript text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Share2 className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
-                    <span>مشاركة كبطاقة</span>
-                  </button>
-                </div>
-              </div>
-            }
-          />
-        </div>
-      ) : (
-        <motion.div
-          key={activeMunajat.id}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          className={`relative rounded-[6px] p-5 sm:p-10 transition-colors duration-300 ${
-            nightMode ? 'manuscript-folio-dark' : 'manuscript-folio paper-grain'
-          }`}
-        >
-          <ManuscriptCornerBracket
-            position="top-right"
-            color={nightMode ? '#D9B96A' : '#B8924A'}
-            className="absolute top-2.5 right-2.5"
-          />
-          <ManuscriptCornerBracket
-            position="top-left"
-            color={nightMode ? '#D9B96A' : '#B8924A'}
-            className="absolute top-2.5 left-2.5"
-          />
-
-          <div className="max-w-prose mx-auto">
-            <header className="text-center pb-4">
-              <p
-                className={`text-xs font-medium ${
-                  nightMode ? 'text-[#D9B96A]' : 'text-[#7A5E2A]'
-                }`}
-              >
-                المناجاة رقم {toArabicDigits(activeMunajat.number)} من ١٥ · الصحيفة السجادية
-              </p>
-              <h2
-                className={`font-calligraphy font-bold text-3xl sm:text-4xl mt-1 ${
-                  nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
-                }`}
-              >
-                {activeMunajat.title}
-              </h2>
-
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                {onToggleBookmark && (
-                  <button
-                    type="button"
-                    onClick={() => onToggleBookmark(activeMunajat.id)}
-                    className={`min-h-[36px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                      isBookmarked
-                        ? nightMode
-                          ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
-                          : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
-                        : nightMode
-                        ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80'
-                        : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51]'
-                    }`}
-                  >
-                    <Bookmark
-                      className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`}
-                      aria-hidden="true"
-                    />
-                    <span>{isBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleOpenShareCard}
-                  className={`min-h-[36px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                    nightMode
-                      ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A]'
-                      : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
-                  }`}
-                >
-                  <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>مشاركة كبطاقة</span>
-                </button>
-
-                {isCompleted && (
-                  <div
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold ${
-                      nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                    <span>مقروءة</span>
-                  </div>
-                )}
-              </div>
-            </header>
-
-            <AudioReciterPlayer
-              mode="entry"
-              entryId={activeMunajat.id}
-              entryTitle={activeMunajat.title}
-              tracks={ENTRY_AUDIO_TRACKS[activeMunajat.id] || []}
-              nightMode={nightMode}
-            />
-
-            <div
-              className={`my-5 pr-4 border-r-2 space-y-1.5 text-sm leading-relaxed ${
-                nightMode
-                  ? 'border-[#D9B96A] text-[#C8B88A]'
-                  : 'border-[#B8924A] text-[#425B51]'
+        <div className="max-w-prose mx-auto">
+          <header className="text-center pb-4">
+            <p
+              className={`text-xs font-medium ${
+                nightMode ? 'text-[#D9B96A]' : 'text-[#7A5E2A]'
               }`}
             >
-              <p>
-                <strong className={nightMode ? 'text-[#E8CE88]' : 'text-[#0F3D2E]'}>
-                  المعنى:{' '}
-                </strong>
-                {activeMunajat.quickMeaning}
-              </p>
-              <p>
-                <strong className={nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'}>
-                  العبرة:{' '}
-                </strong>
-                {activeMunajat.lifeLesson}
-              </p>
-            </div>
+              المناجاة رقم {toArabicDigits(activeMunajat.number)} من ١٥ · الصحيفة السجادية
+            </p>
+            <h2
+              className={`font-calligraphy font-bold text-3xl sm:text-4xl mt-1 ${
+                nightMode ? 'text-[#F3EBD6]' : 'text-[#0F3D2E]'
+              }`}
+            >
+              {activeMunajat.title}
+            </h2>
 
-            <ManuscriptDivider variant="crescent" dark={nightMode} />
-
-            <div className="mt-6 space-y-6" ref={readerBodyRef}>
-              {splitVerses.map((lines, idx) => (
-                <React.Fragment key={idx}>
-                  {renderVerseLines(lines)}
-                </React.Fragment>
-              ))}
-            </div>
-
-            {justAwarded && (
-              <div className="mt-6 rounded-[5px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] p-4 font-display font-bold text-base flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
-                <span>بارك الله فيك! تم تسجيل إتمام قراءة هذه المناجاة</span>
-              </div>
-            )}
-
-            <div className="mt-8 pt-5 border-t border-[#B8924A]/30 flex flex-wrap items-center justify-between gap-4">
-              {isCompleted ? (
-                <div
-                  className={`flex items-center gap-2 font-bold text-sm ${
-                    nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
-                  }`}
-                >
-                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                  <span>أتممت قراءة هذه المناجاة المباركة</span>
-                </div>
-              ) : (
+            <div className="mt-3 min-h-[38px] flex flex-wrap items-center justify-center gap-2">
+              {onToggleBookmark && (
                 <button
                   type="button"
-                  onClick={handleFinishReading}
-                  className={`w-full sm:w-auto min-h-[48px] px-7 py-2.5 text-base flex items-center justify-center gap-2 cursor-pointer ${
-                    nightMode ? 'btn-gilded' : 'btn-emerald'
+                  onClick={() => onToggleBookmark(activeMunajat.id)}
+                  className={`min-h-[36px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    isBookmarked
+                      ? nightMode
+                        ? 'bg-[#D9B96A]/20 border-[#D9B96A] text-[#D9B96A]'
+                        : 'bg-[#F3ECDA] border-[#B8924A] text-[#0F3D2E]'
+                      : nightMode
+                      ? 'bg-[#081A14] border-[#B8924A]/35 text-[#F3EBD6]/80'
+                      : 'bg-[#FAF6EC] border-[#B8924A]/40 text-[#425B51]'
                   }`}
                 >
-                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                  <span>أتممت القراءة</span>
+                  <Bookmark
+                    className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`}
+                    aria-hidden="true"
+                  />
+                  <span>{isBookmarked ? 'في المفضلة' : 'حفظ العلامة'}</span>
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={handleOpenShareCard}
-                className="min-h-[42px] px-4 py-2 btn-manuscript text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer"
+                className={`min-h-[36px] px-3 py-1 rounded-[5px] border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                  nightMode
+                    ? 'bg-[#081A14] border-[#B8924A]/35 text-[#D9B96A]'
+                    : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
+                }`}
               >
-                <Share2 className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+                <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>مشاركة كبطاقة</span>
               </button>
+
+              {isCompleted && (
+                <div
+                  className={`inline-flex items-center gap-1.5 text-xs font-bold ${
+                    nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                  <span>مقروءة</span>
+                </div>
+              )}
             </div>
+          </header>
+
+          <AudioReciterPlayer
+            mode="entry"
+            entryId={activeMunajat.id}
+            entryTitle={activeMunajat.title}
+            tracks={ENTRY_AUDIO_TRACKS[activeMunajat.id] || []}
+            nightMode={nightMode}
+          />
+
+          <div
+            className={`my-5 pr-4 border-r-2 space-y-1.5 text-sm leading-relaxed ${
+              nightMode
+                ? 'border-[#D9B96A] text-[#C8B88A]'
+                : 'border-[#B8924A] text-[#425B51]'
+            }`}
+          >
+            <p>
+              <strong className={nightMode ? 'text-[#E8CE88]' : 'text-[#0F3D2E]'}>
+                المعنى:{' '}
+              </strong>
+              {activeMunajat.quickMeaning}
+            </p>
+            <p>
+              <strong className={nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'}>
+                العبرة:{' '}
+              </strong>
+              {activeMunajat.lifeLesson}
+            </p>
           </div>
-        </motion.div>
-      )}
+
+          <ManuscriptDivider variant="crescent" dark={nightMode} />
+
+          <div
+            className={`mt-6 space-y-6 ${fontsReady ? 'opacity-100' : 'opacity-0'}`}
+            ref={readerBodyRef}
+          >
+            {splitVerses.map((lines, idx) => (
+              <React.Fragment key={idx}>
+                {renderVerseLines(lines)}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {justAwarded && (
+            <div className="mt-6 rounded-[5px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] p-4 font-display font-bold text-base flex items-center justify-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-[#D9B96A]" aria-hidden="true" />
+              <span>بارك الله فيك! تم تسجيل إتمام قراءة هذه المناجاة</span>
+            </div>
+          )}
+
+          <div className="mt-8 pt-5 border-t border-[#B8924A]/30 flex flex-wrap items-center justify-between gap-4">
+            {isCompleted ? (
+              <div
+                className={`flex items-center gap-2 font-bold text-sm ${
+                  nightMode ? 'text-[#9FD3C2]' : 'text-[#1F6B50]'
+                }`}
+              >
+                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                <span>أتممت قراءة هذه المناجاة المباركة</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinishReading}
+                className={`w-full sm:w-auto min-h-[48px] px-7 py-2.5 text-base flex items-center justify-center gap-2 cursor-pointer ${
+                  nightMode ? 'btn-gilded' : 'btn-emerald'
+                }`}
+              >
+                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                <span>أتممت القراءة</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleOpenShareCard}
+              className="min-h-[42px] px-4 py-2 btn-manuscript text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Share2 className="w-4 h-4 text-[#0F3D2E]" aria-hidden="true" />
+              <span>مشاركة كبطاقة</span>
+            </button>
+          </div>
+
+          {/* Static Previous / Next Munajat Navigation */}
+          <nav
+            aria-label="التنقل بين المناجاة"
+            className="mt-6 pt-5 border-t border-[#B8924A]/25 grid grid-cols-1 sm:grid-cols-2 gap-3"
+          >
+            <button
+              type="button"
+              disabled={!prevMunajat}
+              onClick={() => prevMunajat && handleNavigateAdjacentMunajat(prevMunajat.id)}
+              className={`min-h-[48px] px-4 py-2.5 rounded-[6px] border text-right flex items-center justify-between gap-2 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed transition-colors ${
+                nightMode
+                  ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#F3EBD6] hover:bg-[#113127]'
+                  : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
+              }`}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <ChevronRight className="w-4 h-4 shrink-0 text-[#B8924A]" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="block text-[11px] opacity-75">السابق</span>
+                  <span className="block font-display font-bold text-xs sm:text-sm truncate">
+                    {prevMunajat ? prevMunajat.title : 'أول القائمة'}
+                  </span>
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              disabled={!nextMunajat}
+              onClick={() => nextMunajat && handleNavigateAdjacentMunajat(nextMunajat.id)}
+              className={`min-h-[48px] px-4 py-2.5 rounded-[6px] border text-left flex items-center justify-end gap-2 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed transition-colors ${
+                nightMode
+                  ? 'bg-[#081A14] border-[#D9B96A]/35 text-[#F3EBD6] hover:bg-[#113127]'
+                  : 'bg-[#FAF6EC] border-[#B8924A]/45 text-[#0F3D2E] hover:bg-[#F3ECDA]'
+              }`}
+            >
+              <span className="min-w-0 text-left">
+                <span className="block text-[11px] opacity-75">التالي</span>
+                <span className="block font-display font-bold text-xs sm:text-sm truncate">
+                  {nextMunajat ? nextMunajat.title : 'آخر القائمة'}
+                </span>
+              </span>
+              <ChevronLeft className="w-4 h-4 shrink-0 text-[#B8924A]" aria-hidden="true" />
+            </button>
+          </nav>
+        </div>
+      </section>
 
       <ShareCardModal
         payload={sharePayload}

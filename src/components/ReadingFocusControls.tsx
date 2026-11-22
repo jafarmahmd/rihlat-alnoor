@@ -44,7 +44,6 @@ export type ReadingFocusTheme = 'emerald' | 'amber' | 'slate';
 export interface ReadingFocusSettings {
   enabled: boolean;
   theme: ReadingFocusTheme;
-  pageFlipSound: boolean;
 }
 
 const FOCUS_SETTINGS_STORAGE_KEY = 'rihlat_alnoor_reading_focus_v1';
@@ -52,7 +51,6 @@ const FOCUS_SETTINGS_STORAGE_KEY = 'rihlat_alnoor_reading_focus_v1';
 export const DEFAULT_READING_FOCUS_SETTINGS: ReadingFocusSettings = {
   enabled: true,
   theme: 'emerald',
-  pageFlipSound: false,
 };
 
 export function loadReadingFocusSettings(): ReadingFocusSettings {
@@ -70,8 +68,6 @@ export function loadReadingFocusSettings(): ReadingFocusSettings {
     return {
       enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : true,
       theme: validTheme,
-      pageFlipSound:
-        typeof parsed.pageFlipSound === 'boolean' ? parsed.pageFlipSound : false,
     };
   } catch {
     return DEFAULT_READING_FOCUS_SETTINGS;
@@ -193,12 +189,12 @@ export function getReadingUnitClasses(options: {
   const themeConfig = getReadingFocusThemeConfig(theme);
 
   if (isActive) {
-    return `inline box-decoration-clone rounded-[4px] px-2 py-0.5 transition-all duration-150 cursor-pointer ${
+    return `inline box-decoration-clone rounded-[4px] px-1 py-0.5 transition-colors duration-150 cursor-pointer ${
       nightMode ? themeConfig.nightActiveClass : themeConfig.lightActiveClass
     }`;
   }
 
-  return `inline box-decoration-clone rounded-[4px] px-1 py-0.5 transition-all duration-150 cursor-pointer ${
+  return `inline box-decoration-clone rounded-[4px] px-1 py-0.5 transition-colors duration-150 cursor-pointer ${
     nightMode
       ? 'text-[#F3EBD6]/75 hover:text-[#FAF6EC] hover:bg-[#13382C]/65'
       : 'text-[#11271F]/80 hover:text-[#0F3D2E] hover:bg-[#B8924A]/15'
@@ -284,18 +280,8 @@ export function useReadingFocusTracker({
     const saved = getSavedReadingPosition(itemKey);
     const clamped = Math.max(0, Math.min(unitCount - 1, saved));
     setActiveUnitIndex(clamped);
-
-    const restoreSignature = `${resetKey}:${unitCount}:${enabled ? 1 : 0}`;
-    if (clamped > 0 && restoredForKeyRef.current !== restoreSignature) {
-      restoredForKeyRef.current = restoreSignature;
-      programmaticScrollUntilRef.current = Date.now() + 900;
-      const timer = window.setTimeout(() => {
-        scrollUnitIntoView(clamped);
-      }, 140);
-      return () => window.clearTimeout(timer);
-    }
-    restoredForKeyRef.current = restoreSignature;
-  }, [resetKey, itemKey, unitCount, enabled, scrollUnitIntoView]);
+    restoredForKeyRef.current = `${resetKey}:${unitCount}:${enabled ? 1 : 0}`;
+  }, [resetKey, itemKey, unitCount, enabled]);
 
   useEffect(() => {
     if (!enabled || unitCount <= 0) return;
@@ -814,7 +800,7 @@ export const ReadingSettingsModal: React.FC<ReadingSettingsModalProps> = ({
                   <span
                     className={
                       settings.enabled
-                        ? `inline box-decoration-clone rounded-[4px] px-2 py-0.5 ${activeThemeConfig.lightActiveClass}`
+                        ? `inline box-decoration-clone rounded-[4px] px-1 py-0.5 ${activeThemeConfig.lightActiveClass}`
                         : ''
                     }
                   >
@@ -823,40 +809,6 @@ export const ReadingSettingsModal: React.FC<ReadingSettingsModalProps> = ({
                   <span> وَآنِسْنَا بِالذِّكْرِ الْخَفِيِّ.</span>
                 </p>
               </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...settings,
-                    pageFlipSound: !settings.pageFlipSound,
-                  })
-                }
-                aria-pressed={settings.pageFlipSound}
-                className={`mt-4 w-full p-3.5 rounded-[5px] border flex items-center justify-between gap-3 cursor-pointer transition-colors text-right ${
-                  settings.pageFlipSound
-                    ? 'bg-[#F3ECDA]/85 border-[#0F3D2E] text-[#0F3D2E]'
-                    : 'bg-[#FAF6EC] border-[#B8924A]/35 text-[#425B51]'
-                }`}
-              >
-                <div>
-                  <div className="font-display font-bold text-sm">
-                    صوت تقليب الورق في وضع الكتاب
-                  </div>
-                  <p className="text-xs text-[#425B51] mt-0.5 leading-relaxed">
-                    صوت همس ورقي خفيف عند الانتقال بين صفحات القرآن والأدعية.
-                  </p>
-                </div>
-                <span
-                  className={`px-3 py-1 rounded-[4px] text-xs font-bold shrink-0 ${
-                    settings.pageFlipSound
-                      ? 'bg-[#0F3D2E] text-[#FAF6EC]'
-                      : 'bg-[#E5DEC9] text-[#425B51]'
-                  }`}
-                >
-                  {settings.pageFlipSound ? 'مفعّل' : 'متوقف'}
-                </span>
-              </button>
             </>
           ) : (
             <div className="space-y-4">

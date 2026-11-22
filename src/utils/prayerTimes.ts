@@ -5,6 +5,7 @@ import {
   Madhab,
   PrayerTimes,
   Qibla,
+  SunnahTimes,
 } from 'adhan';
 import {
   AdhanSettings,
@@ -33,8 +34,10 @@ export interface PrayerTimesData {
     sunrise: string;
     dhuhr: string;
     asr: string;
+    sunset: string;
     maghrib: string;
     isha: string;
+    midnight: string;
   };
   /** مواعيد Date الدقيقة لكل صلاة (تستخدم للجدولة والتنبيهات) */
   dateObjects: {
@@ -42,8 +45,10 @@ export interface PrayerTimesData {
     sunrise: Date;
     dhuhr: Date;
     asr: Date;
+    sunset: Date;
     maghrib: Date;
     isha: Date;
+    midnight: Date;
   };
   fetchedAt: number;
 }
@@ -54,6 +59,10 @@ export interface PrayerLocationPreference {
   lat: number;
   lng: number;
   cityLabel: string;
+  governorate?: string;
+  city?: string;
+  country?: string;
+  updatedAt?: number;
 }
 
 export interface NextPrayerInfo {
@@ -102,6 +111,15 @@ export function getTodayIso(date: Date = new Date()): string {
   ).padStart(2, '0')}`;
 }
 
+export function hasSavedPrayerLocationPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return Boolean(window.localStorage.getItem(LOCATION_STORAGE_KEY));
+  } catch {
+    return false;
+  }
+}
+
 export function loadPrayerLocationPreference(): PrayerLocationPreference {
   const defaultCity = PRESET_CITIES[0]; // Najaf
   const fallback: PrayerLocationPreference = {
@@ -110,6 +128,9 @@ export function loadPrayerLocationPreference(): PrayerLocationPreference {
     lat: defaultCity.lat,
     lng: defaultCity.lng,
     cityLabel: defaultCity.nameAr,
+    governorate: 'محافظة النجف الأشرف',
+    city: defaultCity.nameAr,
+    country: defaultCity.countryAr,
   };
   if (typeof window === 'undefined') return fallback;
   try {
@@ -127,6 +148,12 @@ export function loadPrayerLocationPreference(): PrayerLocationPreference {
         lat: parsed.lat,
         lng: parsed.lng,
         cityLabel: parsed.cityLabel,
+        governorate:
+          typeof parsed.governorate === 'string' ? parsed.governorate : undefined,
+        city: typeof parsed.city === 'string' ? parsed.city : undefined,
+        country: typeof parsed.country === 'string' ? parsed.country : undefined,
+        updatedAt:
+          typeof parsed.updatedAt === 'number' ? parsed.updatedAt : undefined,
       };
     }
     return fallback;
@@ -234,6 +261,7 @@ export function computeLocalAdhanPrayerTimes(
   const coords = new Coordinates(lat, lng);
   const { params, methodLabel } = buildCalculationParameters(settings);
   const prayerTimes = new PrayerTimes(coords, date, params);
+  const sunnahTimes = new SunnahTimes(prayerTimes);
 
   return {
     dateIso: getTodayIso(date),
@@ -247,16 +275,20 @@ export function computeLocalAdhanPrayerTimes(
       sunrise: formatDateToHHMM(prayerTimes.sunrise),
       dhuhr: formatDateToHHMM(prayerTimes.dhuhr),
       asr: formatDateToHHMM(prayerTimes.asr),
+      sunset: formatDateToHHMM(prayerTimes.sunset),
       maghrib: formatDateToHHMM(prayerTimes.maghrib),
       isha: formatDateToHHMM(prayerTimes.isha),
+      midnight: formatDateToHHMM(sunnahTimes.middleOfTheNight),
     },
     dateObjects: {
       fajr: prayerTimes.fajr,
       sunrise: prayerTimes.sunrise,
       dhuhr: prayerTimes.dhuhr,
       asr: prayerTimes.asr,
+      sunset: prayerTimes.sunset,
       maghrib: prayerTimes.maghrib,
       isha: prayerTimes.isha,
+      midnight: sunnahTimes.middleOfTheNight,
     },
     fetchedAt: Date.now(),
   };

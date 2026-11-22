@@ -226,33 +226,104 @@ export const ManuscriptDivider: React.FC<{
   );
 };
 
+export type CornerPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+export type CornerOrnamentsVariant = 'all' | 'top' | 'diagonal';
+export type CornerOrnamentsTone = 'auto' | 'light' | 'dark';
+
+const ALL_CORNERS: CornerPosition[] = [
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right',
+];
+
+const TOP_CORNERS: CornerPosition[] = ['top-left', 'top-right'];
+const DIAGONAL_CORNERS: CornerPosition[] = ['top-right', 'bottom-left'];
+
+/**
+ * Single canonical top-left corner SVG ornament, mirrored via CSS scaleX/scaleY
+ * on physical coordinates (top/left/right/bottom) so all 4 corners are 100% symmetrical
+ * regardless of RTL direction and follow rounded-[6px] container curvature cleanly.
+ */
 export const ManuscriptCornerBracket: React.FC<{
-  position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+  position: CornerPosition;
   color?: string;
+  tone?: CornerOrnamentsTone;
   className?: string;
-}> = ({ position, color = '#B8924A', className = '' }) => {
-  const rotation =
-    position === 'top-right'
-      ? 'rotate(0)'
-      : position === 'top-left'
-      ? 'scale(-1, 1)'
-      : position === 'bottom-right'
-      ? 'scale(1, -1)'
-      : 'scale(-1, -1)';
+}> = ({ position, color, tone = 'auto', className = '' }) => {
+  const toneAttr = tone === 'auto' ? undefined : tone;
+  const strokeColor = color ?? 'currentColor';
 
   return (
     <svg
       viewBox="0 0 36 36"
       fill="none"
-      className={`w-7 h-7 pointer-events-none select-none ${className}`}
-      style={{ transform: rotation }}
+      data-corner-tone={toneAttr}
+      className={`corner-ornament corner-ornament--${position} ${className}`.trim()}
+      style={color ? { color } : undefined}
       aria-hidden="true"
     >
-      <path d="M33 3H11C6.5 3 3 6.5 3 11v22" stroke={color} strokeWidth="1.2" strokeOpacity="0.7" />
-      <path d="M27 7H12c-2.8 0-5 2.2-5 5v15" stroke={color} strokeWidth="0.75" strokeOpacity="0.45" />
-      <path d="M11 3l2.5 3.5L10 10 6.5 6.5 11 3Z" fill={color} fillOpacity="0.28" stroke={color} strokeWidth="0.8" />
-      <circle cx="6.5" cy="6.5" r="1.3" fill={color} />
+      {/* Outer gilded bracket arm curving outward to match rounded-[6px] frame */}
+      <path
+        d="M33.5 2.5H7.2A4.7 4.7 0 0 0 2.5 7.2V33.5"
+        stroke={strokeColor}
+        strokeOpacity="0.82"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        style={{ strokeWidth: 'var(--corner-stroke)' }}
+      />
+      {/* Parallel inner hairline accent */}
+      <path
+        d="M25.5 6.5H9.5A3 3 0 0 0 6.5 9.5V25.5"
+        stroke={strokeColor}
+        strokeOpacity="0.48"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        style={{ strokeWidth: 'calc(var(--corner-stroke) * 0.65)' }}
+      />
+      {/* Corner illuminated diamond jewel */}
+      <path
+        d="M12 9.2L14.8 12L12 14.8L9.2 12Z"
+        fill={strokeColor}
+        fillOpacity="0.26"
+        stroke={strokeColor}
+        strokeOpacity="0.85"
+        vectorEffect="non-scaling-stroke"
+        style={{ strokeWidth: 'calc(var(--corner-stroke) * 0.7)' }}
+      />
+      <circle cx="12" cy="12" r="1.1" fill={strokeColor} fillOpacity="0.92" />
+      {/* Subtle tip finials */}
+      <circle cx="33.5" cy="2.5" r="1" fill={strokeColor} fillOpacity="0.72" />
+      <circle cx="2.5" cy="33.5" r="1" fill={strokeColor} fillOpacity="0.72" />
     </svg>
+  );
+};
+
+export const CornerOrnaments: React.FC<{
+  variant?: CornerOrnamentsVariant;
+  tone?: CornerOrnamentsTone;
+  color?: string;
+  className?: string;
+}> = ({ variant = 'all', tone = 'auto', color, className = '' }) => {
+  const positions =
+    variant === 'top'
+      ? TOP_CORNERS
+      : variant === 'diagonal'
+      ? DIAGONAL_CORNERS
+      : ALL_CORNERS;
+
+  return (
+    <>
+      {positions.map((pos) => (
+        <ManuscriptCornerBracket
+          key={pos}
+          position={pos}
+          tone={tone}
+          color={color}
+          className={className}
+        />
+      ))}
+    </>
   );
 };
 
@@ -390,3 +461,302 @@ export const ManuscriptSpinner: React.FC<{ label?: string; dark?: boolean }> = (
     </span>
   </div>
 );
+
+/* =========================================================
+ * 4. Home Screen Bespoke Single-Stroke Icon Set & SVG Artworks
+ * ========================================================= */
+
+export const InfoCircleArchIcon: React.FC<IconProps> = ({ className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="12" cy="12" r="8.8" />
+    <path d="M12 11.2v4.8" />
+    <circle cx="12" cy="8.1" r="0.9" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const BookmarkStarIcon: React.FC<IconProps> = ({ className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M6.5 4.2h11a1.5 1.5 0 0 1 1.5 1.5v14.8l-7-4.1-7 4.1V5.7a1.5 1.5 0 0 1 1.5-1.5Z" />
+    <path d="M12 7.8l.85 1.75 1.95.28-1.4 1.36.33 1.93L12 12.2l-1.73.92.33-1.93-1.4-1.36 1.95-.28L12 7.8Z" />
+  </svg>
+);
+
+export const SearchCrescentIcon: React.FC<IconProps> = ({ className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="10.8" cy="10.8" r="6.6" />
+    <path d="M15.6 15.6l4.4 4.4" />
+    <path d="M10.8 7.5v1M8.2 10.8h1" />
+  </svg>
+);
+
+export const PinArchIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M12 20.8s6-5.2 6-10.3a6 6 0 1 0-12 0c0 5.1 6 10.3 6 10.3Z" />
+    <circle cx="12" cy="10.4" r="2.1" />
+  </svg>
+);
+
+export const FajrHorizonIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M4 17.5h16" />
+    <path d="M7.5 17.5a4.5 4.5 0 0 1 9 0" />
+    <path d="M12 6.5v2.2M6.2 9.5l1.5 1.5M17.8 9.5l-1.5 1.5" />
+  </svg>
+);
+
+export const SunriseOrbIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M3.5 18h17" />
+    <path d="M7 18a5 5 0 0 1 10 0" />
+    <path d="M12 5.2V8M9.8 7.4L12 5.2l2.2 2.2M5.5 11.2l1.6 1.1M18.5 11.2l-1.6 1.1" />
+  </svg>
+);
+
+export const NoonSunIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M18 6l-1.6 1.6M7.6 16.4L6 18" />
+  </svg>
+);
+
+export const AsrSunIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="11" cy="11" r="3.6" />
+    <path d="M11 4v1.8M11 16.2V18M4 11h1.8M16.2 11H18M6.1 6.1l1.3 1.3M14.6 14.6l1.3 1.3" />
+    <path d="M4 19.5h16" />
+  </svg>
+);
+
+export const SunsetHorizonIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M3.5 17h17" />
+    <path d="M7.5 17a4.5 4.5 0 0 1 9 0" />
+    <path d="M12 9.5V6M9.8 7.3L12 9.5l2.2-2.2" />
+  </svg>
+);
+
+export const MaghribCrescentIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M15.2 5.4a6.4 6.4 0 1 0 3.6 11.2A5.3 5.3 0 0 1 15.2 5.4Z" />
+    <path d="M4 19.2h16" />
+  </svg>
+);
+
+export const IshaStarsIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M14.5 5a6.5 6.5 0 1 0 4.5 11.1A5.4 5.4 0 0 1 14.5 5Z" />
+    <path d="M17.5 5.5v2.6M16.2 6.8h2.6M19.5 10.2v1.6M18.7 11h1.6" />
+  </svg>
+);
+
+export const MidnightStarMoonIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M12 4.2l1.2 3.1 3.1 1.2-3.1 1.2L12 12.8l-1.2-3.1-3.1-1.2 3.1-1.2L12 4.2Z" />
+    <path d="M5.5 15.5c2 2.2 4.2 3.3 6.5 3.3s4.5-1.1 6.5-3.3" />
+    <circle cx="6.2" cy="7.5" r="0.8" fill="currentColor" stroke="none" />
+    <circle cx="18.2" cy="14" r="0.8" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const MafatihKeyIcon: React.FC<IconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="8.5" cy="9.5" r="4.2" />
+    <circle cx="8.5" cy="9.5" r="1.4" />
+    <path d="M11.6 12.6L19.5 20.5M16.2 17.2l2.1-2.1M14.2 19.2l1.6-1.6" />
+  </svg>
+);
+
+export const WeeklySunScrollIcon: React.FC<IconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <rect x="4" y="5.5" width="16" height="14.5" rx="2.5" />
+    <path d="M8 3.5v3.5M16 3.5v3.5M4 10h16" />
+    <path d="M8.5 14h2.5M13 14h2.5M8.5 17h5" />
+  </svg>
+);
+
+export const SeasonalCrescentCalendarIcon: React.FC<IconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M12 3.2c-4.2 1.8-6.5 4.8-6.5 8.8 0 4.2 3 7.5 6.5 8.8 3.5-1.3 6.5-4.6 6.5-8.8 0-4-2.3-7-6.5-8.8Z" />
+    <path d="M13.6 8.8a3.2 3.2 0 1 0 1.8 5.8 2.6 2.6 0 0 1-1.8-5.8Z" />
+  </svg>
+);
+
+export const DhikrHandsIcon: React.FC<IconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M12 4.2l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4L12 4.2Z" />
+    <path d="M5.5 13.5v3.2c0 1.9 2.2 3.3 6.5 3.3s6.5-1.4 6.5-3.3v-3.2" />
+    <path d="M8.5 16.4h7" />
+  </svg>
+);
+
+export const SahifaManuscriptIcon: React.FC<IconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M6 4.5h10.5A2.5 2.5 0 0 1 19 7v12.5H7.5A2.5 2.5 0 0 1 5 17V5.5a1 1 0 0 1 1-1Z" />
+    <path d="M5 17a2.5 2.5 0 0 1 2.5-2.5H19" />
+    <path d="M9 8.5h6.5M9 11.5h5" />
+  </svg>
+);
+
+export const QiblaKaabaCompassIcon: React.FC<IconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="12" cy="12" r="8.8" />
+    <rect x="8.8" y="8.8" width="6.4" height="6.4" rx="0.8" />
+    <path d="M8.8 11.2h6.4M12 3.2v1.6M12 19.2v1.6M3.2 12h1.6M19.2 12h1.6" />
+  </svg>
+);
+
+export const KidsQuizLanternIcon: React.FC<IconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M5 6.5h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9.8L6 20.5v-3H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+    <path d="M10.4 10.3a1.8 1.8 0 0 1 3.3.9c0 1.1-1.6 1.4-1.6 2.3" />
+    <circle cx="12" cy="15.3" r="0.7" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+/**
+ * Fine gold SVG dome & crescent corner ornament for the Home top dark emerald canvas
+ */
+export const HomeDomeCornerSvg: React.FC<{ className?: string }> = ({
+  className = '',
+}) => (
+  <svg
+    viewBox="0 0 220 200"
+    fill="none"
+    className={className}
+    aria-hidden="true"
+  >
+    {/* Outer arched dome filigree */}
+    <path
+      d="M18 196V128C18 82 62 46 110 22C158 46 202 82 202 128V196"
+      stroke="#D9B96A"
+      strokeWidth="0.9"
+      strokeOpacity="0.32"
+    />
+    <path
+      d="M38 196V132C38 94 74 64 110 42C146 64 182 94 182 132V196"
+      stroke="#D9B96A"
+      strokeWidth="0.75"
+      strokeOpacity="0.22"
+    />
+    {/* Finial & crescent */}
+    <path
+      d="M110 6v16"
+      stroke="#D9B96A"
+      strokeWidth="0.9"
+      strokeOpacity="0.45"
+    />
+    <path
+      d="M114.5 9.2a6.2 6.2 0 1 0 3.2 10.2 5 5 0 0 1-3.2-10.2Z"
+      stroke="#D9B96A"
+      strokeWidth="0.95"
+      strokeOpacity="0.55"
+    />
+    {/* Hanging geometric star */}
+    <path
+      d="M110 74l5.5 11 11 5.5-11 5.5-5.5 11-5.5-11-11-5.5 11-5.5 5.5-11Z"
+      stroke="#D9B96A"
+      strokeWidth="0.85"
+      strokeOpacity="0.26"
+    />
+    <circle cx="110" cy="90.5" r="2.2" fill="#D9B96A" fillOpacity="0.32" />
+  </svg>
+);
+
+/**
+ * Fully SVG-illustrated wide banner inside the Home Bottom Sheet (zero photos)
+ */
+export const HomeIllustratedBannerSvg: React.FC<{ dark?: boolean }> = ({
+  dark = false,
+}) => {
+  const gold = dark ? '#D9B96A' : '#E2C374';
+  return (
+    <div
+      className="relative overflow-hidden px-5 py-4 sm:py-5 flex items-center justify-between gap-4 border"
+      style={{
+        borderRadius: 'var(--radius-tile)',
+        background: dark
+          ? 'linear-gradient(135deg, #09241B 0%, #103A2C 52%, #0A271E 100%)'
+          : 'linear-gradient(135deg, #0F3D2E 0%, #1A5B44 52%, #114332 100%)',
+        borderColor: dark ? 'rgba(217, 185, 106, 0.35)' : 'rgba(217, 185, 106, 0.55)',
+        boxShadow: '0 8px 24px -10px rgba(15, 61, 46, 0.38)',
+      }}
+    >
+      {/* Subtle SVG star-lattice overlay */}
+      <svg
+        viewBox="0 0 400 120"
+        preserveAspectRatio="none"
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
+        aria-hidden="true"
+      >
+        <defs>
+          <pattern id="homeBannerStars" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path
+              d="M24 4L29 19L44 24L29 29L24 44L19 29L4 24L19 19Z"
+              fill="none"
+              stroke={gold}
+              strokeWidth="0.7"
+            />
+            <circle cx="24" cy="24" r="3.5" fill="none" stroke={gold} strokeWidth="0.6" />
+          </pattern>
+        </defs>
+        <rect width="400" height="120" fill="url(#homeBannerStars)" />
+      </svg>
+
+      {/* Inner ornate gold hairline border */}
+      <div
+        className="pointer-events-none absolute inset-1.5 border"
+        style={{
+          borderRadius: '14px',
+          borderColor: dark ? 'rgba(217, 185, 106, 0.25)' : 'rgba(217, 185, 106, 0.38)',
+        }}
+        aria-hidden="true"
+      />
+
+      {/* Calligraphic Text & Subtitle */}
+      <div className="relative z-10 text-right flex-1 min-w-0">
+        <span className="inline-block text-[10px] font-bold tracking-wide text-[#D9B96A]/90 mb-0.5">
+          القرآن · الأدعية · الزيارات · السيرة
+        </span>
+        <h2 className="font-calligraphy font-bold text-2xl sm:text-3xl text-[#FAF6EC] leading-tight">
+          رحلة النور
+        </h2>
+        <p className="text-[11px] sm:text-xs text-[#E7D8B0]/85 mt-0.5 truncate">
+          زادك الروحي اليومي بتصميمٍ هادئٍ وموثوق
+        </p>
+      </div>
+
+      {/* Ornate Octagram Star Emblem */}
+      <div className="relative z-10 shrink-0 w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+        <svg viewBox="0 0 80 80" fill="none" className="w-full h-full" aria-hidden="true">
+          <rect
+            x="16"
+            y="16"
+            width="48"
+            height="48"
+            rx="4"
+            stroke={gold}
+            strokeWidth="1.2"
+            strokeOpacity="0.75"
+          />
+          <rect
+            x="16"
+            y="16"
+            width="48"
+            height="48"
+            rx="4"
+            transform="rotate(45 40 40)"
+            stroke={gold}
+            strokeWidth="1.2"
+            fill={gold}
+            fillOpacity="0.1"
+          />
+          <circle cx="40" cy="40" r="14" stroke={gold} strokeWidth="1" strokeOpacity="0.75" />
+          <path
+            d="M44.2 31.2a8.2 8.2 0 1 0 4.4 13.8 6.8 6.8 0 0 1-4.4-13.8Z"
+            fill={gold}
+          />
+        </svg>
+      </div>
+    </div>
+  );
+};

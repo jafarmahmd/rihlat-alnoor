@@ -1,0 +1,416 @@
+/* amiri-quran-arabic-400-normal */
+@font-face {
+  font-family: 'Amiri Quran';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/amiri-quran/files/amiri-quran-arabic-400-normal.woff2) format('woff2'), url(@fontsource/amiri-quran/files/amiri-quran-arabic-400-normal.woff) format('woff');
+}
+/* amiri-quran-latin-400-normal */
+@font-face {
+  font-family: 'Amiri Quran';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/amiri-quran/files/amiri-quran-latin-400-normal.woff2) format('woff2'), url(@fontsource/amiri-quran/files/amiri-quran-latin-400-normal.woff) format('woff');
+}
+/* amiri-arabic-400-normal */
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/amiri/files/amiri-arabic-400-normal.woff2) format('woff2'), url(@fontsource/amiri/files/amiri-arabic-400-normal.woff) format('woff');
+}
+/* amiri-arabic-700-normal */
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/amiri/files/amiri-arabic-700-normal.woff2) format('woff2'), url(@fontsource/amiri/files/amiri-arabic-700-normal.woff) format('woff');
+}
+/* amiri-latin-400-normal */
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/amiri/files/amiri-latin-400-normal.woff2) format('woff2'), url(@fontsource/amiri/files/amiri-latin-400-normal.woff) format('woff');
+}
+/* amiri-latin-700-normal */
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/amiri/files/amiri-latin-700-normal.woff2) format('woff2'), url(@fontsource/amiri/files/amiri-latin-700-normal.woff) format('woff');
+}
+/* aref-ruqaa-arabic-400-normal */
+@font-face {
+  font-family: 'Aref Ruqaa';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/aref-ruqaa/files/aref-ruqaa-arabic-400-normal.woff2) format('woff2'), url(@fontsource/aref-ruqaa/files/aref-ruqaa-arabic-400-normal.woff) format('woff');
+}
+/* aref-ruqaa-arabic-700-normal */
+@font-face {
+  font-family: 'Aref Ruqaa';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/aref-ruqaa/files/aref-ruqaa-arabic-700-normal.woff2) format('woff2'), url(@fontsource/aref-ruqaa/files/aref-ruqaa-arabic-700-normal.woff) format('woff');
+}
+/* aref-ruqaa-latin-400-normal */
+@font-face {
+  font-family: 'Aref Ruqaa';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/aref-ruqaa/files/aref-ruqaa-latin-400-normal.woff2) format('woff2'), url(@fontsource/aref-ruqaa/files/aref-ruqaa-latin-400-normal.woff) format('woff');
+}
+/* aref-ruqaa-latin-700-normal */
+@font-face {
+  font-family: 'Aref Ruqaa';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/aref-ruqaa/files/aref-ruqaa-latin-700-normal.woff2) format('woff2'), url(@fontsource/aref-ruqaa/files/aref-ruqaa-latin-700-normal.woff) format('woff');
+}
+/* cairo-arabic-400-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/cairo/files/cairo-arabic-400-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-arabic-400-normal.woff) format('woff');
+}
+/* cairo-arabic-500-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/cairo/files/cairo-arabic-500-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-arabic-500-normal.woff) format('woff');
+}
+/* cairo-arabic-600-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/cairo/files/cairo-arabic-600-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-arabic-600-normal.woff) format('woff');
+}
+/* cairo-arabic-700-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/cairo/files/cairo-arabic-700-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-arabic-700-normal.woff) format('woff');
+}
+/* cairo-latin-400-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/cairo/files/cairo-latin-400-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-latin-400-normal.woff) format('woff');
+}
+/* cairo-latin-500-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/cairo/files/cairo-latin-500-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-latin-500-normal.woff) format('woff');
+}
+/* cairo-latin-600-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/cairo/files/cairo-latin-600-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-latin-600-normal.woff) format('woff');
+}
+/* cairo-latin-700-normal */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/cairo/files/cairo-latin-700-normal.woff2) format('woff2'), url(@fontsource/cairo/files/cairo-latin-700-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-arabic-400-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-400-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-400-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-arabic-500-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-500-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-500-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-arabic-600-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-600-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-600-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-arabic-700-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-700-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-700-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-latin-400-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-400-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-400-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-latin-500-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-500-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-500-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-latin-600-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-600-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-600-normal.woff) format('woff');
+}
+/* ibm-plex-sans-arabic-latin-700-normal */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-700-normal.woff2) format('woff2'), url(@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-700-normal.woff) format('woff');
+}
+/* lalezar-arabic-400-normal */
+@font-face {
+  font-family: 'Lalezar';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/lalezar/files/lalezar-arabic-400-normal.woff2) format('woff2'), url(@fontsource/lalezar/files/lalezar-arabic-400-normal.woff) format('woff');
+}
+/* lalezar-latin-400-normal */
+@font-face {
+  font-family: 'Lalezar';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/lalezar/files/lalezar-latin-400-normal.woff2) format('woff2'), url(@fontsource/lalezar/files/lalezar-latin-400-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-arabic-400-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-400-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-400-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-arabic-500-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-500-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-500-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-arabic-600-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-600-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-600-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-arabic-700-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-700-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-700-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-latin-400-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-400-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-400-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-latin-500-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-500-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-500-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-latin-600-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-600-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-600-normal.woff) format('woff');
+}
+/* noto-naskh-arabic-latin-700-normal */
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-700-normal.woff2) format('woff2'), url(@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-latin-700-normal.woff) format('woff');
+}
+/* reem-kufi-arabic-500-normal */
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/reem-kufi/files/reem-kufi-arabic-500-normal.woff2) format('woff2'), url(@fontsource/reem-kufi/files/reem-kufi-arabic-500-normal.woff) format('woff');
+}
+/* reem-kufi-arabic-600-normal */
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/reem-kufi/files/reem-kufi-arabic-600-normal.woff2) format('woff2'), url(@fontsource/reem-kufi/files/reem-kufi-arabic-600-normal.woff) format('woff');
+}
+/* reem-kufi-arabic-700-normal */
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/reem-kufi/files/reem-kufi-arabic-700-normal.woff2) format('woff2'), url(@fontsource/reem-kufi/files/reem-kufi-arabic-700-normal.woff) format('woff');
+}
+/* reem-kufi-latin-500-normal */
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/reem-kufi/files/reem-kufi-latin-500-normal.woff2) format('woff2'), url(@fontsource/reem-kufi/files/reem-kufi-latin-500-normal.woff) format('woff');
+}
+/* reem-kufi-latin-600-normal */
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(@fontsource/reem-kufi/files/reem-kufi-latin-600-normal.woff2) format('woff2'), url(@fontsource/reem-kufi/files/reem-kufi-latin-600-normal.woff) format('woff');
+}
+/* reem-kufi-latin-700-normal */
+@font-face {
+  font-family: 'Reem Kufi';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/reem-kufi/files/reem-kufi-latin-700-normal.woff2) format('woff2'), url(@fontsource/reem-kufi/files/reem-kufi-latin-700-normal.woff) format('woff');
+}
+/* scheherazade-new-arabic-400-normal */
+@font-face {
+  font-family: 'Scheherazade New';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/scheherazade-new/files/scheherazade-new-arabic-400-normal.woff2) format('woff2'), url(@fontsource/scheherazade-new/files/scheherazade-new-arabic-400-normal.woff) format('woff');
+}
+/* scheherazade-new-arabic-700-normal */
+@font-face {
+  font-family: 'Scheherazade New';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/scheherazade-new/files/scheherazade-new-arabic-700-normal.woff2) format('woff2'), url(@fontsource/scheherazade-new/files/scheherazade-new-arabic-700-normal.woff) format('woff');
+}
+/* scheherazade-new-latin-400-normal */
+@font-face {
+  font-family: 'Scheherazade New';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/scheherazade-new/files/scheherazade-new-latin-400-normal.woff2) format('woff2'), url(@fontsource/scheherazade-new/files/scheherazade-new-latin-400-normal.woff) format('woff');
+}
+/* scheherazade-new-latin-700-normal */
+@font-face {
+  font-family: 'Scheherazade New';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/scheherazade-new/files/scheherazade-new-latin-700-normal.woff2) format('woff2'), url(@fontsource/scheherazade-new/files/scheherazade-new-latin-700-normal.woff) format('woff');
+}
+/* tajawal-arabic-400-normal */
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/tajawal/files/tajawal-arabic-400-normal.woff2) format('woff2'), url(@fontsource/tajawal/files/tajawal-arabic-400-normal.woff) format('woff');
+}
+/* tajawal-arabic-500-normal */
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/tajawal/files/tajawal-arabic-500-normal.woff2) format('woff2'), url(@fontsource/tajawal/files/tajawal-arabic-500-normal.woff) format('woff');
+}
+/* tajawal-arabic-700-normal */
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/tajawal/files/tajawal-arabic-700-normal.woff2) format('woff2'), url(@fontsource/tajawal/files/tajawal-arabic-700-normal.woff) format('woff');
+}
+/* tajawal-latin-400-normal */
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(@fontsource/tajawal/files/tajawal-latin-400-normal.woff2) format('woff2'), url(@fontsource/tajawal/files/tajawal-latin-400-normal.woff) format('woff');
+}
+/* tajawal-latin-500-normal */
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(@fontsource/tajawal/files/tajawal-latin-500-normal.woff2) format('woff2'), url(@fontsource/tajawal/files/tajawal-latin-500-normal.woff) format('woff');
+}
+/* tajawal-latin-700-normal */
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(@fontsource/tajawal/files/tajawal-latin-700-normal.woff2) format('woff2'), url(@fontsource/tajawal/files/tajawal-latin-700-normal.woff) format('woff');
+}

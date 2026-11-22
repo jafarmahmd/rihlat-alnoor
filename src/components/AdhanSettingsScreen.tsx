@@ -47,7 +47,10 @@ import {
 } from '../utils/adhanAudioPlayer';
 import {
   CombinedAdhanDiagnostics,
+  NotificationChannelStatus,
+  getAndroidNotificationChannelsStatus,
   getCombinedAdhanDiagnostics,
+  scheduleAdhanTestIn10Seconds,
   syncAdhanAndPrayerAlarms,
   triggerPrayerAdhanTestNow,
 } from '../utils/adhanScheduler';
@@ -64,9 +67,10 @@ import {
   savePrayerLocationPreference,
   toArabicNums,
 } from '../utils/prayerTimes';
+import { detectAndSaveGpsLocation } from '../utils/gpsLocation';
 import {
+  CornerOrnaments,
   CrescentBellIcon,
-  ManuscriptCornerBracket,
   ManuscriptDivider,
   MinaretAdhanIcon,
   NightPrayerLampIcon,
@@ -116,6 +120,13 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showVerifyGuide, setShowVerifyGuide] = useState(false);
   const [showOemGuide, setShowOemGuide] = useState(false);
+  const [channelList, setChannelList] = useState<NotificationChannelStatus[] | null>(
+    null
+  );
+  const [loadingChannels, setLoadingChannels] = useState(false);
+  const [delayedTestCountdown, setDelayedTestCountdown] = useState<number | null>(
+    null
+  );
 
   const isNative = Capacitor.isNativePlatform();
   const isAndroid = isNative && Capacitor.getPlatform() === 'android';
@@ -131,10 +142,16 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
     const onMetaUpdated = () => {
       void refreshDiagnostics();
     };
+    const syncLoc = () => {
+      setLocPref(loadPrayerLocationPreference());
+      void refreshDiagnostics();
+    };
     window.addEventListener('rihlat:adhan-meta-updated', onMetaUpdated);
+    window.addEventListener('rihlat:prayer-location-updated', syncLoc);
     return () => {
       unsubPlayback();
       window.removeEventListener('rihlat:adhan-meta-updated', onMetaUpdated);
+      window.removeEventListener('rihlat:prayer-location-updated', syncLoc);
     };
   }, [refreshDiagnostics]);
 
@@ -247,38 +264,26 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
       lat: found.lat,
       lng: found.lng,
       cityLabel: found.nameAr,
+      city: found.nameAr,
+      country: found.countryAr,
     };
     setLocPref(next);
     savePrayerLocationPreference(next);
   };
 
-  const handleUseGps = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setGpsNotice('الجهاز لا يدعم تحديد الموقع التلقائي، اختر المدينة من القائمة.');
-      return;
-    }
+  const handleUseGps = async () => {
     setLoadingGps(true);
     setGpsNotice(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLoadingGps(false);
-        const next: PrayerLocationPreference = {
-          mode: 'gps',
-          cityId: 'gps',
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          cityLabel: 'موقعي الحالي (GPS)',
-        };
-        setLocPref(next);
-        savePrayerLocationPreference(next);
-        setStatusMessage('تم تحديث الإحداثيات الجغرافية وإعادة جدولة ١٤ يوماً.');
-      },
-      () => {
-        setLoadingGps(false);
-        setGpsNotice('تعذّر الوصول لـ GPS؛ تأكد من تفعيل الموقع أو اختر المدينة يدوياً.');
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
-    );
+    const res = await detectAndSaveGpsLocation();
+    setLoadingGps(false);
+    if (res.ok && res.preference) {
+      setLocPref(res.preference);
+      setStatusMessage(
+        `تم تحديد موقعك (${res.preference.cityLabel}) وإعادة جدولة ١٤ يوماً.`
+      );
+    } else {
+      setGpsNotice(res.message);
+    }
   };
 
   const handleToggleMuezzinPreview = async (rawName: string) => {
@@ -379,6 +384,66 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
       window.setTimeout(() => void refreshDiagnostics(), 1200);
     }
   };
+
+  const handleLoadChannelsStatus = async () => {
+    setLoadingChannels(true);
+    const res = await getAndroidNotificationChannelsStatus();
+    setChannelList(res.channels);
+    setLoadingChannels(false);
+    if (!res.supported) {
+      setStatusMessage(
+        'فحص قنوات أندرويد (listChannels) يعمل داخل تطبيق الأندرويد (APK)؛ تم فتح جدول المعاينة أدناه.'
+      );
+    } else if (res.channels.some((c) => c.hasEmptySound)) {
+      setStatusMessage(
+        'تنبيه: توجد قناة أذان بصوت فارغ؛ اضغط «إعادة الجدولة الآن» لإعادة إنشائها بمعرّف v2.'
+      );
+    } else {
+      setStatusMessage(
+        `تم فحص ${toArabicNums(res.channels.length)} قناة إشعارات في النظام بنجاح.`
+      );
+    }
+  };
+
+  const handleTestAfter10Seconds = async () => {
+    if (diagnostics && !diagnostics.notificationsGranted) {
+      await ensureNotificationPermissionIfMissing();
+      await refreshDiagnostics();
+    }
+    const activePrayer =
+      PRAYER_ALERT_KEYS.find(
+        (k) => settings.prayers[k].enabled && settings.prayers[k].alertMode === 'adhan'
+      ) || 'fajr';
+    const rawName = settings.prayers[activePrayer].muezzinRawName;
+
+    const res = await scheduleAdhanTestIn10Seconds({
+      prayerKey: activePrayer,
+      rawName,
+    });
+
+    if (res.ok) {
+      setDelayedTestCountdown(10);
+      setStatusMessage(
+        `تمت جدولة اختبار حقيقي بصوت «${res.muezzinName}» بعد ١٠ ثوانٍ — يمكنك إطفاء الشاشة أو الخروج من التطبيق للتحقق.`
+      );
+    } else {
+      setStatusMessage('تعذر جدولة اختبار الـ ١٠ ثوانٍ؛ تأكد من منح إذن الإشعارات والمنبهات الدقيقة.');
+    }
+  };
+
+  useEffect(() => {
+    if (delayedTestCountdown === null) return;
+    if (delayedTestCountdown <= 0) {
+      setDelayedTestCountdown(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDelayedTestCountdown((prev) =>
+        prev === null ? null : Math.max(0, prev - 1)
+      );
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [delayedTestCountdown]);
 
   // تفكيك وقت صلاة الليل (محصور 22:00 - 00:00)
   const clampedLaylTime = clampSalatAlLaylTime(settings.salatAlLayl.timeHHMM);
@@ -504,10 +569,9 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
       {/* 1. Location, Calculation Method, Custom Degrees & Minute Offsets */}
       <section
         aria-label="الموقع وطريقة الحساب وتعديل الدقائق"
-        className="relative manuscript-folio rounded-[6px] p-4 sm:p-6 space-y-5"
+        className="relative manuscript-folio rounded-[6px] p-7 sm:p-8 space-y-5"
       >
-        <ManuscriptCornerBracket position="top-right" className="absolute top-2.5 right-2.5" />
-        <ManuscriptCornerBracket position="top-left" className="absolute top-2.5 left-2.5" />
+        <CornerOrnaments />
 
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#B8924A]/30">
           <div>
@@ -547,7 +611,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                   className="w-full min-h-[44px] pr-9 pl-3 rounded-[5px] bg-[#F3ECDA]/80 border border-[#B8924A]/50 font-display font-bold text-xs sm:text-sm text-[#0F3D2E] focus:outline-none focus:border-[#0F3D2E] cursor-pointer"
                 >
                   {locPref.mode === 'gps' && (
-                    <option value="gps">موقعي الحالي (GPS)</option>
+                    <option value="gps">{locPref.cityLabel} (GPS)</option>
                   )}
                   {PRESET_CITIES.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -559,7 +623,7 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
 
               <button
                 type="button"
-                onClick={handleUseGps}
+                onClick={() => void handleUseGps()}
                 disabled={loadingGps}
                 className="min-h-[44px] px-3.5 btn-emerald text-xs inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
               >
@@ -1202,6 +1266,19 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
 
             <button
               type="button"
+              onClick={() => void handleTestAfter10Seconds()}
+              className="min-h-[44px] px-4 py-2 btn-manuscript text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Clock className="w-4 h-4 text-[#1F6B50]" aria-hidden="true" />
+              <span>
+                {delayedTestCountdown !== null && delayedTestCountdown > 0
+                  ? `سيصدح بعد ${toArabicNums(delayedTestCountdown)} ث...`
+                  : 'اختبار الأذان بعد 10 ثوانٍ'}
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => void handleManualReschedule()}
               disabled={rescheduling}
               className="min-h-[44px] px-4 py-2 btn-emerald text-xs sm:text-sm inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
@@ -1252,6 +1329,84 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                 }`}
               />
             </button>
+          </div>
+        </div>
+
+        {/* Play Adhan Even in Silent Mode + Audio Output Channel */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-[6px] bg-[#F3ECDA]/75 border border-[#B8924A]/45 p-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display font-bold text-sm text-[#0F3D2E]">
+                تشغيل الأذان حتى في الوضع الصامت
+              </h3>
+              <p className="text-xs text-[#425B51] mt-0.5 leading-relaxed">
+                عند تفعيله يصدح الأذان عبر قناة المنبه حتى لو كان الهاتف في الوضع الصامت أو الاهتزاز.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              dir="ltr"
+              aria-label="تشغيل الأذان حتى في الوضع الصامت"
+              aria-checked={settings.playAdhanInSilentMode}
+              onClick={() =>
+                updateSettings({
+                  ...settings,
+                  playAdhanInSilentMode: !settings.playAdhanInSilentMode,
+                })
+              }
+              className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full p-1 transition-colors border ${
+                settings.playAdhanInSilentMode
+                  ? 'bg-[#1F6B50] border-[#0F3D2E]'
+                  : 'bg-[#E5DEC9] border-[#B8924A]/50'
+              }`}
+            >
+              <span
+                className={`inline-block h-5.5 w-5.5 transform rounded-full bg-[#FAF6EC] shadow-xs transition-transform ${
+                  settings.playAdhanInSilentMode ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="rounded-[6px] bg-[#F3ECDA]/75 border border-[#B8924A]/45 p-4 space-y-2">
+            <div>
+              <h3 className="font-display font-bold text-sm text-[#0F3D2E]">
+                قناة صوت الأذان في أندرويد (AudioAttributes)
+              </h3>
+              <p className="text-[11px] text-[#425B51]">
+                مسار المنبه يتبع مستوى صوت المنبهات ويضمن عدم كتم الأذان مع صوت الوسائط
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/35">
+              <button
+                type="button"
+                onClick={() =>
+                  updateSettings({ ...settings, adhanAudioUsage: 'alarm' })
+                }
+                className={`min-h-[36px] px-2 rounded-[4px] text-xs font-bold cursor-pointer transition-colors ${
+                  settings.adhanAudioUsage === 'alarm'
+                    ? 'bg-[#0F3D2E] text-[#FAF6EC]'
+                    : 'text-[#425B51] hover:text-[#0F3D2E]'
+                }`}
+              >
+                منبه (ALARM)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  updateSettings({ ...settings, adhanAudioUsage: 'notification' })
+                }
+                className={`min-h-[36px] px-2 rounded-[4px] text-xs font-bold cursor-pointer transition-colors ${
+                  settings.adhanAudioUsage === 'notification'
+                    ? 'bg-[#0F3D2E] text-[#FAF6EC]'
+                    : 'text-[#425B51] hover:text-[#0F3D2E]'
+                }`}
+              >
+                إشعار (NOTIFICATION)
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1412,6 +1567,14 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                   </button>
                 </>
               )}
+              <button
+                type="button"
+                onClick={() => void handleLoadChannelsStatus()}
+                disabled={loadingChannels}
+                className="min-h-[38px] px-3 py-1 btn-manuscript text-xs cursor-pointer"
+              >
+                {loadingChannels ? 'جارٍ الفحص...' : 'عرض حالة القنوات'}
+              </button>
             </div>
 
             <button
@@ -1424,6 +1587,60 @@ export const AdhanSettingsScreen: React.FC<AdhanSettingsScreenProps> = ({
                 : 'إرشادات هواتف Xiaomi و Huawei و Samsung'}
             </button>
           </div>
+
+          {/* Notification Channels Status Diagnostics Table */}
+          {channelList !== null && (
+            <div className="rounded-[5px] bg-[#FAF6EC] border border-[#B8924A]/50 p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-display font-bold text-xs sm:text-sm text-[#0F3D2E]">
+                  حالة قنوات إشعارات النظام (listChannels)
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setChannelList(null)}
+                  className="text-xs font-bold text-[#7A5E2A] hover:underline cursor-pointer"
+                >
+                  إغلاق
+                </button>
+              </div>
+
+              {channelList.length === 0 ? (
+                <p className="text-xs text-[#425B51]">
+                  {isAndroid
+                    ? 'لم تُنشأ قنوات بعد؛ اضغط «إعادة الجدولة الآن» ثم أعد الفحص.'
+                    : 'قائمة القنوات الفعلية تتوفر داخل نسخة الأندرويد (APK).'}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {channelList.map((ch) => (
+                    <div
+                      key={ch.id}
+                      className={`rounded-[4px] border p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 ${
+                        ch.hasEmptySound
+                          ? 'bg-[#B8924A]/15 border-[#B8924A]'
+                          : 'bg-[#F3ECDA]/55 border-[#B8924A]/30'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-bold text-[#0F3D2E]">{ch.name}</div>
+                        <div dir="ltr" className="font-mono text-[11px] text-[#425B51] truncate">
+                          id: {ch.id} · importance: {ch.importance}
+                        </div>
+                        <div dir="ltr" className="font-mono text-[11px] text-[#1F6B50] break-all">
+                          sound: {ch.sound || '(فارغ — صامت)'}
+                        </div>
+                      </div>
+                      {ch.hasEmptySound && (
+                        <span className="text-[11px] font-bold text-[#7A5E2A]">
+                          تحذير: الصوت فارغ في القناة
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {showOemGuide && (
             <div className="rounded-[5px] bg-[#F3ECDA]/70 border border-[#B8924A]/40 p-4 text-xs text-[#11271F] space-y-2 leading-relaxed">

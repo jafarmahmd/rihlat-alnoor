@@ -12,7 +12,7 @@ import { StationData } from '../types/game';
 import { StationIllustration } from './StationIllustration';
 import {
   BirthStarMark,
-  ManuscriptCornerBracket,
+  CornerOrnaments,
   ManuscriptDivider,
 } from './IslamicOrnaments';
 
@@ -168,10 +168,9 @@ export const StationView: React.FC<StationViewProps> = ({
           key={currentQuestion.id}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative manuscript-folio paper-grain rounded-[6px] p-5 sm:p-10"
+          className="relative manuscript-folio paper-grain rounded-[6px] p-7 sm:p-10"
         >
-          <ManuscriptCornerBracket position="top-right" className="absolute top-2.5 right-2.5" />
-          <ManuscriptCornerBracket position="top-left" className="absolute top-2.5 left-2.5" />
+          <CornerOrnaments />
 
           <div className="flex items-center justify-between gap-4 pb-4 border-b border-[#B8924A]/35 pt-2">
             <div className="flex items-center gap-2 text-[#1F6B50] font-display font-bold text-sm sm:text-base">
@@ -255,12 +254,9 @@ export const StationView: React.FC<StationViewProps> = ({
         <motion.section
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative manuscript-folio paper-grain rounded-[6px] p-6 sm:p-12 text-center"
+          className="relative manuscript-folio paper-grain rounded-[6px] p-7 sm:p-12 text-center"
         >
-          <ManuscriptCornerBracket position="top-right" className="absolute top-3 right-3" />
-          <ManuscriptCornerBracket position="top-left" className="absolute top-3 left-3" />
-          <ManuscriptCornerBracket position="bottom-right" className="absolute bottom-3 right-3" />
-          <ManuscriptCornerBracket position="bottom-left" className="absolute bottom-3 left-3" />
+          <CornerOrnaments />
 
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-5">
             {[1, 2, 3, 4, 5].map((idx) => (

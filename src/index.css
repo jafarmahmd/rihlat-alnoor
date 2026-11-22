@@ -27,6 +27,27 @@
     --app-font-body: "IBM Plex Sans Arabic", "Noto Naskh Arabic", sans-serif;
     --app-font-display: "Reem Kufi", "IBM Plex Sans Arabic", sans-serif;
     --app-font-arabic: "Amiri", "Noto Naskh Arabic", serif;
+
+    /* Unified Corner Ornament Tokens */
+    --corner-size: 20px;
+    --corner-offset: 8px;
+    --corner-stroke: 1.35px;
+    --corner-color: #B8924A;
+    --corner-frame-radius: 6px;
+
+    /* Home Architectural Radius System */
+    --radius-sheet: 28px;
+    --radius-tile: 20px;
+    --radius-card: 16px;
+    --radius-chip: 999px;
+  }
+
+  @media (min-width: 640px) {
+    :root {
+      --corner-size: 26px;
+      --corner-offset: 10px;
+      --corner-stroke: 1.3px;
+    }
   }
 
   html {
@@ -193,6 +214,7 @@
   }
 
   .manuscript-folio-dark {
+    --corner-color: #D9B96A;
     background-color: #0B221A;
     color: #F3EBD6;
     border: 1px solid rgba(217, 185, 106, 0.38);
@@ -200,6 +222,50 @@
       0 10px 30px -12px rgba(0, 0, 0, 0.55),
       inset 0 0 0 3px #0B221A,
       inset 0 0 0 4px rgba(217, 185, 106, 0.16);
+  }
+
+  /* Unified Corner Ornaments — physical coordinates (immune to RTL flipping) */
+  [data-corner-tone="dark"] {
+    --corner-color: #D9B96A;
+  }
+
+  [data-corner-tone="light"] {
+    --corner-color: #B8924A;
+  }
+
+  .corner-ornament {
+    position: absolute;
+    width: var(--corner-size);
+    height: var(--corner-size);
+    color: var(--corner-color);
+    pointer-events: none;
+    user-select: none;
+    z-index: 15;
+    transform-origin: center;
+  }
+
+  .corner-ornament--top-left {
+    top: var(--corner-offset);
+    left: var(--corner-offset);
+    transform: scale(1, 1);
+  }
+
+  .corner-ornament--top-right {
+    top: var(--corner-offset);
+    right: var(--corner-offset);
+    transform: scale(-1, 1);
+  }
+
+  .corner-ornament--bottom-left {
+    bottom: var(--corner-offset);
+    left: var(--corner-offset);
+    transform: scale(1, -1);
+  }
+
+  .corner-ornament--bottom-right {
+    bottom: var(--corner-offset);
+    right: var(--corner-offset);
+    transform: scale(-1, -1);
   }
 }
 
@@ -346,37 +412,11 @@
   animation: lock-wiggle 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* 3D Manuscript Book Flip Helpers (Safari / Chromium / Android WebView safe) */
-.book-stage-3d {
-  perspective: 2200px;
-  perspective-origin: 50% 45%;
-}
-
-.book-leaf-3d {
-  transform-style: preserve-3d;
-  -webkit-transform-style: preserve-3d;
-  will-change: transform;
-}
-
-.book-face-front,
-.book-face-back {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-.book-face-back {
-  transform: rotateY(180deg);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .animate-astrolabe,
   .animate-gentle-float,
   .animate-lock-wiggle {
     animation: none !important;
-  }
-
-  .book-leaf-3d {
-    transition-duration: 1ms !important;
   }
 }
 
@@ -385,6 +425,7 @@
    ============================================================================ */
 html[data-theme="night"],
 html[data-theme="night"] body {
+  --corner-color: #D9B96A;
   background-color: #071712;
   color: #F3EBD6;
 }
@@ -599,11 +640,11 @@ html[data-theme="night"] .group:hover .group-hover\:text-\[\#1F6B50\] {
   color: #8FD3BC;
 }
 
-/* Preserve Dark Ink on Gold Buttons & Gold Badges */
+/* Preserve Dark Ink on Solid Gold Buttons & Gold Badges only */
 html[data-theme="night"] .btn-gilded,
 html[data-theme="night"] .btn-gilded *,
-html[data-theme="night"] [class*="bg-[#D9B96A]"],
-html[data-theme="night"] [class*="to-[#D9B96A]"] {
+html[data-theme="night"] .bg-\[\#D9B96A\],
+html[data-theme="night"] .to-\[\#D9B96A\] {
   color: #0F3D2E;
 }
 
@@ -627,3 +668,41 @@ html[data-theme="night"] ::-webkit-scrollbar-thumb {
 html[data-theme="night"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(217, 185, 106, 0.75);
 }
+
+/* ============================================================================
+   Home Architectural Canvas, Sheet & Scroll Utilities
+   ============================================================================ */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.home-top-gradient {
+  background: linear-gradient(180deg, #0F3D2E 0%, #15513C 54%, #1F6B50 100%);
+}
+
+html[data-theme="night"] .home-top-gradient {
+  background: linear-gradient(180deg, #071712 0%, #0C251D 56%, #12362A 100%);
+}
+
+.home-khatam-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg width='88' height='88' viewBox='0 0 88 88' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23D9B96A' stroke-opacity='0.075' stroke-width='0.85'%3E%3Cpath d='M44 8L53 35L80 44L53 53L44 80L35 53L8 44L35 35Z'/%3E%3Crect x='25' y='25' width='38' height='38' transform='rotate(45 44 44)' stroke='%23FAF6EC' stroke-opacity='0.05'/%3E%3Ccircle cx='44' cy='44' r='7.5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.home-sheet-surface {
+  background-color: #FAF6EC;
+  color: #11271F;
+  border-top-left-radius: var(--radius-sheet);
+  border-top-right-radius: var(--radius-sheet);
+  box-shadow: 0 -14px 36px -10px rgba(7, 23, 18, 0.36);
+}
+
+html[data-theme="night"] .home-sheet-surface {
+  background-color: #0B1F18;
+  color: #F3EBD6;
+  box-shadow: 0 -16px 40px -8px rgba(0, 0, 0, 0.72);
+}
+

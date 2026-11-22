@@ -6,8 +6,8 @@ import { APP_OVERVIEW, AppOverviewSectionItem } from '../data/appOverview';
 import { DigitalLibrarySection, ScreenView } from '../types/game';
 import {
   CalendarArchIcon,
+  CornerOrnaments,
   DuaScrollIcon,
-  ManuscriptCornerBracket,
   ManuscriptDivider,
   QuranBookIcon,
   ShrineDomeIcon,
@@ -160,46 +160,44 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-          className="relative manuscript-folio rounded-[8px] overflow-hidden"
+          className="relative manuscript-folio rounded-[6px]"
         >
           {/* Illuminated Frontispiece Arch Header (Gilded Sarlawh) */}
-          <header className="relative bg-[#0F3D2E] text-[#FAF6EC] px-6 sm:px-12 pt-8 sm:pt-11 pb-9 sm:pb-12 overflow-hidden border-b-2 border-[#B8924A]">
+          <header className="relative m-[4px] mb-0 rounded-t-[4px] bg-[#0F3D2E] text-[#FAF6EC] px-7 sm:px-12 pt-9 sm:pt-11 pb-10 sm:pb-12 border border-[#B8924A]/50 border-b-2 border-b-[#B8924A]">
             {/* Subtle 6% geometric pattern overlay */}
-            <svg
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 w-full h-full opacity-[0.07]"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <pattern
-                  id="sarlawh-lattice"
-                  width="80"
-                  height="80"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path
-                    d="M40 8 L48 32 L72 40 L48 48 L40 72 L32 48 L8 40 L32 32 Z"
-                    fill="none"
-                    stroke="#D9B96A"
-                    strokeWidth="0.9"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="11"
-                    fill="none"
-                    stroke="#D9B96A"
-                    strokeWidth="0.7"
-                  />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#sarlawh-lattice)" />
-            </svg>
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-[4px]" aria-hidden="true">
+              <svg
+                className="w-full h-full opacity-[0.07]"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <pattern
+                    id="sarlawh-lattice"
+                    width="80"
+                    height="80"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <path
+                      d="M40 8 L48 32 L72 40 L48 48 L40 72 L32 48 L8 40 L32 32 Z"
+                      fill="none"
+                      stroke="#D9B96A"
+                      strokeWidth="0.9"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="11"
+                      fill="none"
+                      stroke="#D9B96A"
+                      strokeWidth="0.7"
+                    />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#sarlawh-lattice)" />
+              </svg>
+            </div>
 
-            <ManuscriptCornerBracket position="top-right" color="#D9B96A" className="absolute top-3 right-3" />
-            <ManuscriptCornerBracket position="top-left" color="#D9B96A" className="absolute top-3 left-3" />
-            <ManuscriptCornerBracket position="bottom-right" color="#D9B96A" className="absolute bottom-3 right-3" />
-            <ManuscriptCornerBracket position="bottom-left" color="#D9B96A" className="absolute bottom-3 left-3" />
+            <CornerOrnaments tone="dark" />
 
             <div className="relative z-10 flex flex-col lg:flex-row items-center lg:items-end justify-between gap-7 max-w-4xl mx-auto">
               {/* Right Side: Basmalah, Calligraphic Title & Attribution */}

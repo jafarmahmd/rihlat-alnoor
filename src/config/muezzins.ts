@@ -37,9 +37,11 @@ export function getMuezzinByRawName(rawName: string): MuezzinEntry {
   );
 }
 
+export const ADHAN_CHANNEL_VERSION = 'v2';
+
 export function getAdhanChannelIdForMuezzin(rawName: string): string {
   const safeName = isValidRawResourceName(rawName)
     ? rawName
     : DEFAULT_MUEZZIN_RAW_NAME;
-  return `adhan_${safeName}`;
+  return `adhan_${ADHAN_CHANNEL_VERSION}_${safeName}`;
 }

@@ -10,6 +10,8 @@ export interface NativeAdhanAlarmItem {
   rawName: string;
   channelId: string;
   allowNotificationsDuringAdhan?: boolean;
+  playAdhanInSilentMode?: boolean;
+  audioUsage?: 'alarm' | 'notification';
 }
 
 export interface AdhanDiagnosticsResult {
@@ -37,10 +39,16 @@ export interface AdhanSchedulerPluginInterface {
     alarms: NativeAdhanAlarmItem[];
     expectedRawNames: string[];
     allowNotificationsDuringAdhan?: boolean;
+    playAdhanInSilentMode?: boolean;
+    audioUsage?: 'alarm' | 'notification';
   }): Promise<{
     scheduledCount: number;
     exactAlarmsGranted: boolean;
     missingRawFiles: string[];
+  }>;
+  scheduleTestAlarm?(options: NativeAdhanAlarmItem): Promise<{
+    scheduled: boolean;
+    exactAlarmsGranted: boolean;
   }>;
   cancelAllAlarms(): Promise<void>;
   playTestAdhan(options: {
@@ -50,6 +58,8 @@ export interface AdhanSchedulerPluginInterface {
     mode: 'adhan' | 'gentle' | 'silent';
     channelId: string;
     allowNotificationsDuringAdhan?: boolean;
+    playAdhanInSilentMode?: boolean;
+    audioUsage?: 'alarm' | 'notification';
   }): Promise<{ started: boolean; usedFallbackSound: boolean }>;
   stopAdhan(): Promise<void>;
   getDiagnostics(options: {

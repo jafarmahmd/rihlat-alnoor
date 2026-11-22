@@ -1,5 +1,5 @@
 import React from 'react';
-import { ManuscriptCornerBracket } from './IslamicOrnaments';
+import { CornerOrnaments } from './IslamicOrnaments';
 
 export const OFFICIAL_LOGO_URL =
   '/assets/aistudio/Gemini_Generated_Image_nrvmafnrvmafnrvm_1d697231.jpg';
@@ -36,9 +36,8 @@ export const RihlatLogo: React.FC<RihlatLogoProps> = ({ size = 'lg' }) => {
       <h1 className="sr-only">
         رحلة النور — أدعية، معرفة أهل البيت، وتعلم ممتع
       </h1>
-      <div className="relative p-2 bg-[#F4EEDB] border border-[#B8924A]/65 rounded-[8px] shadow-xs max-w-[270px] sm:max-w-[330px]">
-        <ManuscriptCornerBracket position="top-right" className="absolute -top-1.5 -right-1.5" />
-        <ManuscriptCornerBracket position="bottom-left" className="absolute -bottom-1.5 -left-1.5" />
+      <div className="relative p-4 sm:p-5 bg-[#F4EEDB] border border-[#B8924A]/65 rounded-[6px] shadow-xs max-w-[280px] sm:max-w-[340px]">
+        <CornerOrnaments />
         <img
           src={OFFICIAL_LOGO_URL}
           alt="الشعار الرسمي لتطبيق رحلة النور — أدعية، معرفة أهل البيت، وتعلم ممتع"

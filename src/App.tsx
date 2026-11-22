@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { TopBar } from './components/TopBar';
-import { BottomNav } from './components/BottomNav';
 import { HomeScreen } from './components/HomeScreen';
 import { MapScreen } from './components/MapScreen';
 import { StationView } from './components/StationView';
@@ -37,6 +36,16 @@ import {
   subscribeToInAppNotification,
   subscribeToOpenSpiritualEntry,
 } from './utils/notificationManager';
+import {
+  LocationPermissionStatus,
+  autoDetectGpsOnAppEnter,
+  getLocationPermissionStatus,
+  subscribeLocationPermissionStatus,
+} from './utils/gpsLocation';
+import {
+  PrayerLocationPreference,
+  loadPrayerLocationPreference,
+} from './utils/prayerTimes';
 import {
   AppUpdateInfo,
   checkForAppUpdate,
@@ -257,6 +266,10 @@ export default function App() {
   const [adhanPlayback, setAdhanPlayback] = useState<AdhanPlaybackState>(
     getAdhanPlaybackState
   );
+  const [currentLocation, setCurrentLocation] =
+    useState<PrayerLocationPreference>(() => loadPrayerLocationPreference());
+  const [locationStatus, setLocationStatus] =
+    useState<LocationPermissionStatus>(getLocationPermissionStatus);
 
   useEffect(() => {
     saveReadingFocusSettings(readingFocusSettings);
@@ -344,6 +357,26 @@ export default function App() {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('online', onOnline);
+    };
+  }, []);
+
+  // المزامنة الحية لحالة الموقع الجغرافي وطلب إذن Geolocation API عند فتح التطبيق لأول مرة
+  useEffect(() => {
+    const syncLocation = () => {
+      setCurrentLocation(loadPrayerLocationPreference());
+    };
+    const unsubPerm = subscribeLocationPermissionStatus(setLocationStatus);
+    window.addEventListener('rihlat:prayer-location-updated', syncLocation);
+
+    void autoDetectGpsOnAppEnter().then((result) => {
+      if (result?.ok && result.preference) {
+        setCurrentLocation(result.preference);
+      }
+    });
+
+    return () => {
+      unsubPerm();
+      window.removeEventListener('rihlat:prayer-location-updated', syncLocation);
     };
   }, []);
 
@@ -613,26 +646,28 @@ export default function App() {
         aria-hidden="true"
       />
 
-      <div className="relative z-10 flex-1 flex flex-col pb-[68px] md:pb-0">
-        <TopBar
-          currentScreen={screen}
-          activeLibrarySection={activeLibrarySection}
-          availableStars={availableStars}
-          childName={progress.childName}
-          userAge={progress.userAge ?? null}
-          activeTitleId={progress.activeTitleId}
-          activeFrameId={progress.activeFrameId}
-          muted={muted}
-          onToggleMute={() => setMuted((prev) => !prev)}
-          onOpenSettings={() => {
-            playClickSound(muted);
-            setSettingsOpen(true);
-          }}
-          onNavigateHome={() => navigateTo('home')}
-          onNavigateScreen={navigateTo}
-          onOpenLibrarySection={openLibrarySection}
-          onUpdateProfile={handleUpdateProfile}
-        />
+      <div className="relative z-10 flex-1 flex flex-col">
+        {screen !== 'home' && (
+          <TopBar
+            currentScreen={screen}
+            activeLibrarySection={activeLibrarySection}
+            availableStars={availableStars}
+            childName={progress.childName}
+            userAge={progress.userAge ?? null}
+            activeTitleId={progress.activeTitleId}
+            activeFrameId={progress.activeFrameId}
+            muted={muted}
+            onToggleMute={() => setMuted((prev) => !prev)}
+            onOpenSettings={() => {
+              playClickSound(muted);
+              setSettingsOpen(true);
+            }}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateScreen={navigateTo}
+            onOpenLibrarySection={openLibrarySection}
+            onUpdateProfile={handleUpdateProfile}
+          />
+        )}
 
         <div className="flex-1">
           {screen === 'home' && (
@@ -643,6 +678,8 @@ export default function App() {
               bookmarkedIds={progress.bookmarkedIds}
               hijriOffset={hijriOffset}
               lastRead={progress.lastRead}
+              currentLocation={currentLocation}
+              locationStatus={locationStatus}
               onStartJourney={() => navigateTo('map')}
               onOpenStore={() => navigateTo('store')}
               onOpenLibrary={(storyId) => {
@@ -652,6 +689,15 @@ export default function App() {
               onOpenTasbih={() => navigateTo('tasbih')}
               onOpenCalendar={() => navigateTo('calendar')}
               onOpenAdhanSettings={() => navigateTo('adhan-settings')}
+              onOpenInfo={() => {
+                playClickSound(muted);
+                setShowWelcome(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onOpenSettings={() => {
+                playClickSound(muted);
+                setSettingsOpen(true);
+              }}
               onOpenLibrarySection={openLibrarySection}
               onCompleteReading={handleCompleteReading}
               onResumeLastRead={() => {
@@ -808,7 +854,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-[76px] md:bottom-4 inset-x-3 sm:inset-x-auto sm:left-4 z-40 max-w-md mx-auto sm:mx-0 rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] shadow-xl px-4 py-2.5 flex items-center justify-between gap-3"
+          className="fixed bottom-4 inset-x-3 sm:inset-x-auto sm:left-4 z-40 max-w-md mx-auto sm:mx-0 rounded-[6px] bg-[#0F3D2E] text-[#FAF6EC] border border-[#D9B96A] shadow-xl px-4 py-2.5 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-2 min-w-0">
             <Volume2 className="w-4 h-4 text-[#D9B96A] shrink-0" aria-hidden="true" />
@@ -887,13 +933,6 @@ export default function App() {
       />
 
       <OfflineIndicator />
-
-      <BottomNav
-        currentScreen={screen}
-        activeLibrarySection={activeLibrarySection}
-        onNavigateScreen={navigateTo}
-        onOpenLibrarySection={openLibrarySection}
-      />
     </div>
   );
 }
