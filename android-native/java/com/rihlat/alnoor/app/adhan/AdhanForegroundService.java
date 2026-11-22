@@ -20,12 +20,14 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class AdhanForegroundService extends Service {
+    private static final String TAG = "AdhanForegroundService";
     public static final int FOREGROUND_NOTIF_ID = 5901;
     public static final String PLAYBACK_CHANNEL_ID = "adhan_playback_v2";
     public static final String ACTION_ADHAN_STATE_CHANGED = "com.rihlat.alnoor.app.ADHAN_STATE_CHANGED";
@@ -50,6 +52,48 @@ public class AdhanForegroundService extends Service {
     private AudioManager audioManager;
     private AudioFocusRequest audioFocusRequest;
 
+    /**
+     * يبحث عن ملف المؤذن الفعلي ويفضّل res/raw، وإذا لم يوجد يفحص assets/public/assets/aistudio.
+     * يُرجع "res/raw" أو "assets/public/assets/aistudio" أو "missing".
+     */
+    public static String resolveAudioSourceFolder(Context context, String rawName) {
+        if (context == null || rawName == null || rawName.isEmpty()) {
+            return "missing";
+        }
+        int rawId = context.getResources().getIdentifier(rawName, "raw", context.getPackageName());
+        if (rawId != 0) {
+            return "res/raw";
+        }
+        String assetPath = findAssetAudioPath(context, rawName);
+        if (assetPath != null) {
+            return "assets/public/assets/aistudio";
+        }
+        return "missing";
+    }
+
+    public static String findAssetAudioPath(Context context, String rawName) {
+        if (context == null || rawName == null || rawName.isEmpty()) return null;
+        String mapped = ASSET_AUDIO_FALLBACK_MAP.get(rawName);
+        if (mapped != null) {
+            try {
+                AssetFileDescriptor afd = context.getAssets().openFd(mapped);
+                afd.close();
+                return mapped;
+            } catch (Exception ignored) {}
+        }
+        try {
+            String[] files = context.getAssets().list("public/assets/aistudio");
+            if (files != null) {
+                for (String f : files) {
+                    if (f != null && f.endsWith(".mp3") && f.startsWith(rawName)) {
+                        return "public/assets/aistudio/" + f;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -65,6 +109,7 @@ public class AdhanForegroundService extends Service {
         if (mode == null) mode = "adhan";
         String rawName = intent != null ? intent.getStringExtra("rawName") : "";
         if (rawName == null) rawName = "";
+        boolean isTest = intent != null && intent.getBooleanExtra("isTest", false);
         boolean allowDuringAdhan = intent != null
             ? intent.getBooleanExtra("allowNotificationsDuringAdhan", AdhanAlarmStore.getAllowNotificationsDuringAdhan(this))
             : AdhanAlarmStore.getAllowNotificationsDuringAdhan(this);
@@ -95,7 +140,7 @@ public class AdhanForegroundService extends Service {
         isCurrentlyPlaying = true;
         broadcastState(true, title, rawName);
 
-        startAdhanAudio(mode, rawName, title, body, playInSilentMode, audioUsage);
+        startAdhanAudio(mode, rawName, title, body, playInSilentMode || isTest, audioUsage);
         return START_NOT_STICKY;
     }
 
@@ -111,7 +156,7 @@ public class AdhanForegroundService extends Service {
                 "تشغيل الأذان الكامل",
                 NotificationManager.IMPORTANCE_HIGH
             );
-            ch.setDescription("تشغيل الأذان كاملاً في الخلفية مع زر إيقاف الأذان");
+            ch.setDescription("تشغيل الأذان كاملاً في الخلفية مع زر إيقاف الأذان (الصوت عبر MediaPlayer)");
             ch.setSound(null, null);
             ch.enableVibration(false);
             ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
@@ -142,6 +187,7 @@ public class AdhanForegroundService extends Service {
         int iconRes = getApplicationInfo().icon;
         if (iconRes == 0) iconRes = android.R.drawable.ic_lock_idle_alarm;
 
+        // الإشعار صامت (setSilent) بأولوية عالية؛ الصوت يصدر حصراً عبر MediaPlayer
         return new NotificationCompat.Builder(this, PLAYBACK_CHANNEL_ID)
             .setSmallIcon(iconRes)
             .setContentTitle(title)
@@ -150,6 +196,8 @@ public class AdhanForegroundService extends Service {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setSilent(true)
+            .setSound(null)
             .setOngoing(true)
             .setContentIntent(contentPi)
             .addAction(android.R.drawable.ic_media_pause, "إيقاف الأذان", stopPi)
@@ -175,6 +223,7 @@ public class AdhanForegroundService extends Service {
             .setContentText(body + " (الهاتف في الوضع الصامت)")
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSilent(true)
             .setAutoCancel(true);
         if (contentPi != null) {
             b.setContentIntent(contentPi);
@@ -239,20 +288,44 @@ public class AdhanForegroundService extends Service {
 
             boolean dataSourceSet = false;
             if ("adhan".equals(mode) && rawName != null && !rawName.isEmpty()) {
+                // ١) نفضّل res/raw أولاً إن وُجد الملف فيه
                 int rawId = getResources().getIdentifier(rawName, "raw", getPackageName());
                 if (rawId != 0) {
-                    Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + rawId);
-                    mediaPlayer.setDataSource(this, soundUri);
-                    dataSourceSet = true;
-                } else {
-                    String assetPath = ASSET_AUDIO_FALLBACK_MAP.get(rawName);
-                    if (assetPath != null) {
-                        try {
-                            AssetFileDescriptor afd = getAssets().openFd(assetPath);
-                            mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-                            afd.close();
+                    try (AssetFileDescriptor rawAfd = getResources().openRawResourceFd(rawId)) {
+                        if (rawAfd != null) {
+                            mediaPlayer.setDataSource(
+                                rawAfd.getFileDescriptor(),
+                                rawAfd.getStartOffset(),
+                                rawAfd.getLength()
+                            );
                             dataSourceSet = true;
-                        } catch (Exception ignored) {}
+                        }
+                    } catch (Exception rawErr) {
+                        Log.w(TAG, "openRawResourceFd failed, trying android.resource Uri", rawErr);
+                        try {
+                            Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + rawId);
+                            mediaPlayer.setDataSource(this, soundUri);
+                            dataSourceSet = true;
+                        } catch (Exception uriErr) {
+                            Log.w(TAG, "android.resource Uri failed for " + rawName, uriErr);
+                        }
+                    }
+                }
+
+                // ٢) إن لم يوجد في res/raw أو فشل، نقرأ مباشرة من مجلد الويب المدمج assets/public/assets/aistudio/
+                if (!dataSourceSet) {
+                    String assetPath = findAssetAudioPath(this, rawName);
+                    if (assetPath != null) {
+                        try (AssetFileDescriptor afd = getAssets().openFd(assetPath)) {
+                            mediaPlayer.setDataSource(
+                                afd.getFileDescriptor(),
+                                afd.getStartOffset(),
+                                afd.getLength()
+                            );
+                            dataSourceSet = true;
+                        } catch (Exception assetErr) {
+                            Log.w(TAG, "Asset openFd failed for " + assetPath, assetErr);
+                        }
                     }
                 }
             }
@@ -273,12 +346,14 @@ public class AdhanForegroundService extends Service {
 
             mediaPlayer.setOnCompletionListener(mp -> stopSelfSafely());
             mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                Log.w(TAG, "MediaPlayer error what=" + what + " extra=" + extra);
                 stopSelfSafely();
                 return true;
             });
             mediaPlayer.prepare();
             mediaPlayer.start();
         } catch (Exception e) {
+            Log.e(TAG, "Failed to start Adhan MediaPlayer", e);
             stopSelfSafely();
         }
     }

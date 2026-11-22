@@ -41,7 +41,7 @@ public final class AdhanAlarmStore {
 
     public static boolean getPlayAdhanInSilentMode(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getBoolean(KEY_PLAY_IN_SILENT, false);
+        return prefs.getBoolean(KEY_PLAY_IN_SILENT, true);
     }
 
     public static void setAudioUsage(Context context, String usage) {
@@ -101,7 +101,7 @@ public final class AdhanAlarmStore {
     public static boolean scheduleSingleTestAlarm(Context context, JSONObject obj) {
         AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (am == null || obj == null) return false;
-        return armSingleAlarm(context, am, obj, canUseExactAlarms(am), 5996);
+        return armSingleAlarm(context, am, obj, canUseExactAlarms(am), 5996, true);
     }
 
     public static int rescheduleStoredAlarms(Context context) {
@@ -139,6 +139,28 @@ public final class AdhanAlarmStore {
         }
     }
 
+    public static long getNextAlarmTriggerAtMs(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String raw = prefs.getString(KEY_ALARMS_JSON, null);
+        if (raw == null || raw.isEmpty()) return 0L;
+        try {
+            JSONArray alarms = new JSONArray(raw);
+            long now = System.currentTimeMillis();
+            long earliest = Long.MAX_VALUE;
+            for (int i = 0; i < alarms.length(); i++) {
+                JSONObject item = alarms.optJSONObject(i);
+                if (item == null) continue;
+                long ts = item.optLong("triggerAtMs", 0L);
+                if (ts > now && ts < earliest) {
+                    earliest = ts;
+                }
+            }
+            return earliest == Long.MAX_VALUE ? 0L : earliest;
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
     public static long getLastScheduledAt(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getLong(KEY_LAST_SCHEDULED_AT, 0L);
@@ -149,7 +171,8 @@ public final class AdhanAlarmStore {
         AlarmManager am,
         JSONObject obj,
         boolean exactAllowed,
-        int defaultId
+        int defaultId,
+        boolean isTest
     ) {
         long now = System.currentTimeMillis();
         int id = obj.optInt("id", defaultId);
@@ -186,6 +209,7 @@ public final class AdhanAlarmStore {
         intent.putExtra("mode", mode);
         intent.putExtra("rawName", rawName);
         intent.putExtra("channelId", channelId);
+        intent.putExtra("isTest", isTest);
         intent.putExtra("allowNotificationsDuringAdhan", allowDuringAdhan);
         intent.putExtra("playAdhanInSilentMode", playInSilent);
         intent.putExtra("audioUsage", audioUsage);
@@ -194,6 +218,7 @@ public final class AdhanAlarmStore {
 
         try {
             if (("adhan".equals(mode) || "gentle".equals(mode)) && exactAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // setAlarmClock دقيق في Doze ويمنح صلاحية بدء الخدمة الأمامية تلقائياً على أندرويد 12+/HiOS حتى عند إغلاق التطبيق
                 Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
                 PendingIntent showIntent = launchIntent != null
                     ? PendingIntent.getActivity(context, id, launchIntent, piFlags)
@@ -208,8 +233,18 @@ public final class AdhanAlarmStore {
             }
             return true;
         } catch (Exception e) {
-            Log.w(TAG, "Could not schedule alarm id=" + id, e);
-            return false;
+            Log.w(TAG, "Primary alarm schedule failed for id=" + id + ", trying setExactAndAllowWhileIdle", e);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
+                } else {
+                    am.set(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
+                }
+                return true;
+            } catch (Exception e2) {
+                Log.w(TAG, "Could not schedule alarm id=" + id, e2);
+                return false;
+            }
         }
     }
 
@@ -226,7 +261,7 @@ public final class AdhanAlarmStore {
             JSONObject obj = alarms.optJSONObject(i);
             if (obj == null) continue;
             int id = obj.optInt("id", 5000 + i);
-            if (armSingleAlarm(context, am, obj, exactAllowed, id)) {
+            if (armSingleAlarm(context, am, obj, exactAllowed, id, false)) {
                 if (id < minId) minId = id;
                 if (id > maxId) maxId = id;
                 scheduled++;

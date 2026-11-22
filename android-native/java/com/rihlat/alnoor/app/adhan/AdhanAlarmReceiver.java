@@ -11,6 +11,7 @@ import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
@@ -40,59 +41,77 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
             return;
         }
 
-        String title = intent.getStringExtra("title");
-        if (title == null || title.isEmpty()) title = "حان الآن موعد الصلاة";
-        String body = intent.getStringExtra("body");
-        if (body == null) body = "";
-        String mode = intent.getStringExtra("mode");
-        if (mode == null) mode = "adhan";
-        String rawName = intent.getStringExtra("rawName");
-        if (rawName == null) rawName = "";
-        String channelId = intent.getStringExtra("channelId");
-        if (channelId == null || channelId.isEmpty()) channelId = "adhan_silent_v2";
-        int alarmId = intent.getIntExtra("alarm_id", 5100);
-        boolean allowDuringAdhan = intent.getBooleanExtra(
-            "allowNotificationsDuringAdhan",
-            AdhanAlarmStore.getAllowNotificationsDuringAdhan(context)
-        );
-        boolean playInSilent = intent.getBooleanExtra(
-            "playAdhanInSilentMode",
-            AdhanAlarmStore.getPlayAdhanInSilentMode(context)
-        );
-        String audioUsage = intent.getStringExtra("audioUsage");
-        if (audioUsage == null) audioUsage = AdhanAlarmStore.getAudioUsage(context);
-
-        if ("silent".equals(mode)) {
-            showSilentNotification(context, alarmId, title, body, channelId, allowDuringAdhan);
-            return;
-        }
-
-        Intent serviceIntent = new Intent(context, AdhanForegroundService.class);
-        serviceIntent.putExtra("title", title);
-        serviceIntent.putExtra("body", body);
-        serviceIntent.putExtra("mode", mode);
-        serviceIntent.putExtra("rawName", rawName);
-        serviceIntent.putExtra("channelId", channelId);
-        serviceIntent.putExtra("allowNotificationsDuringAdhan", allowDuringAdhan);
-        serviceIntent.putExtra("playAdhanInSilentMode", playInSilent);
-        serviceIntent.putExtra("audioUsage", audioUsage);
+        PowerManager.WakeLock rxWakeLock = null;
+        try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                rxWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "rihlat:AdhanReceiverWakeLock");
+                rxWakeLock.acquire(15_000L);
+            }
+        } catch (Exception ignored) {}
 
         try {
-            ContextCompat.startForegroundService(context, serviceIntent);
-        } catch (Exception e) {
-            // Never swallow Adhan audio with setSilent(true) if background ForegroundService launch was blocked!
-            showMuezzinSoundNotification(
-                context,
-                alarmId,
-                title,
-                body,
-                mode,
-                rawName,
-                channelId,
-                allowDuringAdhan,
-                playInSilent,
-                audioUsage
+            String title = intent.getStringExtra("title");
+            if (title == null || title.isEmpty()) title = "حان الآن موعد الصلاة";
+            String body = intent.getStringExtra("body");
+            if (body == null) body = "";
+            String mode = intent.getStringExtra("mode");
+            if (mode == null) mode = "adhan";
+            String rawName = intent.getStringExtra("rawName");
+            if (rawName == null) rawName = "";
+            String channelId = intent.getStringExtra("channelId");
+            if (channelId == null || channelId.isEmpty()) channelId = "adhan_silent_v2";
+            int alarmId = intent.getIntExtra("alarm_id", 5100);
+            boolean isTest = intent.getBooleanExtra("isTest", false);
+            boolean allowDuringAdhan = intent.getBooleanExtra(
+                "allowNotificationsDuringAdhan",
+                AdhanAlarmStore.getAllowNotificationsDuringAdhan(context)
             );
+            boolean playInSilent = intent.getBooleanExtra(
+                "playAdhanInSilentMode",
+                AdhanAlarmStore.getPlayAdhanInSilentMode(context)
+            );
+            String audioUsage = intent.getStringExtra("audioUsage");
+            if (audioUsage == null) audioUsage = AdhanAlarmStore.getAudioUsage(context);
+
+            if ("silent".equals(mode)) {
+                showSilentNotification(context, alarmId, title, body, channelId, allowDuringAdhan);
+                return;
+            }
+
+            Intent serviceIntent = new Intent(context, AdhanForegroundService.class);
+            serviceIntent.putExtra("title", title);
+            serviceIntent.putExtra("body", body);
+            serviceIntent.putExtra("mode", mode);
+            serviceIntent.putExtra("rawName", rawName);
+            serviceIntent.putExtra("channelId", channelId);
+            serviceIntent.putExtra("isTest", isTest);
+            serviceIntent.putExtra("allowNotificationsDuringAdhan", allowDuringAdhan);
+            serviceIntent.putExtra("playAdhanInSilentMode", playInSilent);
+            serviceIntent.putExtra("audioUsage", audioUsage);
+
+            try {
+                ContextCompat.startForegroundService(context, serviceIntent);
+            } catch (Exception e) {
+                showMuezzinSoundNotification(
+                    context,
+                    alarmId,
+                    title,
+                    body,
+                    mode,
+                    rawName,
+                    channelId,
+                    allowDuringAdhan,
+                    playInSilent || isTest,
+                    audioUsage
+                );
+            }
+        } finally {
+            if (rxWakeLock != null && rxWakeLock.isHeld()) {
+                try {
+                    rxWakeLock.release();
+                } catch (Exception ignored) {}
+            }
         }
     }
 
@@ -117,6 +136,9 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
             if (resId != 0) {
                 soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + context.getPackageName() + "/raw/" + rawName);
             }
+        }
+        if (soundUri == null) {
+            soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
         }
         if (soundUri == null) {
             soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
