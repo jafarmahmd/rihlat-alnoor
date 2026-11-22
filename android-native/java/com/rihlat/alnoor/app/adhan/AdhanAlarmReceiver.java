@@ -4,8 +4,12 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -22,10 +26,17 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
         if (ACTION_STOP_ADHAN.equals(action)) {
             Intent stopIntent = new Intent(context, AdhanForegroundService.class);
             context.stopService(stopIntent);
+            AdhanForegroundService.isCurrentlyPlaying = false;
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
                 nm.cancel(AdhanForegroundService.FOREGROUND_NOTIF_ID);
             }
+            Intent stateBroadcast = new Intent(AdhanForegroundService.ACTION_ADHAN_STATE_CHANGED);
+            stateBroadcast.setPackage(context.getPackageName());
+            stateBroadcast.putExtra("isPlaying", false);
+            stateBroadcast.putExtra("title", "");
+            stateBroadcast.putExtra("muezzinRawName", "");
+            context.sendBroadcast(stateBroadcast);
             return;
         }
 
@@ -38,12 +49,18 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
         String rawName = intent.getStringExtra("rawName");
         if (rawName == null) rawName = "";
         String channelId = intent.getStringExtra("channelId");
-        if (channelId == null || channelId.isEmpty()) channelId = "adhan_silent_alerts";
+        if (channelId == null || channelId.isEmpty()) channelId = "adhan_silent_v2";
         int alarmId = intent.getIntExtra("alarm_id", 5100);
         boolean allowDuringAdhan = intent.getBooleanExtra(
             "allowNotificationsDuringAdhan",
             AdhanAlarmStore.getAllowNotificationsDuringAdhan(context)
         );
+        boolean playInSilent = intent.getBooleanExtra(
+            "playAdhanInSilentMode",
+            AdhanAlarmStore.getPlayAdhanInSilentMode(context)
+        );
+        String audioUsage = intent.getStringExtra("audioUsage");
+        if (audioUsage == null) audioUsage = AdhanAlarmStore.getAudioUsage(context);
 
         if ("silent".equals(mode)) {
             showSilentNotification(context, alarmId, title, body, channelId, allowDuringAdhan);
@@ -57,12 +74,116 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
         serviceIntent.putExtra("rawName", rawName);
         serviceIntent.putExtra("channelId", channelId);
         serviceIntent.putExtra("allowNotificationsDuringAdhan", allowDuringAdhan);
+        serviceIntent.putExtra("playAdhanInSilentMode", playInSilent);
+        serviceIntent.putExtra("audioUsage", audioUsage);
 
         try {
             ContextCompat.startForegroundService(context, serviceIntent);
         } catch (Exception e) {
-            showSilentNotification(context, alarmId, title, body, channelId, allowDuringAdhan);
+            // Never swallow Adhan audio with setSilent(true) if background ForegroundService launch was blocked!
+            showMuezzinSoundNotification(
+                context,
+                alarmId,
+                title,
+                body,
+                mode,
+                rawName,
+                channelId,
+                allowDuringAdhan,
+                playInSilent,
+                audioUsage
+            );
         }
+    }
+
+    private void showMuezzinSoundNotification(
+        Context context,
+        int alarmId,
+        String title,
+        String body,
+        String mode,
+        String rawName,
+        String channelId,
+        boolean allowDuringAdhan,
+        boolean playInSilent,
+        String audioUsage
+    ) {
+        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) return;
+
+        Uri soundUri = null;
+        if ("adhan".equals(mode) && rawName != null && !rawName.isEmpty()) {
+            int resId = context.getResources().getIdentifier(rawName, "raw", context.getPackageName());
+            if (resId != 0) {
+                soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + context.getPackageName() + "/raw/" + rawName);
+            }
+        }
+        if (soundUri == null) {
+            soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel existing = nm.getNotificationChannel(channelId);
+            if (existing == null) {
+                NotificationChannel ch = new NotificationChannel(
+                    channelId,
+                    "أذان الصلاة",
+                    NotificationManager.IMPORTANCE_HIGH
+                );
+                ch.setDescription("تنبيهات مواقيت الصلاة بصوت المؤذن");
+                if (soundUri != null) {
+                    int usage = (playInSilent || !"notification".equals(audioUsage))
+                        ? AudioAttributes.USAGE_ALARM
+                        : AudioAttributes.USAGE_NOTIFICATION_EVENT;
+                    AudioAttributes attrs = new AudioAttributes.Builder()
+                        .setUsage(usage)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build();
+                    ch.setSound(soundUri, attrs);
+                }
+                ch.enableVibration(true);
+                ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                if (allowDuringAdhan) {
+                    try {
+                        ch.setBypassDnd(true);
+                    } catch (Exception ignored) {}
+                }
+                nm.createNotificationChannel(ch);
+            }
+        }
+
+        Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            piFlags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent contentPi = launchIntent != null
+            ? PendingIntent.getActivity(context, alarmId, launchIntent, piFlags)
+            : null;
+
+        int iconRes = context.getApplicationInfo().icon;
+        if (iconRes == 0) iconRes = android.R.drawable.ic_lock_idle_alarm;
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(iconRes)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX);
+
+        if (soundUri != null) {
+            builder.setSound(soundUri);
+        }
+        if (contentPi != null) {
+            builder.setContentIntent(contentPi);
+        }
+
+        try {
+            nm.notify(alarmId, builder.build());
+        } catch (SecurityException ignored) {}
     }
 
     private void showSilentNotification(

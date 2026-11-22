@@ -9,7 +9,18 @@
         "@capacitor/app": "^8.1.2",
         "@capacitor/cli": "^8.6.2",
         "@capacitor/core": "^8.6.2",
+        "@capacitor/geolocation": "^8.2.5",
         "@capacitor/local-notifications": "^8.3.1",
+        "@fontsource/amiri": "^5.3.0",
+        "@fontsource/amiri-quran": "^5.3.0",
+        "@fontsource/aref-ruqaa": "^5.3.0",
+        "@fontsource/cairo": "^5.3.0",
+        "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
+        "@fontsource/lalezar": "^5.3.0",
+        "@fontsource/noto-naskh-arabic": "^5.3.0",
+        "@fontsource/reem-kufi": "^5.3.0",
+        "@fontsource/scheherazade-new": "^5.3.0",
+        "@fontsource/tajawal": "^5.3.0",
         "@google/genai": "^2.4.0",
         "@tailwindcss/vite": "^4.3.3",
         "@vitejs/plugin-react": "^6.1.1",
@@ -229,7 +240,11 @@
 
     "@capacitor/core": ["@capacitor/core@8.6.2", "", { "dependencies": { "tslib": "^2.1.0" } }, "sha512-UEb9crRuqEAe2Iu2eGOEuQ8rLQxpwg7ZZIpl17UJoytEpnV1e4oXXW0K7yYS2NsCOGmJjyLeKjNlgG7tkAoX8g=="],
 
+    "@capacitor/geolocation": ["@capacitor/geolocation@8.2.5", "", { "dependencies": { "@capacitor/synapse": "^1.0.4" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-DFhbXDsp/5HrKmgLd12w25ERhDzesTqU4vKRS/8a7BLaVV8tt/lkDfqt6Fzqka7Vino6uU9cPFR9v/zMfZ1YFQ=="],
+
     "@capacitor/local-notifications": ["@capacitor/local-notifications@8.3.1", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-F7zu/+p/mIR958YP4axOkeI5hBKRaXDyYjbNPrAil2wWfd7OxScPSTvP9t85NpQ0eULVRu0/sntoxOg6ck477A=="],
+
+    "@capacitor/synapse": ["@capacitor/synapse@1.0.4", "", {}, "sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw=="],
 
     "@emnapi/core": ["@emnapi/core@2.0.0-beta.2", "", { "dependencies": { "@emnapi/wasi-threads": "2.2.0", "tslib": "^2.4.0" } }, "sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A=="],
 
@@ -288,6 +303,26 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
+
+    "@fontsource/amiri": ["@fontsource/amiri@5.3.0", "", {}, "sha512-i4SWJnVIphj8556EdVzNrEG/Qu82k6JXjXTtSUIohx3tHmo2GHw1Kv60TWo+xjk7Yf1Etb2Gskh0lUFclTKyUw=="],
+
+    "@fontsource/amiri-quran": ["@fontsource/amiri-quran@5.3.0", "", {}, "sha512-z/Y3JCqGWnWLpfJGBWPf7C42IxHjxxuwgcCHLmsU/hYd65GHXkZ/XTVpEGtWrEx9VlzdzMMRHDNTJvs8OwAeEw=="],
+
+    "@fontsource/aref-ruqaa": ["@fontsource/aref-ruqaa@5.3.0", "", {}, "sha512-GC+ckm4v2zndUWuR2JiMdO333mNZqrzxHN/9rpBJhLwDwcwYXzr+GzCRzgK6afGMhYnV0pwrqeGeLm4ZNmWhWQ=="],
+
+    "@fontsource/cairo": ["@fontsource/cairo@5.3.0", "", {}, "sha512-MdY6+gee1DVz4eUvx1Dd8Y1f50WcRELRKwKBarYZA3zT8dMhkuTWbcoE1LzezAy97h/9rob87s02NI6L8MaDgA=="],
+
+    "@fontsource/ibm-plex-sans-arabic": ["@fontsource/ibm-plex-sans-arabic@5.3.0", "", {}, "sha512-ZZ4g+JDgQY0NqSh4o0MNWU1sHQmtcee1g++aKAwyJvZxnT5y51JXsN1cIXnaQaMd40dcbK6QFYa+Z1LbaiNuqA=="],
+
+    "@fontsource/lalezar": ["@fontsource/lalezar@5.3.0", "", {}, "sha512-ptwEfWP7OlucVaRHpuMo6tfvw9xDcBEoaiIvzSDUb7z5pih+DZIRKLarulkJunVR+DnQ5VaJVjuVVOwrqiq7Cw=="],
+
+    "@fontsource/noto-naskh-arabic": ["@fontsource/noto-naskh-arabic@5.3.0", "", {}, "sha512-S/GDgQ6mh/PKo4mz5+eXNYbEarvpI7yh6eCdOz8tTVbeM7+OUiacIEscaYEibr/+egDtGbO2ZB00sjy1bJC1kQ=="],
+
+    "@fontsource/reem-kufi": ["@fontsource/reem-kufi@5.3.0", "", {}, "sha512-LO5YIWIQeZWb4oSpm9eAoGqLHMLvBknVamRBFQHuz+suz3TjXiO5bhE/ITlCswENbNpYKMkMPcpf6yzWDWVJoQ=="],
+
+    "@fontsource/scheherazade-new": ["@fontsource/scheherazade-new@5.3.0", "", {}, "sha512-ITPWHoj0LLfikl6X4XS4nEQpP9p6iByRoUypqlAyO4NvgLbYpHTVdo7K199Alc+Uhm3xAnYtXvqRcuVAz2zBBw=="],
+
+    "@fontsource/tajawal": ["@fontsource/tajawal@5.3.0", "", {}, "sha512-R2GUdHHAebeZ+CyYvulaSECfZe3BWbNjEWX3TXG0Csnx4RADO/zyqk6Y//NYdSx5n74zRJh9HTvd61mpX/UzZQ=="],
 
     "@google/genai": ["@google/genai@2.32.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"], "hasInstallScript": true }, "sha512-60c79uXpR0a47bmGqDxbXEBuQUalNmwo5mx5kqb91jIW4FoqpsLSt86DeVhRhtH5+s/16Wqxt3sXzFQn2U1OHQ=="],
 

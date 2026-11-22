@@ -76,7 +76,11 @@ public class AdhanSchedulerPlugin extends Plugin {
         if (alarmsArr == null) alarmsArr = new JSArray();
         JSArray expectedArr = call.getArray("expectedRawNames");
         boolean allowDuringAdhan = Boolean.TRUE.equals(call.getBoolean("allowNotificationsDuringAdhan", true));
+        boolean playInSilent = Boolean.TRUE.equals(call.getBoolean("playAdhanInSilentMode", false));
+        String audioUsage = call.getString("audioUsage", "alarm");
         AdhanAlarmStore.setAllowNotificationsDuringAdhan(getContext(), allowDuringAdhan);
+        AdhanAlarmStore.setPlayAdhanInSilentMode(getContext(), playInSilent);
+        AdhanAlarmStore.setAudioUsage(getContext(), audioUsage);
 
         JSONArray jsonAlarms = new JSONArray();
         for (int i = 0; i < alarmsArr.length(); i++) {
@@ -98,6 +102,19 @@ public class AdhanSchedulerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void scheduleTestAlarm(PluginCall call) {
+        JSObject data = call.getData();
+        boolean scheduled = AdhanAlarmStore.scheduleSingleTestAlarm(getContext(), data);
+        AlarmManager am = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+        boolean exactGranted = AdhanAlarmStore.canUseExactAlarms(am);
+
+        JSObject ret = new JSObject();
+        ret.put("scheduled", scheduled);
+        ret.put("exactAlarmsGranted", exactGranted);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void cancelAllAlarms(PluginCall call) {
         AdhanAlarmStore.cancelStoredAlarms(getContext());
         call.resolve();
@@ -109,8 +126,10 @@ public class AdhanSchedulerPlugin extends Plugin {
         String body = call.getString("body", "اضغط على إيقاف الأذان لإنهاء الصوت");
         String rawName = call.getString("rawName", "");
         String mode = call.getString("mode", "adhan");
-        String channelId = call.getString("channelId", "adhan_silent_alerts");
+        String channelId = call.getString("channelId", "adhan_silent_v2");
         boolean allowDuringAdhan = Boolean.TRUE.equals(call.getBoolean("allowNotificationsDuringAdhan", true));
+        boolean playInSilent = Boolean.TRUE.equals(call.getBoolean("playAdhanInSilentMode", false));
+        String audioUsage = call.getString("audioUsage", "alarm");
 
         boolean usedFallback = false;
         if ("adhan".equals(mode) && rawName != null && !rawName.isEmpty()) {
@@ -136,6 +155,8 @@ public class AdhanSchedulerPlugin extends Plugin {
             serviceIntent.putExtra("rawName", rawName);
             serviceIntent.putExtra("channelId", channelId);
             serviceIntent.putExtra("allowNotificationsDuringAdhan", allowDuringAdhan);
+            serviceIntent.putExtra("playAdhanInSilentMode", playInSilent);
+            serviceIntent.putExtra("audioUsage", audioUsage);
             ContextCompat.startForegroundService(getContext(), serviceIntent);
         }
 

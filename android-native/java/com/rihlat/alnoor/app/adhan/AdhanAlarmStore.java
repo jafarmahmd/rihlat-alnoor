@@ -19,6 +19,8 @@ public final class AdhanAlarmStore {
     private static final String KEY_MIN_ID = "min_alarm_id";
     private static final String KEY_MAX_ID = "max_alarm_id";
     private static final String KEY_ALLOW_DURING_ADHAN = "allow_notifications_during_adhan";
+    private static final String KEY_PLAY_IN_SILENT = "play_adhan_in_silent_mode";
+    private static final String KEY_AUDIO_USAGE = "adhan_audio_usage";
 
     private AdhanAlarmStore() {}
 
@@ -30,6 +32,27 @@ public final class AdhanAlarmStore {
     public static boolean getAllowNotificationsDuringAdhan(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getBoolean(KEY_ALLOW_DURING_ADHAN, true);
+    }
+
+    public static void setPlayAdhanInSilentMode(Context context, boolean playInSilent) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putBoolean(KEY_PLAY_IN_SILENT, playInSilent).apply();
+    }
+
+    public static boolean getPlayAdhanInSilentMode(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getBoolean(KEY_PLAY_IN_SILENT, false);
+    }
+
+    public static void setAudioUsage(Context context, String usage) {
+        String normalized = "notification".equals(usage) ? "notification" : "alarm";
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(KEY_AUDIO_USAGE, normalized).apply();
+    }
+
+    public static String getAudioUsage(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(KEY_AUDIO_USAGE, "alarm");
     }
 
     public static boolean canUseExactAlarms(AlarmManager am) {
@@ -75,6 +98,12 @@ public final class AdhanAlarmStore {
         return armAlarmsFromJson(context, alarms);
     }
 
+    public static boolean scheduleSingleTestAlarm(Context context, JSONObject obj) {
+        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (am == null || obj == null) return false;
+        return armSingleAlarm(context, am, obj, canUseExactAlarms(am), 5996);
+    }
+
     public static int rescheduleStoredAlarms(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String raw = prefs.getString(KEY_ALARMS_JSON, null);
@@ -115,17 +144,80 @@ public final class AdhanAlarmStore {
         return prefs.getLong(KEY_LAST_SCHEDULED_AT, 0L);
     }
 
-    private static int armAlarmsFromJson(Context context, JSONArray alarms) {
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (am == null || alarms == null) return 0;
-
+    private static boolean armSingleAlarm(
+        Context context,
+        AlarmManager am,
+        JSONObject obj,
+        boolean exactAllowed,
+        int defaultId
+    ) {
         long now = System.currentTimeMillis();
-        boolean exactAllowed = canUseExactAlarms(am);
+        int id = obj.optInt("id", defaultId);
+        long triggerAtMs = obj.optLong("triggerAtMs", 0L);
+        if (triggerAtMs <= now + 1500L) return false;
+
         int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             piFlags |= PendingIntent.FLAG_IMMUTABLE;
         }
 
+        String title = obj.optString("title", "حان الآن موعد الصلاة");
+        String body = obj.optString("body", "");
+        String prayerKey = obj.optString("prayerKey", "fajr");
+        String mode = obj.optString("mode", "adhan");
+        String rawName = obj.optString("rawName", "");
+        String channelId = obj.optString("channelId", "adhan_silent_v2");
+        boolean allowDuringAdhan = obj.optBoolean(
+            "allowNotificationsDuringAdhan",
+            getAllowNotificationsDuringAdhan(context)
+        );
+        boolean playInSilent = obj.optBoolean(
+            "playAdhanInSilentMode",
+            getPlayAdhanInSilentMode(context)
+        );
+        String audioUsage = obj.optString("audioUsage", getAudioUsage(context));
+
+        Intent intent = new Intent(context, AdhanAlarmReceiver.class);
+        intent.setAction(AdhanAlarmReceiver.ACTION_FIRE_ADHAN);
+        intent.putExtra("alarm_id", id);
+        intent.putExtra("title", title);
+        intent.putExtra("body", body);
+        intent.putExtra("prayerKey", prayerKey);
+        intent.putExtra("mode", mode);
+        intent.putExtra("rawName", rawName);
+        intent.putExtra("channelId", channelId);
+        intent.putExtra("allowNotificationsDuringAdhan", allowDuringAdhan);
+        intent.putExtra("playAdhanInSilentMode", playInSilent);
+        intent.putExtra("audioUsage", audioUsage);
+
+        PendingIntent operation = PendingIntent.getBroadcast(context, id, intent, piFlags);
+
+        try {
+            if (("adhan".equals(mode) || "gentle".equals(mode)) && exactAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+                PendingIntent showIntent = launchIntent != null
+                    ? PendingIntent.getActivity(context, id, launchIntent, piFlags)
+                    : operation;
+                am.setAlarmClock(new AlarmManager.AlarmClockInfo(triggerAtMs, showIntent), operation);
+            } else if (exactAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
+            } else {
+                am.set(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
+            }
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Could not schedule alarm id=" + id, e);
+            return false;
+        }
+    }
+
+    private static int armAlarmsFromJson(Context context, JSONArray alarms) {
+        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (am == null || alarms == null) return 0;
+
+        boolean exactAllowed = canUseExactAlarms(am);
         int minId = Integer.MAX_VALUE;
         int maxId = Integer.MIN_VALUE;
         int scheduled = 0;
@@ -133,55 +225,11 @@ public final class AdhanAlarmStore {
         for (int i = 0; i < alarms.length(); i++) {
             JSONObject obj = alarms.optJSONObject(i);
             if (obj == null) continue;
-
             int id = obj.optInt("id", 5000 + i);
-            long triggerAtMs = obj.optLong("triggerAtMs", 0L);
-            if (triggerAtMs <= now + 5000L) continue;
-
-            String title = obj.optString("title", "حان الآن موعد الصلاة");
-            String body = obj.optString("body", "");
-            String prayerKey = obj.optString("prayerKey", "fajr");
-            String mode = obj.optString("mode", "adhan");
-            String rawName = obj.optString("rawName", "");
-            String channelId = obj.optString("channelId", "adhan_silent_alerts");
-            boolean allowDuringAdhan = obj.optBoolean(
-                "allowNotificationsDuringAdhan",
-                getAllowNotificationsDuringAdhan(context)
-            );
-
-            Intent intent = new Intent(context, AdhanAlarmReceiver.class);
-            intent.setAction(AdhanAlarmReceiver.ACTION_FIRE_ADHAN);
-            intent.putExtra("alarm_id", id);
-            intent.putExtra("title", title);
-            intent.putExtra("body", body);
-            intent.putExtra("prayerKey", prayerKey);
-            intent.putExtra("mode", mode);
-            intent.putExtra("rawName", rawName);
-            intent.putExtra("channelId", channelId);
-            intent.putExtra("allowNotificationsDuringAdhan", allowDuringAdhan);
-
-            PendingIntent operation = PendingIntent.getBroadcast(context, id, intent, piFlags);
-
-            try {
-                if (("adhan".equals(mode) || "gentle".equals(mode)) && exactAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-                    PendingIntent showIntent = launchIntent != null
-                        ? PendingIntent.getActivity(context, id, launchIntent, piFlags)
-                        : operation;
-                    am.setAlarmClock(new AlarmManager.AlarmClockInfo(triggerAtMs, showIntent), operation);
-                } else if (exactAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
-                } else {
-                    am.set(AlarmManager.RTC_WAKEUP, triggerAtMs, operation);
-                }
-
+            if (armSingleAlarm(context, am, obj, exactAllowed, id)) {
                 if (id < minId) minId = id;
                 if (id > maxId) maxId = id;
                 scheduled++;
-            } catch (Exception e) {
-                Log.w(TAG, "Could not schedule alarm id=" + id, e);
             }
         }
 

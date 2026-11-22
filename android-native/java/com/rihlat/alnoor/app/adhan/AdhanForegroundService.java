@@ -8,7 +8,9 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
@@ -20,17 +22,33 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import androidx.core.app.NotificationCompat;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class AdhanForegroundService extends Service {
     public static final int FOREGROUND_NOTIF_ID = 5901;
-    public static final String PLAYBACK_CHANNEL_ID = "adhan_playback_service";
+    public static final String PLAYBACK_CHANNEL_ID = "adhan_playback_v2";
     public static final String ACTION_ADHAN_STATE_CHANGED = "com.rihlat.alnoor.app.ADHAN_STATE_CHANGED";
 
     public static volatile boolean isCurrentlyPlaying = false;
     public static volatile String currentTitle = "";
     public static volatile String currentRawName = "";
 
+    private static final Map<String, String> ASSET_AUDIO_FALLBACK_MAP = new HashMap<>();
+    static {
+        ASSET_AUDIO_FALLBACK_MAP.put("maytham_altammar", "public/assets/aistudio/maytham_altammar_bc42705d.mp3");
+        ASSET_AUDIO_FALLBACK_MAP.put("farid_alnajafi", "public/assets/aistudio/farid_alnajafi_197dbbcc.mp3");
+        ASSET_AUDIO_FALLBACK_MAP.put("balasem_jalil", "public/assets/aistudio/balasem_jalil_44e27923.mp3");
+        ASSET_AUDIO_FALLBACK_MAP.put("abather_alhalwaji", "public/assets/aistudio/abather_alhalwaji_0bed6602.mp3");
+        ASSET_AUDIO_FALLBACK_MAP.put("amer_alkadhimi", "public/assets/aistudio/amer_alkadhimi_081283b8.mp3");
+        ASSET_AUDIO_FALLBACK_MAP.put("mustafa_alsarraf", "public/assets/aistudio/mustafa_alsarraf_72fc2cc7.mp3");
+        ASSET_AUDIO_FALLBACK_MAP.put("shubbar_almualla", "public/assets/aistudio/qng16n_ff7ee017.mp3");
+    }
+
     private MediaPlayer mediaPlayer;
     private PowerManager.WakeLock wakeLock;
+    private AudioManager audioManager;
+    private AudioFocusRequest audioFocusRequest;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -50,6 +68,11 @@ public class AdhanForegroundService extends Service {
         boolean allowDuringAdhan = intent != null
             ? intent.getBooleanExtra("allowNotificationsDuringAdhan", AdhanAlarmStore.getAllowNotificationsDuringAdhan(this))
             : AdhanAlarmStore.getAllowNotificationsDuringAdhan(this);
+        boolean playInSilentMode = intent != null
+            ? intent.getBooleanExtra("playAdhanInSilentMode", AdhanAlarmStore.getPlayAdhanInSilentMode(this))
+            : AdhanAlarmStore.getPlayAdhanInSilentMode(this);
+        String audioUsage = intent != null ? intent.getStringExtra("audioUsage") : AdhanAlarmStore.getAudioUsage(this);
+        if (audioUsage == null) audioUsage = "alarm";
 
         ensurePlaybackChannel(allowDuringAdhan);
         Notification notification = buildOngoingNotification(title, body);
@@ -72,7 +95,7 @@ public class AdhanForegroundService extends Service {
         isCurrentlyPlaying = true;
         broadcastState(true, title, rawName);
 
-        startAdhanAudio(mode, rawName);
+        startAdhanAudio(mode, rawName, title, body, playInSilentMode, audioUsage);
         return START_NOT_STICKY;
     }
 
@@ -111,6 +134,11 @@ public class AdhanForegroundService extends Service {
         stopIntent.setAction(AdhanAlarmReceiver.ACTION_STOP_ADHAN);
         PendingIntent stopPi = PendingIntent.getBroadcast(this, 901, stopIntent, piFlags);
 
+        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        PendingIntent contentPi = launchIntent != null
+            ? PendingIntent.getActivity(this, 902, launchIntent, piFlags)
+            : stopPi;
+
         int iconRes = getApplicationInfo().icon;
         if (iconRes == 0) iconRes = android.R.drawable.ic_lock_idle_alarm;
 
@@ -123,16 +151,51 @@ public class AdhanForegroundService extends Service {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
-            .setContentIntent(stopPi)
+            .setContentIntent(contentPi)
             .addAction(android.R.drawable.ic_media_pause, "إيقاف الأذان", stopPi)
             .build();
     }
 
-    private void startAdhanAudio(String mode, String rawName) {
-        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+    private void postStandardVisibleNoticeAfterSilentSkip(String title, String body) {
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) return;
+        int iconRes = getApplicationInfo().icon;
+        if (iconRes == 0) iconRes = android.R.drawable.ic_lock_idle_alarm;
+        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            piFlags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent contentPi = launchIntent != null
+            ? PendingIntent.getActivity(this, 5902, launchIntent, piFlags)
+            : null;
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, PLAYBACK_CHANNEL_ID)
+            .setSmallIcon(iconRes)
+            .setContentTitle(title)
+            .setContentText(body + " (الهاتف في الوضع الصامت)")
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true);
+        if (contentPi != null) {
+            b.setContentIntent(contentPi);
+        }
+        try {
+            nm.notify(5902, b.build());
+        } catch (SecurityException ignored) {}
+    }
+
+    private void startAdhanAudio(
+        String mode,
+        String rawName,
+        String title,
+        String body,
+        boolean playInSilentMode,
+        String audioUsage
+    ) {
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        int ringerMode = am != null ? am.getRingerMode() : AudioManager.RINGER_MODE_NORMAL;
+        int ringerMode = audioManager != null ? audioManager.getRingerMode() : AudioManager.RINGER_MODE_NORMAL;
         boolean dndSilenceAll = false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && nm != null) {
             int filter = nm.getCurrentInterruptionFilter();
@@ -141,43 +204,73 @@ public class AdhanForegroundService extends Service {
             }
         }
 
-        // احترام وضع الصامت أو عدم الإزعاج الكامل
-        if (dndSilenceAll || ringerMode == AudioManager.RINGER_MODE_SILENT) {
-            return;
-        }
-        if (ringerMode == AudioManager.RINGER_MODE_VIBRATE) {
-            triggerGentleVibration();
-            return;
-        }
-
-        Uri soundUri = null;
-        if ("adhan".equals(mode) && rawName != null && !rawName.isEmpty()) {
-            int rawId = getResources().getIdentifier(rawName, "raw", getPackageName());
-            if (rawId != 0) {
-                soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + rawId);
+        if (!playInSilentMode) {
+            if (dndSilenceAll || ringerMode == AudioManager.RINGER_MODE_SILENT) {
+                postStandardVisibleNoticeAfterSilentSkip(title, body);
+                stopSelfSafely();
+                return;
+            }
+            if (ringerMode == AudioManager.RINGER_MODE_VIBRATE) {
+                triggerGentleVibration();
+                postStandardVisibleNoticeAfterSilentSkip(title, body);
+                stopSelfSafely();
+                return;
             }
         }
 
-        if (soundUri == null) {
-            soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-        }
-        if (soundUri == null) {
-            stopSelfSafely();
-            return;
-        }
+        boolean useAlarmUsage = playInSilentMode || !"notification".equals(audioUsage);
 
         try {
             mediaPlayer = new MediaPlayer();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                int usage = useAlarmUsage
+                    ? AudioAttributes.USAGE_ALARM
+                    : ("adhan".equals(mode) ? AudioAttributes.USAGE_NOTIFICATION_EVENT : AudioAttributes.USAGE_NOTIFICATION);
                 AudioAttributes attrs = new AudioAttributes.Builder()
-                    .setUsage("adhan".equals(mode) ? AudioAttributes.USAGE_ALARM : AudioAttributes.USAGE_NOTIFICATION)
+                    .setUsage(usage)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build();
                 mediaPlayer.setAudioAttributes(attrs);
+                requestFocus(attrs);
             } else {
-                mediaPlayer.setAudioStreamType("adhan".equals(mode) ? AudioManager.STREAM_ALARM : AudioManager.STREAM_NOTIFICATION);
+                int stream = useAlarmUsage ? AudioManager.STREAM_ALARM : AudioManager.STREAM_NOTIFICATION;
+                mediaPlayer.setAudioStreamType(stream);
             }
-            mediaPlayer.setDataSource(this, soundUri);
+
+            boolean dataSourceSet = false;
+            if ("adhan".equals(mode) && rawName != null && !rawName.isEmpty()) {
+                int rawId = getResources().getIdentifier(rawName, "raw", getPackageName());
+                if (rawId != 0) {
+                    Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + rawId);
+                    mediaPlayer.setDataSource(this, soundUri);
+                    dataSourceSet = true;
+                } else {
+                    String assetPath = ASSET_AUDIO_FALLBACK_MAP.get(rawName);
+                    if (assetPath != null) {
+                        try {
+                            AssetFileDescriptor afd = getAssets().openFd(assetPath);
+                            mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+                            afd.close();
+                            dataSourceSet = true;
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+
+            if (!dataSourceSet) {
+                Uri fallbackUri = useAlarmUsage
+                    ? RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    : RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                if (fallbackUri == null) {
+                    fallbackUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                }
+                if (fallbackUri == null) {
+                    stopSelfSafely();
+                    return;
+                }
+                mediaPlayer.setDataSource(this, fallbackUri);
+            }
+
             mediaPlayer.setOnCompletionListener(mp -> stopSelfSafely());
             mediaPlayer.setOnErrorListener((mp, what, extra) -> {
                 stopSelfSafely();
@@ -188,6 +281,42 @@ public class AdhanForegroundService extends Service {
         } catch (Exception e) {
             stopSelfSafely();
         }
+    }
+
+    private void requestFocus(AudioAttributes attrs) {
+        if (audioManager == null) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(attrs)
+                    .setAcceptsDelayedFocusGain(false)
+                    .setOnAudioFocusChangeListener(focusChange -> {
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+                            stopSelfSafely();
+                        }
+                    })
+                    .build();
+                audioManager.requestAudioFocus(audioFocusRequest);
+            } else {
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_ALARM,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                );
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void abandonFocus() {
+        if (audioManager == null) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
+                audioManager.abandonAudioFocusRequest(audioFocusRequest);
+                audioFocusRequest = null;
+            } else {
+                audioManager.abandonAudioFocus(null);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void triggerGentleVibration() {
@@ -222,6 +351,7 @@ public class AdhanForegroundService extends Service {
     }
 
     private void stopCurrentMedia() {
+        abandonFocus();
         if (mediaPlayer != null) {
             try {
                 if (mediaPlayer.isPlaying()) mediaPlayer.stop();
