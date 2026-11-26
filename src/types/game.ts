@@ -5,6 +5,7 @@ export type ScreenView =
   | 'store'
   | 'duas'
   | 'munajat'
+  | 'ziyarat'
   | 'library'
   | 'digital-library'
   | 'tasbih'

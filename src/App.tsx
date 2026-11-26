@@ -13,6 +13,7 @@ import { TasbihScreen } from './components/TasbihScreen';
 import { CalendarScreen } from './components/CalendarScreen';
 import { AdhanSettingsScreen } from './components/AdhanSettingsScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { ZiyaratScreen } from './components/ZiyaratScreen';
 import {
   OemBatteryAutostartModal,
   hasSeenOemBatteryModal,
@@ -325,6 +326,10 @@ export default function App() {
         setLibraryNavigationNonce((n) => n + 1);
         setScreen('digital-library');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (section === 'ziyarat') {
+        setActiveLibraryEntryId(entryId ?? null);
+        setScreen('ziyarat');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setActiveLibrarySection(section);
         setActiveLibraryEntryId(entryId ?? null);
@@ -440,10 +445,15 @@ export default function App() {
     entryId?: string
   ) => {
     playClickSound(muted);
-    setActiveLibrarySection(section);
-    setActiveLibraryEntryId(entryId ?? null);
-    setLibraryNavigationNonce((n) => n + 1);
-    setScreen('digital-library');
+    if (section === 'ziyarat') {
+      setActiveLibraryEntryId(entryId ?? null);
+      setScreen('ziyarat');
+    } else {
+      setActiveLibrarySection(section);
+      setActiveLibraryEntryId(entryId ?? null);
+      setLibraryNavigationNonce((n) => n + 1);
+      setScreen('digital-library');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -796,6 +806,23 @@ export default function App() {
               completedReadingIds={progress.completedReadingIds}
               bookmarkedIds={progress.bookmarkedIds}
               focusSettings={readingFocusSettings}
+              onOpenSettings={() => {
+                playClickSound(muted);
+                setSettingsOpen(true);
+              }}
+              onCompleteReading={handleCompleteReading}
+              onToggleBookmark={handleToggleBookmark}
+              onBackHome={() => navigateTo('home')}
+              onSetLastRead={handleSetLastRead}
+            />
+          )}
+
+          {screen === 'ziyarat' && (
+            <ZiyaratScreen
+              completedReadingIds={progress.completedReadingIds}
+              bookmarkedIds={progress.bookmarkedIds}
+              focusSettings={readingFocusSettings}
+              initialEntryId={activeLibraryEntryId}
               onOpenSettings={() => {
                 playClickSound(muted);
                 setSettingsOpen(true);

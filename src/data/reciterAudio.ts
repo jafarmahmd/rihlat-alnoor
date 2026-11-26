@@ -316,11 +316,33 @@ export const ENTRY_AUDIO_TRACKS: Record<string, AudioTrackOption[]> = {
   ],
 
   // === الزيارات الشريفة ===
+  'dl-z-um-al-baneen': [
+    {
+      id: 'z-umbaneen-ammar',
+      reciterName: 'الرادود عمار اللواتي',
+      url: '/assets/aistudio/____________________-______________ba25deff.mp3',
+    },
+    {
+      id: 'z-umbaneen-alawi-mahfoudh',
+      reciterName: 'الرادود السيد علوي المحفوظ',
+      url: '/assets/aistudio/____________________-____________________1f55d855.mp3',
+    },
+    {
+      id: 'z-umbaneen-alawi-sari',
+      reciterName: 'الرادود السيد علوي الساري',
+      url: '/assets/aistudio/____________________-___________________0387b9ee.mp3',
+    },
+    {
+      id: 'z-umbaneen-haidar-buzouni',
+      reciterName: 'الرادود حيدر محسن البزوني',
+      url: '/assets/aistudio/_______________________________-___________________85645102.mp3',
+    },
+  ],
   'dl-z-amin': [
     {
       id: 'z-amin-ar',
       reciterName: 'تلاوة خاشعة — زيارة أمين الله',
-      url: 'https://archive.org/download/ziyaraat_arabic_audio/Ziyarat_e_Aminallah.mp3',
+      url: 'https://archive.org/download/ziyaraat_arabic_audio/Ziyaraat_e_Aminallah.mp3',
     },
   ],
   'dl-z-prophet-near': [
